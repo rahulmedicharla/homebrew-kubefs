@@ -1,2 +1,2 @@
 build:
-	go build -o kubefs .
+	go build -o bin/kubefs .

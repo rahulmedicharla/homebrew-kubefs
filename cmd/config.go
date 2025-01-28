@@ -9,6 +9,7 @@ import (
 	"strings"
 	"github.com/spf13/cobra"
 	"github.com/zalando/go-keyring"
+	"github.com/rahulmedicharla/kubefs/utils"
 )
 
 // configCmd represents the config command
@@ -39,10 +40,10 @@ var gcpCmd = &cobra.Command{
 		if remove {
 			err := keyring.Delete(service, user)
 			if err != nil {
-				fmt.Println("Error deleting GCP credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error deleting GCP credentials: %v", err))
 				return
 			}
-			fmt.Println("GCP credentials removed successfully")
+			utils.PrintSuccess("GCP credentials removed successfully")
 		} else {
 			var input string
 
@@ -55,11 +56,11 @@ var gcpCmd = &cobra.Command{
 
 			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, password))
 			if err != nil {
-				fmt.Println("Error saving GCP credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error saving GCP credentials: %v", err))
 				return
 			}
 
-			fmt.Println("Saving GCP credentials")
+			utils.PrintSuccess("Saving GCP credentials")
 		}
 	},
 }
@@ -75,17 +76,17 @@ var awsCmd = &cobra.Command{
 		// Read remove flag
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
-			fmt.Println("Error reading remove flag:", err)
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err))
 			return
 		}
 
 		if remove {
 			err := keyring.Delete(service, user)
 			if err != nil {
-				fmt.Println("Error deleting AWS credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error deleting AWS credentials: %v", err))
 				return
 			}
-			fmt.Println("AWS credentials removed successfully")
+			utils.PrintSuccess("AWS credentials removed successfully")
 		} else {
 			var input string
 
@@ -98,11 +99,11 @@ var awsCmd = &cobra.Command{
 
 			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, password))
 			if err != nil {
-				fmt.Println("Error saving AWS credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error saving AWS credentials: %v", err))
 				return
 			}
 
-			fmt.Println("Saving AWS credentials")
+			utils.PrintSuccess("Saving AWS credentials")
 		}
 	},
 }
@@ -118,17 +119,17 @@ var azureCmd = &cobra.Command{
 		// Read remove flag
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
-			fmt.Println("Error reading remove flag:", err)
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err))
 			return
 		}
 
 		if remove {
 			err := keyring.Delete(service, user)
 			if err != nil {
-				fmt.Println("Error deleting Azure credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error deleting Azure credentials: %v", err))
 				return
 			}
-			fmt.Println("Azure credentials removed successfully")
+			utils.PrintSuccess("Azure credentials removed successfully")
 		} else {
 			var input string
 
@@ -141,11 +142,11 @@ var azureCmd = &cobra.Command{
 
 			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, password))
 			if err != nil {
-				fmt.Println("Error saving Azure credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error saving Azure credentials: %v", err))
 				return
 			}
 
-			fmt.Println("Saving Azure credentials")
+			utils.PrintSuccess("Saving Azure credentials")
 		}
 	},
 }
@@ -162,17 +163,17 @@ var dockerCmd = &cobra.Command{
 		// Read remove flag
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
-			fmt.Println("Error reading remove flag:", err)
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err))
 			return
 		}
 
 		if remove {
 			err := keyring.Delete(service, user)
 			if err != nil {
-				fmt.Println("Error deleting Docker credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error deleting Docker credentials: %v", err))
 				return
 			}
-			fmt.Println("Docker credentials removed successfully")
+			utils.PrintSuccess("Docker credentials removed successfully")
 		} else {
 			var input string
 
@@ -185,11 +186,11 @@ var dockerCmd = &cobra.Command{
 
 			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, password))
 			if err != nil {
-				fmt.Println("Error saving Docker credentials:", err)
+				utils.PrintError(fmt.Sprintf("Error saving Docker credentials: %v", err))
 				return
 			}
 
-			fmt.Println("Saving Docker credentials")
+			utils.PrintSuccess("Saving Docker credentials")
 		}
 	},
 }

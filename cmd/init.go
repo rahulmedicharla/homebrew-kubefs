@@ -10,6 +10,7 @@ import (
 	"os"
 	"gopkg.in/yaml.v3"
 	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
 )
 
 // initCmd represents the init command
@@ -24,7 +25,8 @@ var initCmd = &cobra.Command{
 		}
 
 		if len(args) < 2 {
-			fmt.Println("Error: Project name & Project description is required")
+			utils.PrintError("Please provide a name and description for the project")
+			cmd.Help()
 			return
 		}
 

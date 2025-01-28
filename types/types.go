@@ -9,6 +9,18 @@ type Project struct {
 
 type Resource struct {
 	Name string `yaml:"name"`
+	Port int `yaml:"port"`
 	Type string `yaml:"type"`
-	Target string `yaml:"target"`
+	UpLocal string `yaml:"up_local"`
+	LocalHost string `yaml:"local_host"`
+}
+const (
+	ERROR = 0
+	SUCCESS = 1
+)
+
+var FRAMEWORKS = map[string][]string{
+	"api": {"express", "fast", "gin"},
+	"frontend": {"react", "angular", "vue"},
+	"database": {"cassandra", "mongodb"},
 }
