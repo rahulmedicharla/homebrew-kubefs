@@ -1,5 +1,5 @@
 /*
-Copyright © 2025 Rahul Medicharla rmedicharla@gmail.com
+Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 
 */
 package cmd
