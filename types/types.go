@@ -17,6 +17,8 @@ type Resource struct {
 	DockerHost string `yaml:"docker_host"`
 	ClusterHost string `yaml:"cluster_host"`
 }
+
+
 const (
 	ERROR = 0
 	SUCCESS = 1

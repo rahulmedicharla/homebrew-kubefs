@@ -14,7 +14,6 @@ import (
 
 // createCmd represents the create command
 
-var ManifestData types.Project
 var resourcePort int
 var resourceFramework string
 var resourceName string
@@ -56,7 +55,7 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) int {
 		return types.ERROR
 	}
 
-	for _, resource := range ManifestData.Resources {
+	for _, resource := range utils.ManifestData.Resources {
 		if resource.Name == name {
 			utils.PrintError(fmt.Sprintf("Resource with name %s already exists", name))
 			return types.ERROR
@@ -77,10 +76,11 @@ var createApiCmd = &cobra.Command{
 	Short: "kubefs create api - create a new API resource",
 	Long: `kubefs create api - create a new API resource`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ValidateProject() == types.ERROR {
+		if utils.ManifestStatus == types.ERROR {
+			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
-
+		
 		if parseInfo(cmd, args, "api") == types.ERROR {
 			return
 		}
@@ -127,9 +127,9 @@ var createApiCmd = &cobra.Command{
 			}
 		}
 		
-		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
-		err := utils.WriteManifest(&ManifestData)
+		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
 			return
 		}
@@ -142,7 +142,8 @@ var createFrontendCmd = &cobra.Command{
 	Short: "kubefs create frontend - create a new Frontend resource",
 	Long: `kubefs create frontend - create a new Frontend resource`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ValidateProject() == types.ERROR {
+		if utils.ManifestStatus == types.ERROR {
+			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
 
@@ -187,9 +188,9 @@ var createFrontendCmd = &cobra.Command{
 			}
 		}
 		
-		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
-		err := utils.WriteManifest(&ManifestData)
+		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
 			return
 		}
@@ -202,10 +203,11 @@ var createDbCmd = &cobra.Command{
 	Short: "kubefs create database - create a new database resource",
 	Long: `kubefs create database - create a new database resource`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ValidateProject() == types.ERROR {
+		if utils.ManifestStatus == types.ERROR {
+			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
-
+		
 		if parseInfo(cmd, args, "database") == types.ERROR {
 			return
 		}
@@ -235,9 +237,9 @@ var createDbCmd = &cobra.Command{
 			}
 		}
 		
-		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
-		err := utils.WriteManifest(&ManifestData)
+		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
 			return
 		}
@@ -255,6 +257,4 @@ func init() {
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | mongodb]")
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
-
-	utils.ReadManifest(&ManifestData)
 }

@@ -7,6 +7,7 @@ package cmd
 import (
 	"os"
 	"github.com/spf13/cobra"
+	"github.com/rahulmedicharla/kubefs/utils"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -26,6 +27,7 @@ func Execute() {
 }
 
 func init() {
+	utils.ReadManifest()
 }
 
 
