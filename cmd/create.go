@@ -154,7 +154,7 @@ var createFrontendCmd = &cobra.Command{
 				fmt.Sprintf("npx -p yarn yarn create react-app %s --no-git --template typescript --silent", resourceName),
 			}
 
-			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourcePort, resourceName)			
+			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourceName, resourcePort)			
 		}else if resourceFramework == "angular" {
 			commands = []string{
 				fmt.Sprintf("npx -p @angular/cli ng new %s --defaults --skip-git", resourceName),
