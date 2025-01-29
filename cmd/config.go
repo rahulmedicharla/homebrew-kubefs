@@ -180,11 +180,11 @@ var dockerCmd = &cobra.Command{
 			fmt.Print("Enter Docker username: ")
 			fmt.Scanln(&input)
 			username := strings.TrimSpace(input)
-			fmt.Print("Enter Docker password: ")
+			fmt.Print("Enter Docker PAT (https://docs.docker.com/security/for-developers/access-tokens/): ")
 			fmt.Scanln(&input)
-			password := strings.TrimSpace(input)
+			pat := strings.TrimSpace(input)
 
-			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, password))
+			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, pat))
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error saving Docker credentials: %v", err))
 				return
@@ -213,7 +213,7 @@ var listCmd = &cobra.Command{
 				username, password := strings.Split(creds, ":")[0], strings.Split(creds, ":")[1]
 				fmt.Printf("%s credentials:\n", service)
 				fmt.Println("Username:", username)
-				fmt.Println("Password:", password)
+				fmt.Println("Password/PAT:", password)
 			}
 
 			fmt.Println()

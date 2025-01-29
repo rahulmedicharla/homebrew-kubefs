@@ -13,11 +13,16 @@ type Resource struct {
 	Type string `yaml:"type"`
 	Framework string `yaml:"framework,omitempty"`
 	UpLocal string `yaml:"up_local"`
-	LocalHost string `yaml:"local_host"`
+	LocalHost string `yaml:"local_host,omitempty"`
 	DockerHost string `yaml:"docker_host"`
+	DockerRepo string `yaml:"docker_repo,omitempty"`
 	ClusterHost string `yaml:"cluster_host"`
 }
 
+type ApiResponse struct {
+	Token string `json:"token",omitempty`
+	Detail string `json:"detail, omitempty"`
+}
 
 const (
 	ERROR = 0

@@ -10,6 +10,8 @@ import (
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
 	"os/exec"
+	"github.com/zalando/go-keyring"
+	"strings"
 )
 
 // createCmd represents the create command
@@ -71,6 +73,66 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) int {
 	return types.SUCCESS
 }
 
+func createDockerRepo(name string) (int, string) {
+	utils.PrintWarning(fmt.Sprintf("Creating Docker Repository for %s", name))
+	var input string
+	fmt.Print("Enter resource description: ")
+	fmt.Scanln(&input)
+	desc := strings.TrimSpace(input)
+
+	url := "https://hub.docker.com/v2/users/login/"
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	creds, err := keyring.Get("docker", "kubefs")
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Error getting Docker credentials: %v", err))
+		return types.ERROR, ""
+	}
+
+	username, pat := strings.Split(creds, ":")[0], strings.Split(creds, ":")[1]
+
+	payload := map[string]interface{}{
+		"username": username,
+		"password": pat,
+	}
+
+	status, response, err := utils.PostRequest(url, headers, payload)
+	if status == types.ERROR {
+		utils.PrintError(fmt.Sprintf("Error logging into Docker: %v", err))
+		return types.ERROR, ""
+	}
+
+	if response.Token == "" {
+		utils.PrintError(fmt.Sprintf("Error logging into Docker: No token received. %s", response.Detail))
+		return types.ERROR, ""
+	}
+
+	url = "https://hub.docker.com/v2/repositories/"
+	payload = map[string]interface{}{
+		"name": name,
+		"namespace": username,
+		"is_private": false,
+		"full_description": desc,
+		"description": desc,
+	}
+
+	headers = map[string]string{
+		"Content-Type": "application/json",
+		"Authorization": fmt.Sprintf("JWT %s", response.Token),
+	}
+
+	status, _, err = utils.PostRequest(url, headers, payload)
+	if status == types.ERROR {
+		utils.PrintError(fmt.Sprintf("Error creating Docker Repository: %v", err))
+		return types.ERROR, ""
+	}
+
+	return types.SUCCESS, fmt.Sprintf("%s/%s", username, name)
+}
+
 var createApiCmd = &cobra.Command{
 	Use:   "api [name]",
 	Short: "kubefs create api - create a new API resource",
@@ -88,6 +150,11 @@ var createApiCmd = &cobra.Command{
 		var commands []string
 		var up_local string
 		var framework string
+		no_docker_repo, flagErr := cmd.Flags().GetBool("no-docker-repo")
+		if flagErr != nil {
+			utils.PrintError(fmt.Sprintf("Error retreiving no docker repo: %v", flagErr))
+			return
+		}
 
 		if resourceFramework == "fast" {
 			commands = []string{
@@ -126,8 +193,13 @@ var createApiCmd = &cobra.Command{
 				return
 			}
 		}
+
+		var dockerRepo string
+		if !no_docker_repo {
+			_, dockerRepo = createDockerRepo(resourceName)
+		}
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -154,6 +226,11 @@ var createFrontendCmd = &cobra.Command{
 		var commands []string
 		var up_local string
 		var framework string
+		no_docker_repo, flagErr := cmd.Flags().GetBool("no-docker-repo")
+		if flagErr != nil {
+			utils.PrintError(fmt.Sprintf("Error retreiving no docker repo: %v", flagErr))
+			return
+		}
 
 		if resourceFramework == "react" {
 			commands = []string{
@@ -187,8 +264,13 @@ var createFrontendCmd = &cobra.Command{
 				return
 			}
 		}
+
+		var dockerRepo string
+		if !no_docker_repo {
+			_, dockerRepo = createDockerRepo(resourceName)
+		}
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -257,4 +339,5 @@ func init() {
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | mongodb]")
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
+	createCmd.PersistentFlags().BoolP("no-docker-repo", "n", false, "Do not create a Docker Repository")
 }

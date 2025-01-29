@@ -28,6 +28,7 @@ func Execute() {
 
 func init() {
 	utils.ReadManifest()
+	utils.GetHttpClient()
 }
 
 

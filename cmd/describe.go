@@ -34,7 +34,7 @@ var describeAllCmd = &cobra.Command{
 		utils.PrintWarning("Describing all resources\n")
 
 		for _, resource := range utils.ManifestData.Resources {
-			fmt.Println(fmt.Sprintf("Name: %s\nPort: %d\nType: %s\nFramework: %s\nUp Local: %s\nLocal Host: %s\nDocker Host: %s\nCluster Host: %s\n\n", resource.Name, resource.Port, resource.Type, resource.Framework, resource.UpLocal, resource.LocalHost, resource.DockerHost, resource.ClusterHost))
+			fmt.Println(fmt.Sprintf("Name: %s\nPort: %d\nType: %s\nFramework: %s\nUp Local: %s\nLocal Host: %s\nDocker Host: %s\nDocker Repo: %s\nCluster Host: %s\n\n", resource.Name, resource.Port, resource.Type, resource.Framework, resource.UpLocal, resource.LocalHost, resource.DockerHost, resource.DockerRepo, resource.ClusterHost))
 		}
     },
 }
@@ -59,7 +59,7 @@ var describeResourceCmd = &cobra.Command{
 
 		for _, resource := range utils.ManifestData.Resources {
 			if resource.Name == name {
-				fmt.Println(fmt.Sprintf("Name: %s\nPort: %d\nType: %s\nFramework: %s\nUp Local: %s\nLocal Host: %s\nDocker Host: %s\nCluster Host: %s\n\n", resource.Name, resource.Port, resource.Type, resource.Framework, resource.UpLocal, resource.LocalHost, resource.DockerHost, resource.ClusterHost))
+				fmt.Println(fmt.Sprintf("Name: %s\nPort: %d\nType: %s\nFramework: %s\nUp Local: %s\nLocal Host: %s\nDocker Host: %s\nDocker Repo: %s\nCluster Host: %s\n\n", resource.Name, resource.Port, resource.Type, resource.Framework, resource.UpLocal, resource.LocalHost, resource.DockerHost, resource.DockerRepo, resource.ClusterHost))
 				return
 			}
 		}
