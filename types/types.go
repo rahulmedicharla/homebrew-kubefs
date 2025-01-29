@@ -11,8 +11,11 @@ type Resource struct {
 	Name string `yaml:"name"`
 	Port int `yaml:"port"`
 	Type string `yaml:"type"`
+	Framework string `yaml:"framework,omitempty"`
 	UpLocal string `yaml:"up_local"`
 	LocalHost string `yaml:"local_host"`
+	DockerHost string `yaml:"docker_host"`
+	ClusterHost string `yaml:"cluster_host"`
 }
 const (
 	ERROR = 0

@@ -87,6 +87,7 @@ var createApiCmd = &cobra.Command{
 
 		var commands []string
 		var up_local string
+		var framework string
 
 		if resourceFramework == "fast" {
 			commands = []string{
@@ -95,7 +96,8 @@ var createApiCmd = &cobra.Command{
 				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get(\"/\")\nasync def root():\n\treturn {\"message\": \"Hello World\"}' > main.py", resourceName),
 			}
 
-			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort)			
+			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort)
+			framework = "fast"			
 		}else if resourceFramework == "koa" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
@@ -104,6 +106,7 @@ var createApiCmd = &cobra.Command{
 			}
 
 			up_local = fmt.Sprintf("cd %s && npx nodemon index.js", resourceName)
+			framework = "koa"
 		}else{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
@@ -112,6 +115,7 @@ var createApiCmd = &cobra.Command{
 			}
 
 			up_local = fmt.Sprintf("cd %s && go run main.go", resourceName)
+			framework = "go"
 		}
 
 		for _, command := range commands {
@@ -123,7 +127,7 @@ var createApiCmd = &cobra.Command{
 			}
 		}
 		
-		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort)})
+		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
 		err := utils.WriteManifest(&ManifestData)
 		if err == types.ERROR {
@@ -148,19 +152,22 @@ var createFrontendCmd = &cobra.Command{
 
 		var commands []string
 		var up_local string
+		var framework string
 
 		if resourceFramework == "react" {
 			commands = []string{
 				fmt.Sprintf("npx -p yarn yarn create react-app %s --no-git --template typescript --silent", resourceName),
 			}
 
-			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourceName, resourcePort)			
+			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourceName, resourcePort)
+			framework = "react"			
 		}else if resourceFramework == "angular" {
 			commands = []string{
 				fmt.Sprintf("npx -p @angular/cli ng new %s --defaults --skip-git", resourceName),
 			}
 
 			up_local = fmt.Sprintf("cd %s && npx -p @angular/cli ng serve --port %v", resourceName, resourcePort)
+			framework = "angular"
 		}else{
 			commands = []string{
 				fmt.Sprintf("npm create vue@latest %s -- --typescript", resourceName),
@@ -168,6 +175,7 @@ var createFrontendCmd = &cobra.Command{
 			}
 
 			up_local = fmt.Sprintf("cd %s && npm run dev -- --port %v", resourceName, resourcePort)
+			framework = "vue"
 		}
 
 		for _, command := range commands {
@@ -179,7 +187,7 @@ var createFrontendCmd = &cobra.Command{
 			}
 		}
 		
-		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort)})
+		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
 		err := utils.WriteManifest(&ManifestData)
 		if err == types.ERROR {
@@ -201,6 +209,39 @@ var createDbCmd = &cobra.Command{
 		if parseInfo(cmd, args, "database") == types.ERROR {
 			return
 		}
+
+		var commands []string
+		var up_local string
+		var framework string
+
+		if resourceFramework == "cassandra" {
+			commands = []string{
+				fmt.Sprintf("mkdir %s", resourceName),
+			}
+			framework = "cassandra"		
+		}else{
+			commands = []string{
+				fmt.Sprintf("mkdir %s", resourceName),
+			}
+			framework = "mongodb"
+		}
+
+		for _, command := range commands {
+			cmd := exec.Command("sh", "-c", command)
+			err := cmd.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Unexpected Error %v", err))
+				return
+			}
+		}
+		
+		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		
+		err := utils.WriteManifest(&ManifestData)
+		if err == types.ERROR {
+			return
+		}
+		utils.PrintSuccess(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 
