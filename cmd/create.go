@@ -51,7 +51,7 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) int {
 	resourceFramework = framework
 
 	allowableFrameworks := types.FRAMEWORKS[resource]
-	if !utils.Contains(allowableFrameworks, framework) {
+	if (!utils.Contains(allowableFrameworks, framework)) {
 		utils.PrintError(fmt.Sprintf("Invalid framework: %s. Allowed frameworks are: %v", framework, allowableFrameworks))
 		return types.ERROR
 	}
@@ -95,8 +95,7 @@ var createApiCmd = &cobra.Command{
 				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get(\"/\")\nasync def root():\n\treturn {\"message\": \"Hello World\"}' > main.py", resourceName),
 			}
 
-			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort)
-			
+			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort)			
 		}else if resourceFramework == "koa" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
@@ -131,7 +130,6 @@ var createApiCmd = &cobra.Command{
 			return
 		}
 		utils.PrintSuccess(fmt.Sprintf("Successfully created API %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
-		
 	},
 }
 
@@ -147,6 +145,47 @@ var createFrontendCmd = &cobra.Command{
 		if parseInfo(cmd, args, "frontend") == types.ERROR {
 			return
 		}
+
+		var commands []string
+		var up_local string
+
+		if resourceFramework == "react" {
+			commands = []string{
+				fmt.Sprintf("npx -p yarn yarn create react-app %s --no-git --template typescript --silent", resourceName),
+			}
+
+			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourcePort, resourceName)			
+		}else if resourceFramework == "angular" {
+			commands = []string{
+				fmt.Sprintf("npx -p @angular/cli ng new %s --defaults --skip-git", resourceName),
+			}
+
+			up_local = fmt.Sprintf("cd %s && npx -p @angular/cli ng serve --port %v", resourceName, resourcePort)
+		}else{
+			commands = []string{
+				fmt.Sprintf("npm create vue@latest %s -- --typescript", resourceName),
+				fmt.Sprintf("cd %s && npm install", resourceName),
+			}
+
+			up_local = fmt.Sprintf("cd %s && npm run dev -- --port %v", resourceName, resourcePort)
+		}
+
+		for _, command := range commands {
+			cmd := exec.Command("sh", "-c", command)
+			err := cmd.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Unexpected Error %v", err))
+				return
+			}
+		}
+		
+		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort)})
+		
+		err := utils.WriteManifest(&ManifestData)
+		if err == types.ERROR {
+			return
+		}
+		utils.PrintSuccess(fmt.Sprintf("Successfully created frontend %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 
