@@ -85,24 +85,47 @@ var createApiCmd = &cobra.Command{
 			return
 		}
 
+		var commands []string
+		var up_local string
+
 		if resourceFramework == "fast" {
-			commands := []string{
+			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" && deactivate && touch main.py", resourceName),
 				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get(\"/\")\nasync def root():\n\treturn {\"message\": \"Hello World\"}' > main.py", resourceName),
 			}
 
-			for _, command := range commands {
-				cmd := exec.Command("sh", "-c", command)
-				err := cmd.Run()
-				if err != nil {
-					utils.PrintError(fmt.Sprintf("Unexpected Error %v", err))
-					return
-				}
-			}
+			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort)
 			
-			ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", UpLocal: fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort), LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort)})
+		}else if resourceFramework == "koa" {
+			commands = []string{
+				fmt.Sprintf("mkdir %s", resourceName),
+				fmt.Sprintf("cd %s && npm init -y && npm i koa nodemon", resourceName),
+				fmt.Sprintf("cd %s && echo '\"use strict\";\nconst Koa = require(\"koa\");\nconst app = new Koa();\n\napp.use(ctx => {\n\tctx.body = \"Hello World\";\n});\n\napp.listen(%v);' > index.js", resourceName, resourcePort),
+			}
+
+			up_local = fmt.Sprintf("cd %s && npx nodemon index.js", resourceName)
+		}else{
+			commands = []string{
+				fmt.Sprintf("mkdir %s", resourceName),
+				fmt.Sprintf("cd %s && go mod init %s && go get -u github.com/gorilla/mux", resourceName, resourceName),
+				fmt.Sprintf("cd %s && echo 'package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"github.com/gorilla/mux\"\n)\n\nfunc main() {\n\tr := mux.NewRouter()\n\tr.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) {\n\t\tfmt.Fprintf(w, \"Hello World\")\n\t})\n\tfmt.Println(\"Listening on Port %v\")\n\thttp.ListenAndServe(\":%v\", r)\n}' > main.go", resourceName, resourcePort, resourcePort),
+			}
+
+			up_local = fmt.Sprintf("cd %s && go run main.go", resourceName)
 		}
+
+		for _, command := range commands {
+			cmd := exec.Command("sh", "-c", command)
+			err := cmd.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Unexpected Error %v", err))
+				return
+			}
+		}
+		
+		ManifestData.Resources = append(ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort)})
+		
 		err := utils.WriteManifest(&ManifestData)
 		if err == types.ERROR {
 			return
@@ -147,7 +170,7 @@ func init() {
 	createCmd.AddCommand(createApiCmd)
 	createCmd.AddCommand(createFrontendCmd)
 	createCmd.AddCommand(createDbCmd)
-	createApiCmd.Flags().StringP("framework", "f", "express", "Framework to use for API [express | fast | gin]")
+	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | koa | go]")
 	createFrontendCmd.Flags().StringP("framework", "f", "react", "Framework to use for Frontend [react | vue | angular]")
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | mongodb]")
 

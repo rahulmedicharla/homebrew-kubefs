@@ -20,7 +20,7 @@ const (
 )
 
 var FRAMEWORKS = map[string][]string{
-	"api": {"express", "fast", "gin"},
+	"api": {"koa", "fast", "go"},
 	"frontend": {"react", "angular", "vue"},
 	"database": {"cassandra", "mongodb"},
 }
