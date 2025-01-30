@@ -40,6 +40,8 @@ func runUnique(ctx context.Context, resource *types.Resource, platform string, w
 		}
 	}else{
 		// Handle docker platform if needed
+
+		// make sure shared_network exists if not create ones
 	}
 }
 
@@ -54,6 +56,14 @@ var runAllCmd = &cobra.Command{
 		}
 
         utils.PrintWarning("Running all resources")
+
+		var platform string
+		platform, _ = cmd.Flags().GetString("platform")
+
+		if platform != "docker" && platform != "local" {
+			utils.PrintError("Invalid platform: use 'local' or 'docker'")
+			return
+		}
 
 		var wg sync.WaitGroup
 		ctx, cancel := context.WithCancel(context.Background())
@@ -70,7 +80,7 @@ var runAllCmd = &cobra.Command{
 		
         for _, resource := range utils.ManifestData.Resources {
 			wg.Add(1)
-			go runUnique(ctx, &resource, "local", &wg)
+			go runUnique(ctx, &resource, platform, &wg)
         }
 
 		wg.Wait()
@@ -92,11 +102,17 @@ var runResourceCmd = &cobra.Command{
 			return
 		}
 
+
 		name := args[0]
 		utils.PrintWarning(fmt.Sprintf("Running resource %s", name))
 
 		var platform string
 		platform, _ = cmd.Flags().GetString("platform")
+
+		if platform != "docker" && platform != "local" {
+			utils.PrintError("Invalid platform: use 'local' or 'docker'")
+			return
+		}
 
 		var resource *types.Resource
 		for _, r := range utils.ManifestData.Resources {

@@ -27,8 +27,15 @@ var removeCmd = &cobra.Command{
 func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo string) int {
 	if !onlyRemote {
 		// remove locally
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", name))
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; docker compose down -v; docker rmi %s:latest; docker network rm shared_network; echo '')", name, docker_repo))
 		err := cmd.Run()
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error removing resource locally: %v", err))
+			return types.ERROR
+		}
+		
+		cmd = exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", name))
+		err = cmd.Run()
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Error removing resource locally: %v", err))
 			return types.ERROR

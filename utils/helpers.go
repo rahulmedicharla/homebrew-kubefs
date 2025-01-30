@@ -5,6 +5,7 @@ import (
     "os"
     "github.com/rahulmedicharla/kubefs/types"
     "gopkg.in/yaml.v3"
+    "reflect"
 )
 
 var ManifestData types.Project
@@ -67,6 +68,16 @@ func WriteManifest(project *types.Project) int{
     }
 
     return types.SUCCESS
+}
+
+func UpdateResource(project *types.Project, resource *types.Resource, field string, new_value string) int{
+    for i, res := range project.Resources {
+        if res.Name == resource.Name {
+            reflect.ValueOf(&project.Resources[i]).Elem().FieldByName(field).SetString(new_value)
+            return WriteManifest(project)
+        }
+    }
+    return types.ERROR
 }
 
 func RemoveAll(project *types.Project) int {

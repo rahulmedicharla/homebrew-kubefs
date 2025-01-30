@@ -150,16 +150,11 @@ var createApiCmd = &cobra.Command{
 		var commands []string
 		var up_local string
 		var framework string
-		no_docker_repo, flagErr := cmd.Flags().GetBool("no-docker-repo")
-		if flagErr != nil {
-			utils.PrintError(fmt.Sprintf("Error retreiving no docker repo: %v", flagErr))
-			return
-		}
 
 		if resourceFramework == "fast" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
-				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" && deactivate && touch main.py", resourceName),
+				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" && pip freeze > requirements.txt && deactivate && touch main.py", resourceName),
 				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get(\"/\")\nasync def root():\n\treturn {\"message\": \"Hello World\"}' > main.py", resourceName),
 			}
 
@@ -195,9 +190,7 @@ var createApiCmd = &cobra.Command{
 		}
 
 		var dockerRepo string
-		if !no_docker_repo {
-			_, dockerRepo = createDockerRepo(resourceName)
-		}
+		_, dockerRepo = createDockerRepo(resourceName)
 		
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
@@ -226,11 +219,6 @@ var createFrontendCmd = &cobra.Command{
 		var commands []string
 		var up_local string
 		var framework string
-		no_docker_repo, flagErr := cmd.Flags().GetBool("no-docker-repo")
-		if flagErr != nil {
-			utils.PrintError(fmt.Sprintf("Error retreiving no docker repo: %v", flagErr))
-			return
-		}
 
 		if resourceFramework == "react" {
 			commands = []string{
@@ -266,9 +254,8 @@ var createFrontendCmd = &cobra.Command{
 		}
 
 		var dockerRepo string
-		if !no_docker_repo {
-			_, dockerRepo = createDockerRepo(resourceName)
-		}
+		_, dockerRepo = createDockerRepo(resourceName)
+		
 		
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		
@@ -339,5 +326,4 @@ func init() {
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | mongodb]")
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
-	createCmd.PersistentFlags().BoolP("no-docker-repo", "n", false, "Do not create a Docker Repository")
 }

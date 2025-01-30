@@ -11,12 +11,14 @@ type Resource struct {
 	Name string `yaml:"name"`
 	Port int `yaml:"port"`
 	Type string `yaml:"type"`
-	Framework string `yaml:"framework,omitempty"`
-	UpLocal string `yaml:"up_local"`
+	Framework string `yaml:"framework"`
+	UpLocal string `yaml:"up_local,omitempty"`
 	LocalHost string `yaml:"local_host,omitempty"`
-	DockerHost string `yaml:"docker_host"`
+	DockerHost string `yaml:"docker_host,omitempty"`
 	DockerRepo string `yaml:"docker_repo,omitempty"`
-	ClusterHost string `yaml:"cluster_host"`
+	UpDocker string `yaml:"up_docker,omitempty"`
+	ClusterHost string `yaml:"cluster_host,omitempty"`
+
 }
 
 type ApiResponse struct {

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
+	"reflect"
 )
 
 // describeCmd represents the describe command
@@ -31,10 +32,17 @@ var describeAllCmd = &cobra.Command{
 			return
 		}
 
-		utils.PrintWarning("Describing all resources\n")
+		utils.PrintWarning("Describing all resources")
 
 		for _, resource := range utils.ManifestData.Resources {
-			fmt.Println(fmt.Sprintf("Name: %s\nPort: %d\nType: %s\nFramework: %s\nUp Local: %s\nLocal Host: %s\nDocker Host: %s\nDocker Repo: %s\nCluster Host: %s\n\n", resource.Name, resource.Port, resource.Type, resource.Framework, resource.UpLocal, resource.LocalHost, resource.DockerHost, resource.DockerRepo, resource.ClusterHost))
+			resourceValue := reflect.ValueOf(resource)
+			resourceType := reflect.TypeOf(resource)
+			for i := 0; i < resourceValue.NumField(); i++ {
+				field := resourceType.Field(i)
+				value := resourceValue.Field(i)
+				fmt.Printf("%s: %v\n", field.Name, value)
+			}
+			fmt.Println("\n")
 		}
     },
 }
@@ -59,7 +67,13 @@ var describeResourceCmd = &cobra.Command{
 
 		for _, resource := range utils.ManifestData.Resources {
 			if resource.Name == name {
-				fmt.Println(fmt.Sprintf("Name: %s\nPort: %d\nType: %s\nFramework: %s\nUp Local: %s\nLocal Host: %s\nDocker Host: %s\nDocker Repo: %s\nCluster Host: %s\n\n", resource.Name, resource.Port, resource.Type, resource.Framework, resource.UpLocal, resource.LocalHost, resource.DockerHost, resource.DockerRepo, resource.ClusterHost))
+				resourceValue := reflect.ValueOf(resource)
+				resourceType := reflect.TypeOf(resource)
+				for i := 0; i < resourceValue.NumField(); i++ {
+					field := resourceType.Field(i)
+					value := resourceValue.Field(i)
+					fmt.Printf("%s: %v\n", field.Name, value)
+				}
 				return
 			}
 		}
