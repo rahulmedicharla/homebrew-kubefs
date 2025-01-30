@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"github.com/zalando/go-keyring"
 	"strings"
+	"os"
 )
 
 // removeCmd represents the remove command
@@ -24,21 +25,34 @@ var removeCmd = &cobra.Command{
 	},
 }
 
-func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo string) int {
+func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo string, resource_type string, framework string) int {
 	if !onlyRemote {
 		// remove locally
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; docker compose down -v; docker rmi %s:latest; docker network rm shared_network; echo '')", name, docker_repo))
-		err := cmd.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error removing resource locally: %v", err))
-			return types.ERROR
+		commands := []string{
+			fmt.Sprintf("(cd %s; docker compose down -v; docker rmi %s:latest; docker network rm shared_network; echo '')", name, docker_repo),
+			fmt.Sprintf("rm -rf %s", name),
 		}
-		
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", name))
-		err = cmd.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error removing resource locally: %v", err))
-			return types.ERROR
+
+		if resource_type == "frontend"{
+			commands = append(commands, fmt.Sprintf("docker rmi traefik:latest; echo ''"))
+		}else if resource_type == "database"{
+			if framework == "mongodb" {
+				commands = append(commands, fmt.Sprintf("docker rmi mongo:latest; echo ''"))
+			}else{
+				commands = append(commands, fmt.Sprintf("docker rmi cassandra:latest; echo ''"))
+			}
+			commands = append(commands, fmt.Sprintf("docker volume prune; echo ''", name) )
+		}
+
+		for _, command := range commands {
+			cmd := exec.Command("sh", "-c", command)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err := cmd.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing resource: %v", err))
+				return types.ERROR
+			}
 		}
 
 		manifestErr := utils.RemoveResource(&utils.ManifestData, name)
@@ -113,7 +127,7 @@ var removeAllCmd = &cobra.Command{
         utils.PrintWarning("Removing all resources")
 
         for _, resource := range utils.ManifestData.Resources {
-			err := removeUnique(resource.Name, onlyLocal, onlyRemote, resource.DockerRepo)
+			err := removeUnique(resource.Name, onlyLocal, onlyRemote, resource.DockerRepo, resource.Type, resource.Framework)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error removing resource %s", resource.Name))
 			}
@@ -147,14 +161,18 @@ var removeResourceCmd = &cobra.Command{
         utils.PrintWarning(fmt.Sprintf("Removing resource %s", name))
 
 		var dockerRepo string
+		var resourceType string
+		var resourceFramework string
 		for _, resource := range utils.ManifestData.Resources {
 			if resource.Name == name {
 				dockerRepo = resource.DockerRepo
+				resourceType = resource.Type
+				resourceFramework = resource.Framework
 				break
 			}
 		}
 
-		err := removeUnique(name, onlyLocal, onlyRemote, dockerRepo)
+		err := removeUnique(name, onlyLocal, onlyRemote, dockerRepo, resourceType, resourceFramework)
 		if err == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
 			return

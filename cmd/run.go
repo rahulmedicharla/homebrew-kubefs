@@ -40,8 +40,20 @@ func runUnique(ctx context.Context, resource *types.Resource, platform string, w
 		}
 	}else{
 		// Handle docker platform if needed
-
-		// make sure shared_network exists if not create ones
+		cmd := exec.Command("sh", "-c", "docker network inspect shared_network")
+		cmd.Run()
+		if cmd.ProcessState.ExitCode() != 0 {
+			utils.PrintWarning("Creating shared network for docker resources")
+			cmd = exec.Command("sh", "-c", "docker network create shared_network")
+			cmd.Run()
+		}
+		cmd = exec.CommandContext(ctx, "sh", "-c", resource.UpDocker)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil && ctx.Err() == nil {
+			utils.PrintError(fmt.Sprintf("Error running resource in Docker: %v", err))
+		}
 	}
 }
 
