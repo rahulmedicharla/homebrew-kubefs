@@ -177,7 +177,7 @@ var compileAllCmd = &cobra.Command{
 			err, up_docker := compileUnique(&resource, onlyBuild, onlyPush)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error compiling resource %s", resource.Name))
-				break
+				return
 			}
 
 			err = utils.UpdateResource(&utils.ManifestData, &resource, "UpDocker" ,up_docker)

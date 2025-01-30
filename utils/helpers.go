@@ -1,6 +1,7 @@
 package utils
 
 import (
+    _ "embed"
 	"fmt"
     "os"
     "github.com/rahulmedicharla/kubefs/types"
@@ -10,6 +11,9 @@ import (
 
 var ManifestData types.Project
 var ManifestStatus int
+
+//go:embed kubefshelper 
+var KubefsHelper []byte
 
 func PrintError(message string) {
 	fmt.Printf("\033[31mError: %s\033[0m\n", message)

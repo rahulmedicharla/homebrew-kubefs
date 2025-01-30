@@ -38,8 +38,8 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) int {
 	name := args[0]
 	resourceName = name
 	port, err := cmd.Flags().GetInt("port")
-	if err != nil {
-		utils.PrintError(fmt.Sprintf("Error reading port: %v", err))
+	if err != nil || port == 6000 {
+		utils.PrintError(fmt.Sprintf(" Invalid port. Port 6000 reserved for kubefs: %v", err))
 		return types.ERROR
 	}
 	resourcePort = port
