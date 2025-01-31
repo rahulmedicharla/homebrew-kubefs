@@ -61,7 +61,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 
 			commands = append(commands,
 				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
-				fmt.Sprintf("(cd %s && echo 'services:\n  container:\n    image: %s:latest\n    ports:\n      - \"%v:%v\" \n    environment: []\n    networks:\n      - shared_network\n\nnetworks:\n  shared_network:\n    external: true' > docker-compose.yaml)", resource.Name, resource.DockerRepo, resource.Port, resource.Port), 
+				fmt.Sprintf("(cd %s && echo 'services:\n  traefik:\n    image: traefik:latest\n    command:\n      - \"--api.insecure=true\"\n      - \"--providers.docker=true\"\n      - \"--entrypoints.web.address=:80\"\n    ports:\n      - \"%v:80\"\n    volumes:\n      - \"/var/run/docker.sock:/var/run/docker.sock:ro\"\n    networks:\n      - shared_network\n\n  api:\n    image: %s:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.frontend.rule=PathPrefix(`/`)\"\n      - \"traefik.http.services.frontend.loadbalancer.server.port=%v\"\n    networks:\n      - shared_network\n\n  backend:\n    image: rmedicharla/kubefshelper:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.backend.rule=PathPrefix(`/env`)\"\n      - \"traefik.http.services.backend.loadbalancer.server.port=6000\"\n    networks:\n      - shared_network\n    environment: []\n\nnetworks:\n  shared_network:\n    external: true' > docker-compose.yaml)", resource.Name, resource.Port, resource.DockerRepo, resource.Port), 
 			)
 
 			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)

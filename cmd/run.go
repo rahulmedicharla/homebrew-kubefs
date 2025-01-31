@@ -67,7 +67,7 @@ func runUnique(ctx context.Context, project *types.Project, resource *types.Reso
 			return
 		}
 
-		if resource.Type == "frontend"{
+		if resource.Type == "frontend" || resource.Type == "api" {
 			fileErr, composeFile := utils.ReadYaml(fmt.Sprintf("%s/docker-compose.yaml", resource.Name))
 			if fileErr == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error reading docker-compose.yaml file for resource: %s", resource.Name))
