@@ -37,6 +37,15 @@ func Contains(slice []string, item string) bool {
     return false
 }
 
+func GetResourceFromName(name string) *types.Resource {
+    for _, resource := range ManifestData.Resources {
+        if resource.Name == name {
+            return &resource
+        }
+    }
+    return nil
+}
+
 func ReadYaml(path string) (int, map[string]interface{}) {
     data, err := os.ReadFile(path)
     if err != nil {
