@@ -29,7 +29,7 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 	if !onlyRemote {
 		// remove locally
 		commands := []string{
-			fmt.Sprintf("(cd %s; docker compose down -v; docker rmi %s:latest; docker network rm shared_network; echo '')", name, docker_repo),
+			fmt.Sprintf("cd %s; docker compose down -v; docker rmi %s:latest; docker network rm shared_network; echo ''", name, docker_repo),
 			fmt.Sprintf("rm -rf %s", name),
 		}
 
@@ -47,7 +47,6 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 		for _, command := range commands {
 			cmd := exec.Command("sh", "-c", command)
 			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
 			err := cmd.Run()
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error removing resource: %v", err))

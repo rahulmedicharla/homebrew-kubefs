@@ -27,6 +27,27 @@ var runCmd = &cobra.Command{
 	},
 }
 
+func runKubefsHelper(ctx context.Context, project *types.Project, wg *sync.WaitGroup){
+	defer wg.Done()
+
+	var commands []string
+
+	commands = append(commands, "rm .kubefshelper/.env; touch .kubefshelper/.env")
+	for _, resource := range project.Resources {
+		commands = append(commands, fmt.Sprintf("echo %sHOST=%s >> .kubefshelper/.env", resource.Name, resource.LocalHost))
+	}
+	commands = append(commands, "(cd .kubefshelper && ./kubefsHelper)")
+
+	for _, command := range commands{
+		cmd := exec.CommandContext(ctx, "sh", "-c", command)
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil && ctx.Err() == nil {
+			utils.PrintError(fmt.Sprintf("Error running kubefs-helper: %v", err))
+		}
+	}
+}
+
 func runUnique(ctx context.Context, resource *types.Resource, platform string, wg *sync.WaitGroup){
 	defer wg.Done()
 
@@ -89,6 +110,9 @@ var runAllCmd = &cobra.Command{
 			fmt.Println("\nReceived interrupt signal, shutting down...")
 			cancel()
 		}()
+
+		wg.Add(1)
+		go runKubefsHelper(ctx, &utils.ManifestData, &wg)
 		
         for _, resource := range utils.ManifestData.Resources {
 			wg.Add(1)
@@ -151,6 +175,9 @@ var runResourceCmd = &cobra.Command{
 			fmt.Println("\nReceived interrupt signal, shutting down...")
 			cancel()
 		}()
+
+		wg.Add(1)
+		go runKubefsHelper(ctx, &utils.ManifestData, &wg)
 
 		wg.Add(1)
 		go runUnique(ctx, resource, platform, &wg)

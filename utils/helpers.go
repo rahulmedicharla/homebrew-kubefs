@@ -7,6 +7,7 @@ import (
     "github.com/rahulmedicharla/kubefs/types"
     "gopkg.in/yaml.v3"
     "reflect"
+    "encoding/json"
 )
 
 var ManifestData types.Project
@@ -68,6 +69,40 @@ func WriteManifest(project *types.Project) int{
     err = os.WriteFile("manifest.yaml", data, 0644)
     if err != nil {
         PrintError(fmt.Sprintf("Error writing manifest: %v", err))
+        return types.ERROR
+    }
+
+    return types.SUCCESS
+}
+
+func ReadJson(path string) (int, map[string]interface{}) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error reading JSON file: %v", err))
+        return types.ERROR, nil
+    }
+
+    var jsonData map[string]interface{}
+    err = json.Unmarshal(data, &jsonData)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error unmarshaling JSON: %v", err))
+        return types.ERROR, nil
+    }
+
+    return types.SUCCESS, jsonData
+}
+
+
+func WriteJson(data map[string]interface{}, path string) int {
+    jsonData, err := json.MarshalIndent(data, "", "  ")
+    if err != nil {
+        PrintError(fmt.Sprintf("Error marshaling JSON: %v", err))
+        return types.ERROR
+    }
+
+    err = os.WriteFile(path, jsonData, 0644)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error writing JSON to file: %v", err))
         return types.ERROR
     }
 

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"github.com/zalando/go-keyring"
 	"strings"
+	"os"
 )
 
 // createCmd represents the create command
@@ -223,6 +224,7 @@ var createFrontendCmd = &cobra.Command{
 		if resourceFramework == "react" {
 			commands = []string{
 				fmt.Sprintf("npx -p yarn yarn create react-app %s --no-git --template typescript --silent", resourceName),
+				fmt.Sprintf("cd %s && rm .git", resourceName),
 			}
 
 			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourceName, resourcePort)
@@ -237,7 +239,7 @@ var createFrontendCmd = &cobra.Command{
 		}else{
 			commands = []string{
 				fmt.Sprintf("npm create vue@latest %s -- --typescript", resourceName),
-				fmt.Sprintf("cd %s && npm install", resourceName),
+				fmt.Sprintf("cd %s && npm install && rm vite.config.ts", resourceName),
 			}
 
 			up_local = fmt.Sprintf("cd %s && npm run dev -- --port %v", resourceName, resourcePort)
@@ -253,9 +255,55 @@ var createFrontendCmd = &cobra.Command{
 			}
 		}
 
+		if resourceFramework == "react"{
+			err, packageJson := utils.ReadJson(fmt.Sprintf("%s/package.json", resourceName))
+			if err == types.ERROR {
+				utils.PrintError("Error reading package.json")
+				return
+			}
+			packageJson["proxy"] = fmt.Sprintf("http://localhost:6000")
+			err = utils.WriteJson(packageJson, fmt.Sprintf("%s/package.json", resourceName))
+			if err == types.ERROR {
+				utils.PrintError("Error writing package.json")
+				return
+			}
+		}else if resourceFramework == "angular" {
+			writeErr := os.WriteFile(fmt.Sprintf("%s/proxy.conf.json", resourceName), []byte("{\n    \"/env\": {\n      \"target\": \"http://localhost:6000\",\n      \"secure\": false\n    }\n  }"), 0644)
+			if writeErr != nil {
+				utils.PrintError(fmt.Sprintf("Error writing proxy.conf.json: %v", writeErr))
+				return
+			}
+			err, angularJson := utils.ReadJson(fmt.Sprintf("%s/angular.json", resourceName))
+			if err == types.ERROR {
+				utils.PrintError("Error reading angular.json")
+				return
+			}
+			proxyInfo := map[string]interface{}{
+				"proxyConfig": "proxy.conf.json",
+			}
+
+			angularJson["projects"].(map[string]interface{})[fmt.Sprintf("%s", resourceName)].(map[string]interface{})["architect"].(map[string]interface{})["serve"].(map[string]interface{})["options"] = proxyInfo
+			// projects := angularJson["projects"].(map[string]interface{})
+			// project := projects[resourceName].(map[string]interface{})
+			// architect := project["architect"].(map[string]interface{})
+			// serve := architect["serve"].(map[string]interface{})
+			// options := serve["options"].(map[string]interface{})
+			// options["proxyConfig"] = fmt.Sprintf("proxy.conf.json")
+			err = utils.WriteJson(angularJson, fmt.Sprintf("%s/angular.json", resourceName))
+			if err == types.ERROR {
+				utils.PrintError("Error writing angular.json")
+				return
+			}
+		}else{
+			writeErr := os.WriteFile(fmt.Sprintf("%s/vite.config.ts", resourceName), []byte("import { fileURLToPath, URL } from 'node:url'\n\nimport { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\n// https://vitejs.dev/config/\nexport default defineConfig({\n  plugins: [\n    vue(),\n  ],\n  server: {\n    proxy: {\n      \"/env\": {\n        target: \"http://localhost:6000\",\n        changeOrigin: true,\n        rewrite: (path) => path.replace(/^\\/env/, '/env'),\n      }\n    }\n  },\n  resolve: {\n    alias: {\n      '@': fileURLToPath(new URL('./src', import.meta.url))\n    }\n  }\n})"), 0644)
+			if writeErr != nil {
+				utils.PrintError(fmt.Sprintf("Error writing vite.config.ts: %v", writeErr))
+				return
+			}
+		}
+
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
-		
 		
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
 		

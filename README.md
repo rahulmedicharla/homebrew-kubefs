@@ -10,3 +10,11 @@ this will add the kubefs cli to your usr/local/bin which should automatically ma
 
 then run ```kubefs init``` to download any required dependencies that don't exist & set up project
 
+kubefshelper
+
+three endpoints
+
+localhost:6000/health GET
+localhost:6000/env/{key} GET
+localhost:6000/api POST
+
