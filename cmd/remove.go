@@ -41,7 +41,7 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 			}else{
 				commands = append(commands, fmt.Sprintf("docker rmi cassandra:latest; echo ''"))
 			}
-			commands = append(commands, fmt.Sprintf("docker volume prune; echo ''", name) )
+			commands = append(commands, fmt.Sprintf("docker volume prune; docker network prune; echo ''", name) )
 		}
 
 		for _, command := range commands {

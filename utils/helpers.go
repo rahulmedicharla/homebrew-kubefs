@@ -37,6 +37,39 @@ func Contains(slice []string, item string) bool {
     return false
 }
 
+func ReadYaml(path string) (int, map[string]interface{}) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error reading YAML file: %v", err))
+        return types.ERROR, nil
+    }
+
+    var yamlData map[string]interface{}
+    err = yaml.Unmarshal(data, &yamlData)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error unmarshaling YAML: %v", err))
+        return types.ERROR, nil
+    }
+
+    return types.SUCCESS, yamlData
+}
+
+func WriteYaml(data *map[string]interface{}, path string) int {
+    yamlData, err := yaml.Marshal(data)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error marshaling YAML: %v", err))
+        return types.ERROR
+    }
+
+    err = os.WriteFile(path, yamlData, 0644)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error writing YAML to file: %v", err))
+        return types.ERROR
+    }
+
+    return types.SUCCESS
+}
+
 func ReadManifest() int{
     projectErr := ValidateProject()
     if projectErr == types.ERROR {

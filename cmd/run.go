@@ -48,7 +48,7 @@ func runKubefsHelper(ctx context.Context, project *types.Project, wg *sync.WaitG
 	}
 }
 
-func runUnique(ctx context.Context, resource *types.Resource, platform string, wg *sync.WaitGroup){
+func runUnique(ctx context.Context, project *types.Project, resource *types.Resource, platform string, wg *sync.WaitGroup){
 	defer wg.Done()
 
 	if platform == "local" {
@@ -61,6 +61,28 @@ func runUnique(ctx context.Context, resource *types.Resource, platform string, w
 		}
 	}else{
 		// Handle docker platform if needed
+		_, err := os.Stat(fmt.Sprintf("%s/docker-compose.yaml", resource.Name))
+		if os.IsNotExist(err) {
+			utils.PrintError(fmt.Sprintf("docker-compose.yaml file not found for resource: %s", resource.Name))
+			return
+		}
+
+		if resource.Type == "frontend"{
+			fileErr, composeFile := utils.ReadYaml(fmt.Sprintf("%s/docker-compose.yaml", resource.Name))
+			if fileErr == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error reading docker-compose.yaml file for resource: %s", resource.Name))
+				return 
+			}
+			for _, r := range project.Resources {
+				composeFile["services"].(map[string]interface{})["backend"].(map[string]interface{})["environment"] = append(composeFile["services"].(map[string]interface{})["backend"].(map[string]interface{})["environment"].([]interface{}), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
+			}
+			fileErr = utils.WriteYaml(&composeFile, fmt.Sprintf("%s/docker-compose.yaml", resource.Name))
+			if fileErr == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error updating docker-compose.yaml file for resource: %s", resource.Name))
+				return
+			}
+		}
+
 		cmd := exec.CommandContext(ctx, "sh", "-c", "docker network inspect shared_network")
 		cmd.Run()
 		if cmd.ProcessState.ExitCode() != 0 {
@@ -71,7 +93,7 @@ func runUnique(ctx context.Context, resource *types.Resource, platform string, w
 		cmd = exec.CommandContext(ctx, "sh", "-c", resource.UpDocker)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		err := cmd.Run()
+		err = cmd.Run()
 		if err != nil && ctx.Err() == nil {
 			utils.PrintError(fmt.Sprintf("Error running resource in Docker: %v", err))
 		}
@@ -111,12 +133,14 @@ var runAllCmd = &cobra.Command{
 			cancel()
 		}()
 
-		wg.Add(1)
-		go runKubefsHelper(ctx, &utils.ManifestData, &wg)
-		
+		if platform == "local"{
+			wg.Add(1)
+			go runKubefsHelper(ctx, &utils.ManifestData, &wg)
+		}
+
         for _, resource := range utils.ManifestData.Resources {
 			wg.Add(1)
-			go runUnique(ctx, &resource, platform, &wg)
+			go runUnique(ctx, &utils.ManifestData, &resource, platform, &wg)
         }
 
 		wg.Wait()
@@ -137,7 +161,6 @@ var runResourceCmd = &cobra.Command{
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
-
 
 		name := args[0]
 		utils.PrintWarning(fmt.Sprintf("Running resource %s", name))
@@ -176,11 +199,13 @@ var runResourceCmd = &cobra.Command{
 			cancel()
 		}()
 
-		wg.Add(1)
-		go runKubefsHelper(ctx, &utils.ManifestData, &wg)
+		if platform == "local"{
+			wg.Add(1)
+			go runKubefsHelper(ctx, &utils.ManifestData, &wg)
+		}
 
 		wg.Add(1)
-		go runUnique(ctx, resource, platform, &wg)
+		go runUnique(ctx, &utils.ManifestData, resource, platform, &wg)
 
 		wg.Wait()
     },
