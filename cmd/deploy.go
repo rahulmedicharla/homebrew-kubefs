@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
+	"os/exec"
+	"os"
+	"net/http"
+	"io"
 )
 
 // deployCmd represents the deploy command
@@ -21,6 +25,49 @@ var deployCmd = &cobra.Command{
 	},
 }
 
+func downloadZip(url string, name string, file string) int {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s && rm -rf deploy)", name))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmdErr := cmd.Run()
+	if cmdErr != nil {
+		utils.PrintError(fmt.Sprintf("Error unzipping helm chart: %v", cmdErr))
+		return types.ERROR
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Error downloading helm chart: %v", err))
+		return types.ERROR
+	}
+
+	defer resp.Body.Close()
+
+	out, err := os.Create(fmt.Sprintf("%s/helm.zip", name))
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Error creating helm chart: %v", err))
+		return types.ERROR
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Error copying helm chart: %v", err))
+		return types.ERROR
+	}
+
+	cmd = exec.Command("sh", "-c", fmt.Sprintf("(cd %s && unzip helm.zip && mv %s deploy && rm -rf helm.zip __MACOSX && echo '')", name, file))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmdErr = cmd.Run()
+	if cmdErr != nil {
+		utils.PrintError(fmt.Sprintf("Error unzipping helm chart: %v", cmdErr))
+		return types.ERROR
+	}
+
+	return types.SUCCESS
+}
+
 func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) int {
 	if resource.UpDocker == "" {
 		utils.PrintError(fmt.Sprintf("No docker image specified for resource %s. use 'kubefs compile'", resource.Name))
@@ -29,6 +76,23 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 
 	if !onlyDeploy {
 		// helmify
+
+		if resource.Type == "api"{
+			err := downloadZip(types.APIHELM, resource.Name, "api")
+			if err == types.ERROR {
+				return types.ERROR
+			}
+		}else if resource.Type == "frontend"{
+			err := downloadZip(types.FRONTENDHELM, resource.Name, "frontend")
+			if err == types.ERROR {
+				return types.ERROR
+			}
+		}else{
+			err := downloadZip(types.DBHELM, resource.Name, "db")
+			if err == types.ERROR {
+				return types.ERROR
+			}
+		}
 	}
 
 	if !onlyHelmify {
@@ -92,6 +156,7 @@ var deployResourceCmd = &cobra.Command{
 		var target string
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
+		target, _ = cmd.Flags().GetString("target")
 
 		if target != "local" && target != "aws" && target != "gcp" && target != "azure" {
 			utils.PrintError("Invalid target cluster: use 'local', 'aws', 'gcp', or 'azure'")
@@ -103,6 +168,11 @@ var deployResourceCmd = &cobra.Command{
 
 		var resource *types.Resource
 		resource = utils.GetResourceFromName(name)
+
+		if resource == nil {
+			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			return
+		}
 
 		err := deployUnique(resource, onlyHelmify, onlyDeploy, target)
 		if err == types.ERROR {

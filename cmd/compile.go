@@ -38,7 +38,6 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			utils.PrintError(fmt.Sprintf("Error removing docker image: %v", err))
 			return types.ERROR, ""
 		}
-		commands = []string{}
 
 		if resource.Type == "api" {
 			// api

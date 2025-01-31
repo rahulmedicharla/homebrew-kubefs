@@ -171,6 +171,11 @@ var removeResourceCmd = &cobra.Command{
 			}
 		}
 
+		if resourceType == "" {
+			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			return
+		}
+
 		err := removeUnique(name, onlyLocal, onlyRemote, dockerRepo, resourceType, resourceFramework)
 		if err == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error removing resource %s", name))

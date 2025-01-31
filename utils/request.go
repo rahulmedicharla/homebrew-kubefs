@@ -15,7 +15,6 @@ var client *http.Client
 func GetHttpClient(){
 	client = &http.Client{Timeout: 10 * time.Second}
 }
-
 func PostRequest(url string, headers map[string]string, paylod map[string]interface{}) (int, types.ApiResponse , error){
 	postBody, err := json.Marshal(paylod)
 	var apiResponse types.ApiResponse

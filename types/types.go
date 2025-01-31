@@ -35,10 +35,20 @@ const (
 	SUCCESS = 1
 )
 
+const (
+  APIHELM = "https://www.dropbox.com/scl/fi/wjkg3ku50a0snqw1lbst5/kubefs_helm_api.zip?rlkey=onfprl9zft534c7n6n1puniye&st=0biwajb7&dl=1"
+  FRONTENDHELM = "https://www.dropbox.com/scl/fi/p22jght8sl31i0609ftia/kubefs_helm_frontend.zip?rlkey=6c5tus3vwcr9aglemqsoh52ui&st=h2u1f4g9&dl=1"
+  DBHELM = "https://www.dropbox.com/scl/fi/6ztaevp929v1ypdx9xsdm/kubefs_helm_db.zip?rlkey=lde5mi6pj12v9uu0lgwgfiqah&st=atyt5pt8&dl=1"
+)
+
 var FRAMEWORKS = map[string][]string{
 	"api": {"koa", "fast", "go"},
 	"frontend": {"react", "angular", "vue"},
 	"database": {"cassandra", "mongodb"},
+}
+
+func GetHelmChart() string{
+  
 }
 
 func GetMongoCompose(port int) string {

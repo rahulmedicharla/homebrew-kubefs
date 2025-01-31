@@ -174,12 +174,7 @@ var runResourceCmd = &cobra.Command{
 		}
 
 		var resource *types.Resource
-		for _, r := range utils.ManifestData.Resources {
-			if r.Name == name {
-				resource = &r
-				break
-			}
-		}
+		resource = utils.GetResourceFromName(name)
 
 		if resource == nil {
 			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
