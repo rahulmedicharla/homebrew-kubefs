@@ -69,8 +69,12 @@ func downloadZip(url string, name string) int {
 }
 
 func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) int {
-	if resource.UpDocker == "" {
-		utils.PrintError(fmt.Sprintf("No docker image specified for resource %s. use 'kubefs compile'", resource.Name))
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", resource.DockerRepo))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Docker image %s not found. Run 'kubefs compile' to set docker images", resource.Name))
 		return types.ERROR
 	}
 
@@ -83,7 +87,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 				return types.ERROR
 			}
 
-			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false")
+			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "/health")
 			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
 
 			if fileWriteErr != nil {
@@ -94,9 +98,11 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			if err == types.ERROR {
 				return types.ERROR
 			}
+			env := valuesYaml["env"].([]interface{})
 			for _, r := range utils.ManifestData.Resources {
-				valuesYaml["kubefsHelper"].(map[string]interface{})["env"] = append(valuesYaml["kubefsHelper"].(map[string]interface{})["env"].([]interface{}), map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
+				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
 			}
+			valuesYaml["env"] = env
 
 			err = utils.WriteYaml(&valuesYaml, fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
 			if err == types.ERROR {
@@ -109,7 +115,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 				return types.ERROR
 			}
 
-			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "LoadBalancer", 80, "true")
+			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "LoadBalancer", 80, "true", "/")
 			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
 
 			if fileWriteErr != nil {

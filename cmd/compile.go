@@ -23,20 +23,19 @@ var compileCmd = &cobra.Command{
 	},
 }
 
-func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int, string){
+func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int){
 	
 	var commands []string
-	var up_docker string
 	
 	if !onlyPush {
 		// build docker image
 		utils.PrintWarning(fmt.Sprintf("Building docker image for resource %s", resource.Name))
 
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm Dockerfile; rm .dockerignore; docker rmi %s:latest; rm docker-compose.yaml; touch .dockerignore; echo 'deploy/' >> .dockerignore; echo '')", resource.Name, resource.DockerRepo))
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm Dockerfile; rm .dockerignore; docker rmi %s:latest; touch .dockerignore; echo 'deploy/\nkubefs.env' >> .dockerignore; echo '')", resource.Name, resource.DockerRepo))
 		err := cmd.Run()
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Error removing docker image: %v", err))
-			return types.ERROR, ""
+			return types.ERROR
 		}
 
 		if resource.Type == "api" {
@@ -54,23 +53,22 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			}else{
 				// go
 				commands = append(commands,
+					fmt.Sprintf("(cd %s && source venv/bin/activate && pip freeze > requirements.txt && deactivate)", resource.Name),
 					fmt.Sprintf("(cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\n# Command to run the executable\nCMD [\"./%s\"]' > Dockerfile)", resource.Name, resource.Name, resource.Port, resource.Name),
 				)
 			}
 
 			commands = append(commands,
-				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
-				fmt.Sprintf("(cd %s && echo 'services:\n  traefik:\n    image: traefik:latest\n    command:\n      - \"--api.insecure=true\"\n      - \"--providers.docker=true\"\n      - \"--entrypoints.web.address=:80\"\n    ports:\n      - \"%v:80\"\n    volumes:\n      - \"/var/run/docker.sock:/var/run/docker.sock:ro\"\n    networks:\n      - shared_network\n\n  api:\n    image: %s:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.frontend.rule=PathPrefix(`/`)\"\n      - \"traefik.http.services.frontend.loadbalancer.server.port=%v\"\n    networks:\n      - shared_network\n\n  backend:\n    image: rmedicharla/kubefshelper:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.backend.rule=PathPrefix(`/env`)\"\n      - \"traefik.http.services.backend.loadbalancer.server.port=6000\"\n    networks:\n      - shared_network\n    environment: []\n\nnetworks:\n  shared_network:\n    external: true' > docker-compose.yaml)", resource.Name, resource.Port, resource.DockerRepo, resource.Port), 
 				fmt.Sprintf("(cd %s && echo 'Dockerfile\ndocker-compose.yaml\n' >> .dockerignore )", resource.Name),
+				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
 			)
 
-			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)
 		} else if resource.Type == "frontend" {
 			// frontend
 			if resource.Framework == "react" {
 				// react
 				commands = append(commands,
-					fmt.Sprintf("(cd %s && echo 'FROM node:alpine AS builder\nWORKDIR /app\nCOPY package.json yarn.lock ./\nRUN yarn install --frozen-lockfile --silent\nCOPY . .\nRUN npm run build\n\nFROM nginx:alpine\nCOPY --from=builder /app/build /usr/share/nginx/html\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]' > Dockerfile)", resource.Name),
+					fmt.Sprintf("(cd %s && echo 'FROM node:alpine AS builder\nWORKDIR /app\nCOPY package.json yarn.lock ./\nRUN yarn install --frozen-lockfile --silent\nCOPY . .\nRUN yarn build\n\nFROM nginx:alpine\nCOPY --from=builder /app/build /usr/share/nginx/html\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]' > Dockerfile)", resource.Name),
 				)
 			} else if resource.Framework == "angular" {
 				// angular
@@ -85,15 +83,12 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			}
 
 			commands = append(commands,
-				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
-				fmt.Sprintf("(cd %s && echo 'services:\n  traefik:\n    image: traefik:latest\n    command:\n      - \"--api.insecure=true\"\n      - \"--providers.docker=true\"\n      - \"--entrypoints.web.address=:80\"\n    ports:\n      - \"%v:80\"\n    volumes:\n      - \"/var/run/docker.sock:/var/run/docker.sock:ro\"\n    networks:\n      - shared_network\n\n  frontend:\n    image: %s:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.frontend.rule=PathPrefix(`/`)\"\n      - \"traefik.http.services.frontend.loadbalancer.server.port=80\"\n    networks:\n      - shared_network\n  backend:\n    image: rmedicharla/kubefshelper:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.backend.rule=PathPrefix(`/env`) || PathPrefix(`/api`)\"\n      - \"traefik.http.services.backend.loadbalancer.server.port=6000\"\n    networks:\n      - shared_network\n    environment: []\n\nnetworks:\n  shared_network:\n    external: true' > docker-compose.yaml)", resource.Name, resource.Port, resource.DockerRepo),
 				fmt.Sprintf("(cd %s && echo 'node_modules\n.gitignore\nDockerfile\ndocker-compose.yaml\nREADME.md' >> .dockerignore )", resource.Name),
+				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
 			)
-			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)
 		} else {
-			// database
-			
-			return types.SUCCESS, resource.UpDocker
+			// database nothing to do 
+			return types.SUCCESS
 		}
 
 		for _, command := range commands {
@@ -104,7 +99,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			err := cmd.Run()
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error building docker image: %v", err))
-				return types.ERROR, ""
+				return types.ERROR
 			}
 		}
 
@@ -114,7 +109,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 		// push docker image
 		if resource.DockerRepo == ""{
 			utils.PrintError(fmt.Sprintf("Docker repo not found for resource %s", resource.Name))
-			return types.ERROR, ""
+			return types.ERROR
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Pushing docker image for resource %s to %s:latest", resource.Name, resource.DockerRepo))
@@ -125,11 +120,11 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 		err := cmd.Run()
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Error pushing docker image: %v", err))
-			return types.ERROR, ""
+			return types.ERROR
 		}
 	}
 
-	return types.SUCCESS, up_docker
+	return types.SUCCESS
 }
 
 
@@ -150,15 +145,10 @@ var compileAllCmd = &cobra.Command{
         utils.PrintWarning("Compiling all resources")
 
 		for _, resource := range utils.ManifestData.Resources {
-			err, up_docker := compileUnique(&resource, onlyBuild, onlyPush)
+			err := compileUnique(&resource, onlyBuild, onlyPush)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error compiling resource %s", resource.Name))
-				return
-			}
-
-			err = utils.UpdateResource(&utils.ManifestData, &resource, "UpDocker" ,up_docker)
-			if err == types.ERROR {
-				utils.PrintError(fmt.Sprintf("Error updating resource %s", resource.Name))
+				return 
 			}
 		}
 
@@ -201,15 +191,9 @@ var compileResourceCmd = &cobra.Command{
 			return
 		}
 
-		err, up_docker := compileUnique(resource, onlyBuild, onlyPush)
+		err := compileUnique(resource, onlyBuild, onlyPush)
 		if err == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error compiling resource %s", name))
-			return
-		}
-
-		err = utils.UpdateResource(&utils.ManifestData, resource, "UpDocker" ,up_docker)
-		if err == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error updating resource %s", name))
 			return
 		}
 

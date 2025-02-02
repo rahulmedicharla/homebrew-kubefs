@@ -13,6 +13,7 @@ import (
 	"github.com/zalando/go-keyring"
 	"strings"
 	"os"
+	"bufio"
 )
 
 // createCmd represents the create command
@@ -78,7 +79,8 @@ func createDockerRepo(name string) (int, string) {
 	utils.PrintWarning(fmt.Sprintf("Creating Docker Repository for %s", name))
 	var input string
 	fmt.Print("Enter resource description: ")
-	fmt.Scanln(&input)
+	reader := bufio.NewReader(os.Stdin)
+	input, _ = reader.ReadString('\n')
 	desc := strings.TrimSpace(input)
 
 	url := "https://hub.docker.com/v2/users/login/"
@@ -155,11 +157,11 @@ var createApiCmd = &cobra.Command{
 		if resourceFramework == "fast" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
-				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" && pip freeze > requirements.txt && deactivate && touch main.py", resourceName),
-				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get(\"/\")\nasync def root():\n\treturn {\"message\": \"Hello World\"}' > main.py", resourceName),
+				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" python-dotenv && pip freeze > requirements.txt && deactivate && touch main.py", resourceName),
+				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n#KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES@app.get(\"/health\")\nasync def root():\n\treturn {\"status\": \"ok\"}' > main.py", resourceName),
 			}
 
-			up_local = fmt.Sprintf("(cd %s && source venv/bin/activate && uvicorn main:app --port %v)", resourceName,resourcePort)
+			up_local = fmt.Sprintf("(cd %s && source venv/bin/activate && uvicorn main:app --reload --port %v)", resourceName,resourcePort)
 			framework = "fast"			
 		}else if resourceFramework == "koa" {
 			commands = []string{
@@ -193,7 +195,7 @@ var createApiCmd = &cobra.Command{
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-api-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://host.docker.internal:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -227,7 +229,7 @@ var createFrontendCmd = &cobra.Command{
 				fmt.Sprintf("cd %s && rm -rf .git; echo ''", resourceName),
 			}
 
-			up_local = fmt.Sprintf("cd %s && export PORT=%v && npm start", resourceName, resourcePort)
+			up_local = fmt.Sprintf("cd %s && export PORT=%v && npx -p yarn yarn start", resourceName, resourcePort)
 			framework = "react"			
 		}else if resourceFramework == "angular" {
 			commands = []string{
@@ -299,7 +301,7 @@ var createFrontendCmd = &cobra.Command{
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-frontend-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -332,19 +334,12 @@ var createDbCmd = &cobra.Command{
 		password := strings.TrimSpace(input)
 
 		var commands []string
-		var clusterHost string
-
-		if resourceFramework == "cassandra" {
-			commands = []string{
-				fmt.Sprintf("mkdir %s", resourceName),
-			}
-			clusterHost = fmt.Sprintf("%s-cassandra.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)		
-		}else{
-			commands = []string{
-				fmt.Sprintf("mkdir %s", resourceName),
-			}
-			clusterHost = fmt.Sprintf("%s-redis.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)
+		dockerRepo := fmt.Sprintf("bitnami/%s:latest", resourceFramework)
+		
+		commands = []string{
+			fmt.Sprintf("mkdir %s", resourceName),
 		}
+		clusterHost := fmt.Sprintf("http://%s-%s.%s.svc.cluster.local:%v", resourceName, resourceFramework, resourceName, resourcePort)		
 
 		for _, command := range commands {
 			cmd := exec.Command("sh", "-c", command)
@@ -354,33 +349,8 @@ var createDbCmd = &cobra.Command{
 				return
 			}
 		}
-
-		up_docker := fmt.Sprintf("(cd %s && docker compose up)", resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:resourceFramework, UpLocal: up_docker, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), UpDocker:up_docker, ClusterHost: clusterHost, DbUsername: username, DbPassword: password})
-		
-		file, err := os.Create(fmt.Sprintf("%s/docker-compose.yaml", resourceName))
-		if err != nil {
-			fmt.Println("Error creating file:", err)
-			return
-		}
-		defer file.Close()
-	
-		if resourceFramework == "cassandra" {
-			// cassandra
-			_, err = file.WriteString(types.GetCassandraCompose(resourcePort, username, password))
-			if err != nil {
-				fmt.Println("Error writing to file:", err)
-				return
-			}
-		} else {
-			// redis
-			_, err = file.WriteString(types.GetRedisCompose(resourcePort, password))
-			if err != nil {
-				fmt.Println("Error writing to file:", err)
-				return
-			}
-		}
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:resourceFramework, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: clusterHost, DbUsername: username, DbPassword: password})
 
 		fileErr := utils.WriteManifest(&utils.ManifestData)
 		if fileErr == types.ERROR {

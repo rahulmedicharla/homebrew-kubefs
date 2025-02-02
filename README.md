@@ -24,3 +24,21 @@ connect to redis with redis-cli
 minikube addons 
 ingress
 metrics-server
+
+const response = await fetch("/api", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        "method": "DELETE",
+        "url": apiHOST + "/delete/" + index,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": ""
+      }),
+
+python api update requirements.txt
+
+api's need to load env to get dynamic paths

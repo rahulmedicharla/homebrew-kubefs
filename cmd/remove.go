@@ -28,29 +28,13 @@ var removeCmd = &cobra.Command{
 func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo string, resource_type string, framework string) int {
 	if !onlyRemote {
 		// remove locally
-		commands := []string{
-			fmt.Sprintf("cd %s; docker compose down -v; docker rmi %s:latest; docker network rm shared_network; echo ''", name, docker_repo),
-			fmt.Sprintf("rm -rf %s", name),
-		}
-
-		if resource_type == "frontend"{
-			commands = append(commands, fmt.Sprintf("docker rmi traefik:latest; echo ''"))
-		}else if resource_type == "database"{
-			if framework == "redis" {
-				commands = append(commands, fmt.Sprintf("docker rmi bitnami/redis:latest; echo ''"))
-			}else{
-				commands = append(commands, fmt.Sprintf("docker rmi bitnami/cassandra:latest; echo ''"))
-			}
-		}
-
-		for _, command := range commands {
-			cmd := exec.Command("sh", "-c", command)
-			cmd.Stdout = os.Stdout
-			err := cmd.Run()
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("%sError removing resource: %v", command, err))
-				return types.ERROR
-			}
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", name))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error removing resource: %v", err))
+			return types.ERROR
 		}
 
 		manifestErr := utils.RemoveResource(&utils.ManifestData, name)

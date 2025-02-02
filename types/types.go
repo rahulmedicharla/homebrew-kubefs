@@ -20,7 +20,6 @@ type Resource struct {
 	LocalHost string `yaml:"local_host,omitempty"`
 	DockerHost string `yaml:"docker_host,omitempty"`
 	DockerRepo string `yaml:"docker_repo,omitempty"`
-	UpDocker string `yaml:"up_docker,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
   DbUsername string `yaml:"db_username,omitempty"`
   DbPassword string `yaml:"db_password,omitempty"`
@@ -37,7 +36,7 @@ const (
 )
 
 const (
-  APIHELM = "https://www.dropbox.com/scl/fi/whubjnyg1adtql8mk1x7k/kubefs-helm-api.zip?rlkey=jsj29bn7mn9o30e2atc49cugq&st=37v4al9g&dl=1"
+  APIHELM = "https://www.dropbox.com/scl/fi/ajfh7yugc00y9z84mmwxw/kubefs-helm-api.zip?rlkey=hthd6914sleelssvesjj0i9uc&st=1vgniqlf&dl=1"
   FRONTENDHELM = "https://www.dropbox.com/scl/fi/svzju9j1anh4bbkavjarh/kubefs-helm-frontend.zip?rlkey=yqq9w05ilki3db2jr48dlm54g&st=c2pgcdro&dl=1"
   DBHELM = "https://www.dropbox.com/scl/fi/osr60qcihytmosu3vqqvg/kubefs-helm-db.zip?rlkey=0xgzcbvo54ung88abyg3rdxrq&st=ete907jx&dl=1"
 )
@@ -48,7 +47,7 @@ var FRAMEWORKS = map[string][]string{
 	"database": {"cassandra", "redis"},
 }
 
-func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string) string{
+func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, healthCheck string) string{
   return fmt.Sprintf(`
 replicaCount: 3
 image:
@@ -93,15 +92,16 @@ ingress:
   host: ""
   tls: []
 
+env: []
 resources: {}
 
 livenessProbe:
   httpGet:
-    path: /
+    path: %s
     port: http
 readinessProbe:
   httpGet:
-    path: /
+    path: %s
     port: http
 
 kubefsHelper:
@@ -138,53 +138,5 @@ volumeMounts: []
 nodeSelector: {}
 tolerations: []
 affinity: {}
-`, dockerRepo, name, serviceType, port, ingressEnabled)
-}
-
-func GetRedisCompose(port int, password string) string {
-	return fmt.Sprintf(`
-services:
-  container:
-    image: bitnami/redis:latest
-    ports:
-      - "%v:6379"
-    environment: 
-      - REDIS_PASSWORD=%s
-    volumes:
-      - redis_data:/bitnami/redis/data
-    networks:
-      - shared_network
-
-volumes:
-  redis_data:
-    driver: local
-
-networks:
-  shared_network:
-    external: true
-`, port, password)
-}
-
-func GetCassandraCompose(port int, username string, password string) string {
-	return fmt.Sprintf(`
-services:
-  container:
-    image: bitnami/cassandra:latest
-    ports:
-      - "%v:9042"
-    volumes:
-      - cassandra_data:/bitnami
-    environment:
-      - CASSANDRA_USER=%s
-      - CASSANDRA_PASSWORD=%s
-    networks:
-      - shared_network
-
-volumes:
-  cassandra_data:
-
-networks:
-  shared_network:
-    external: true
-`, port, username, password)
+`, dockerRepo, name, serviceType, port, ingressEnabled, healthCheck, healthCheck)
 }

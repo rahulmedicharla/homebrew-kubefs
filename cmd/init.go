@@ -57,19 +57,7 @@ var initCmd = &cobra.Command{
 			fmt.Printf("Error initializing project: %v\n", err)
 			return
 		}
-
-		err = os.Mkdir(projectName + "/.kubefshelper", 0755)
-		if err != nil {
-			fmt.Printf("Error initializing project: %v\n", err)
-			return
-		}
-
-		err = os.WriteFile(projectName + "/.kubefshelper/kubefsHelper", utils.KubefsHelper, 0755)
-		if err != nil {
-			fmt.Printf("Error initializing project: %v\n", err)
-			return
-		}
-
+		
 		fmt.Println("Project initialized successfully")
 	},
 }
