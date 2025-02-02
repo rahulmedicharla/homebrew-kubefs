@@ -152,7 +152,6 @@ var createApiCmd = &cobra.Command{
 
 		var commands []string
 		var up_local string
-		var framework string
 
 		if resourceFramework == "fast" {
 			commands = []string{
@@ -162,7 +161,6 @@ var createApiCmd = &cobra.Command{
 			}
 
 			up_local = fmt.Sprintf("(cd %s && source venv/bin/activate && uvicorn main:app --reload --port %v)", resourceName,resourcePort)
-			framework = "fast"			
 		}else if resourceFramework == "koa" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
@@ -171,7 +169,6 @@ var createApiCmd = &cobra.Command{
 			}
 
 			up_local = fmt.Sprintf("cd %s && npx nodemon index.js", resourceName)
-			framework = "koa"
 		}else{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
@@ -180,7 +177,6 @@ var createApiCmd = &cobra.Command{
 			}
 
 			up_local = fmt.Sprintf("cd %s && go run main.go", resourceName)
-			framework = "go"
 		}
 
 		for _, command := range commands {
@@ -195,7 +191,7 @@ var createApiCmd = &cobra.Command{
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://host.docker.internal:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:resourceFramework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://host.docker.internal:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -207,8 +203,8 @@ var createApiCmd = &cobra.Command{
 
 var createFrontendCmd = &cobra.Command{
 	Use:   "frontend [name]",
-	Short: "kubefs create frontend - create a new Frontend resource",
-	Long: `kubefs create frontend - create a new Frontend resource`,
+	Short: "kubefs create frontend - create a new frontend resource",
+	Long: `kubefs create frontend - create a new frontend resource`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -220,36 +216,33 @@ var createFrontendCmd = &cobra.Command{
 		}
 
 		var commands []string
-		var up_local string
-		var framework string
+		var start_command string
 
-		if resourceFramework == "react" {
+		if resourceFramework == "next" {
 			commands = []string{
-				fmt.Sprintf("npx -p yarn yarn create react-app %s --no-git --template typescript --silent", resourceName),
-				fmt.Sprintf("cd %s && rm -rf .git; echo ''", resourceName),
+				fmt.Sprintf("npx create-next-app@latest %s --src-dir --yes", resourceName),
+				fmt.Sprintf("cd %s && rm -rf .git", resourceName),
 			}
 
-			up_local = fmt.Sprintf("cd %s && export PORT=%v && npx -p yarn yarn start", resourceName, resourcePort)
-			framework = "react"			
-		}else if resourceFramework == "angular" {
+			start_command = fmt.Sprintf("next dev --turbopack --port %v", resourcePort)
+		}else if resourceFramework == "remix" {
 			commands = []string{
-				fmt.Sprintf("npx -p @angular/cli ng new %s --defaults --skip-git", resourceName),
+				fmt.Sprintf("npx create-remix@latest %s --no-git-init --yes", resourceName),
 			}
 
-			up_local = fmt.Sprintf("cd %s && npx -p @angular/cli ng serve --port %v", resourceName, resourcePort)
-			framework = "angular"
+			start_command = fmt.Sprintf("remix vite:dev --port %v", resourcePort)
 		}else{
 			commands = []string{
-				fmt.Sprintf("npm create vue@latest %s -- --typescript", resourceName),
-				fmt.Sprintf("cd %s && npm install && rm vite.config.ts", resourceName),
+				fmt.Sprintf("npx sv create --template minimal --types ts --no-add-ons --no-install %s", resourceName),
+				fmt.Sprintf("cd %s && npm i", resourceName),
 			}
-
-			up_local = fmt.Sprintf("cd %s && npm run dev -- --port %v", resourceName, resourcePort)
-			framework = "vue"
+			start_command = fmt.Sprintf("vite dev --port %v", resourcePort)
 		}
 
 		for _, command := range commands {
 			cmd := exec.Command("sh", "-c", command)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 			err := cmd.Run()
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Unexpected Error %v", err))
@@ -257,53 +250,26 @@ var createFrontendCmd = &cobra.Command{
 			}
 		}
 
-		if resourceFramework == "react"{
-			err, packageJson := utils.ReadJson(fmt.Sprintf("%s/package.json", resourceName))
-			if err == types.ERROR {
-				utils.PrintError("Error reading package.json")
-				return
-			}
-			packageJson["proxy"] = fmt.Sprintf("http://localhost:6000")
-			err = utils.WriteJson(packageJson, fmt.Sprintf("%s/package.json", resourceName))
-			if err == types.ERROR {
-				utils.PrintError("Error writing package.json")
-				return
-			}
-		}else if resourceFramework == "angular" {
-			writeErr := os.WriteFile(fmt.Sprintf("%s/proxy.conf.json", resourceName), []byte("{\n    \"/env\": {\n      \"target\": \"http://localhost:6000\",\n      \"secure\": false\n    }\n  }"), 0644)
-			if writeErr != nil {
-				utils.PrintError(fmt.Sprintf("Error writing proxy.conf.json: %v", writeErr))
-				return
-			}
-			err, angularJson := utils.ReadJson(fmt.Sprintf("%s/angular.json", resourceName))
-			if err == types.ERROR {
-				utils.PrintError("Error reading angular.json")
-				return
-			}
-			proxyInfo := map[string]interface{}{
-				"proxyConfig": "proxy.conf.json",
-			}
+		err, packageJson := utils.ReadJson(fmt.Sprintf("%s/package.json", resourceName))
+		if err == types.ERROR {
+			utils.PrintError("Error reading package.json")
+			return
+		}
 
-			angularJson["projects"].(map[string]interface{})[fmt.Sprintf("%s", resourceName)].(map[string]interface{})["architect"].(map[string]interface{})["serve"].(map[string]interface{})["options"] = proxyInfo
-			err = utils.WriteJson(angularJson, fmt.Sprintf("%s/angular.json", resourceName))
-			if err == types.ERROR {
-				utils.PrintError("Error writing angular.json")
-				return
-			}
-		}else{
-			writeErr := os.WriteFile(fmt.Sprintf("%s/vite.config.ts", resourceName), []byte("import { fileURLToPath, URL } from 'node:url'\n\nimport { defineConfig } from 'vite'\nimport vue from '@vitejs/plugin-vue'\n\n// https://vitejs.dev/config/\nexport default defineConfig({\n  plugins: [\n    vue(),\n  ],\n  server: {\n    proxy: {\n      \"/env\": {\n        target: \"http://localhost:6000\",\n        changeOrigin: true,\n        rewrite: (path) => path.replace(/^\\/env/, '/env'),\n      }\n    }\n  },\n  resolve: {\n    alias: {\n      '@': fileURLToPath(new URL('./src', import.meta.url))\n    }\n  }\n})"), 0644)
-			if writeErr != nil {
-				utils.PrintError(fmt.Sprintf("Error writing vite.config.ts: %v", writeErr))
-				return
-			}
+		packageJson["scripts"].(map[string]interface{})["dev"] = start_command
+
+		err = utils.WriteJson(packageJson, fmt.Sprintf("%s/package.json", resourceName))
+		if err == types.ERROR {
+			utils.PrintError("Error writing package.json")
+			return
 		}
 
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:resourceFramework, UpLocal: "npm run dev", LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
-		err := utils.WriteManifest(&utils.ManifestData)
+		err = utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
 			return
 		}
@@ -366,7 +332,7 @@ func init() {
 	createCmd.AddCommand(createFrontendCmd)
 	createCmd.AddCommand(createDbCmd)
 	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | koa | go]")
-	createFrontendCmd.Flags().StringP("framework", "f", "react", "Framework to use for Frontend [react | vue | angular]")
+	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis]")
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
