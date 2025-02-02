@@ -39,8 +39,8 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) int {
 	name := args[0]
 	resourceName = name
 	port, err := cmd.Flags().GetInt("port")
-	if err != nil || port == 6000 {
-		utils.PrintError(fmt.Sprintf(" Invalid port. Port 6000 reserved for kubefs: %v", err))
+	if err != nil || port == 6000 || port == 8000 {
+		utils.PrintError(fmt.Sprintf(" Invalid port. Port 6000 & 8000 reserved for kubefs: %v", err))
 		return types.ERROR
 	}
 	resourcePort = port
@@ -193,7 +193,7 @@ var createApiCmd = &cobra.Command{
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-api-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-api-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -283,12 +283,6 @@ var createFrontendCmd = &cobra.Command{
 			}
 
 			angularJson["projects"].(map[string]interface{})[fmt.Sprintf("%s", resourceName)].(map[string]interface{})["architect"].(map[string]interface{})["serve"].(map[string]interface{})["options"] = proxyInfo
-			// projects := angularJson["projects"].(map[string]interface{})
-			// project := projects[resourceName].(map[string]interface{})
-			// architect := project["architect"].(map[string]interface{})
-			// serve := architect["serve"].(map[string]interface{})
-			// options := serve["options"].(map[string]interface{})
-			// options["proxyConfig"] = fmt.Sprintf("proxy.conf.json")
 			err = utils.WriteJson(angularJson, fmt.Sprintf("%s/angular.json", resourceName))
 			if err == types.ERROR {
 				utils.PrintError("Error writing angular.json")
@@ -305,7 +299,7 @@ var createFrontendCmd = &cobra.Command{
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-frontend-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-frontend-1:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -329,20 +323,31 @@ var createDbCmd = &cobra.Command{
 			return
 		}
 
+		var input string
+		fmt.Print("Enter the username for the database: ")	
+		fmt.Scanln(&input)
+		username := strings.TrimSpace(input)
+		fmt.Print("Enter the password for the database: ")
+		fmt.Scanln(&input)
+		password := strings.TrimSpace(input)
+
 		var commands []string
 		var up_local string
 		var framework string
+		var clusterHost string
 
 		if resourceFramework == "cassandra" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 			}
-			framework = "cassandra"		
+			framework = "cassandra"
+			clusterHost = fmt.Sprintf("%s-cassandra.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)		
 		}else{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 			}
-			framework = "mongodb"
+			framework = "redis"
+			clusterHost = fmt.Sprintf("%s-redis.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)
 		}
 
 		for _, command := range commands {
@@ -354,7 +359,7 @@ var createDbCmd = &cobra.Command{
 			}
 		}
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: fmt.Sprintf("%s-deployment.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: clusterHost, DbUsername: username, DbPassword: password})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -371,7 +376,7 @@ func init() {
 	createCmd.AddCommand(createDbCmd)
 	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | koa | go]")
 	createFrontendCmd.Flags().StringP("framework", "f", "react", "Framework to use for Frontend [react | vue | angular]")
-	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | mongodb]")
+	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis]")
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
 }

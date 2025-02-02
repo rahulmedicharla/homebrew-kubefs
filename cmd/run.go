@@ -139,6 +139,10 @@ var runAllCmd = &cobra.Command{
 		}
 
         for _, resource := range utils.ManifestData.Resources {
+			if platform == "local" && resource.Type == "database" {
+				utils.PrintError("Docker platform not supported for database resources")
+				break
+			}
 			wg.Add(1)
 			go runUnique(ctx, &utils.ManifestData, &resource, platform, &wg)
         }
@@ -178,6 +182,11 @@ var runResourceCmd = &cobra.Command{
 
 		if resource == nil {
 			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			return
+		}
+
+		if platform == "local" && resource.Type == "database" {
+			utils.PrintError("Docker platform not supported for database resources")
 			return
 		}
 

@@ -22,7 +22,8 @@ type Resource struct {
 	DockerRepo string `yaml:"docker_repo,omitempty"`
 	UpDocker string `yaml:"up_docker,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
-
+  DbUsername string `yaml:"db_username,omitempty"`
+  DbPassword string `yaml:"db_password,omitempty"`
 }
 
 type ApiResponse struct {
@@ -36,84 +37,146 @@ const (
 )
 
 const (
-  APIHELM = "https://www.dropbox.com/scl/fi/wjkg3ku50a0snqw1lbst5/kubefs_helm_api.zip?rlkey=onfprl9zft534c7n6n1puniye&st=0biwajb7&dl=1"
-  FRONTENDHELM = "https://www.dropbox.com/scl/fi/p22jght8sl31i0609ftia/kubefs_helm_frontend.zip?rlkey=6c5tus3vwcr9aglemqsoh52ui&st=h2u1f4g9&dl=1"
-  DBHELM = "https://www.dropbox.com/scl/fi/6ztaevp929v1ypdx9xsdm/kubefs_helm_db.zip?rlkey=lde5mi6pj12v9uu0lgwgfiqah&st=atyt5pt8&dl=1"
+  APIHELM = "https://www.dropbox.com/scl/fi/whubjnyg1adtql8mk1x7k/kubefs-helm-api.zip?rlkey=jsj29bn7mn9o30e2atc49cugq&st=37v4al9g&dl=1"
+  FRONTENDHELM = "https://www.dropbox.com/scl/fi/svzju9j1anh4bbkavjarh/kubefs-helm-frontend.zip?rlkey=yqq9w05ilki3db2jr48dlm54g&st=c2pgcdro&dl=1"
+  DBHELM = "https://www.dropbox.com/scl/fi/osr60qcihytmosu3vqqvg/kubefs-helm-db.zip?rlkey=0xgzcbvo54ung88abyg3rdxrq&st=ete907jx&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{
 	"api": {"koa", "fast", "go"},
 	"frontend": {"react", "angular", "vue"},
-	"database": {"cassandra", "mongodb"},
+	"database": {"cassandra", "redis"},
 }
 
-func GetHelmChart() string{
-  
+func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string) string{
+  return fmt.Sprintf(`
+replicaCount: 3
+image:
+  #CHANGE LINE BELOW
+  repository: %s
+  pullPolicy: Always
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+#CHANGE LINE BELOW
+namespace: %s
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  #CHANGE BOTH LINES BELOW
+  type: %s
+  port: %v
+
+ingress:
+  #CHANGE LINE BELOW
+  enabled: %s
+  className: nginx
+  annotations: 
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  #CHANGE LINE BELOW, ADD HOST PATH FOR FRONTEND INGRESS
+  host: ""
+  tls: []
+
+resources: {}
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+kubefsHelper:
+  volumeMounts:
+    - name: traefik-config
+      mountPath: /config
+  volumes:
+    - name: traefik-config
+      configMap:
+        name: traefik-config
+  port: 6000
+  env: []
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    httpGet:
+      path: /health
+      port: 6000
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    httpGet:
+      path: /health
+      port: 6000
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+volumes: []
+volumeMounts: []
+nodeSelector: {}
+tolerations: []
+affinity: {}
+`, dockerRepo, name, serviceType, port, ingressEnabled)
 }
 
-func GetMongoCompose(port int) string {
+func GetRedisCompose(port int, password string) string {
 	return fmt.Sprintf(`
 services:
   container:
-    image: mongo:latest
+    image: bitnami/redis:latest
     ports:
-      - "%v:27017"
-    environment: []
+      - "%v:6379"
+    environment: 
+      - REDIS_PASSWORD=%s
     volumes:
-      - mongo_data:/data/db
-    networks:
-      - shared_network
-
-  setup:
-    image: mongo:latest
-    command: |
-      bash -c '
-      until mongosh --host container --port 27017 --eval "db.runCommand({ ping: 1 })"; do
-        echo "Waiting for MongoDB to be ready...";
-        sleep 5;
-      done;
-      mongosh --host container --port 27017 --eval "db.getSiblingDB(\"default\").createCollection(\"default\")"
-      '
-    depends_on:
-      - container
-    restart: "no"
+      - redis_data:/bitnami/redis/data
     networks:
       - shared_network
 
 volumes:
-  mongo_data:
+  redis_data:
+    driver: local
 
 networks:
   shared_network:
     external: true
-`, port)
+`, port, password)
 }
 
-func GetCassandraCompose(port int) string {
+func GetCassandraCompose(port int, username string, password string) string {
 	return fmt.Sprintf(`
 services:
   container:
-    image: cassandra:latest
+    image: bitnami/cassandra:latest
     ports:
       - "%v:9042"
-    environment:
-      - CASSANDRA_CLUSTER_NAME=cluster
     volumes:
-      - cassandra_data:/var/lib/cassandra
-    networks:
-      - shared_network
-  setup:
-    image: cassandra:latest
-    command: |
-      bash -c "
-      until cqlsh container 9042 -e 'describe keyspaces'; do
-        echo 'Waiting for cassandra to be ready...';
-        sleep 5;
-      done;
-      cqlsh container 9042 -e \"CREATE KEYSPACE default WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}\""
-    depends_on:
-      - container
-    restart: "no"
+      - cassandra_data:/bitnami
+    environment:
+      - CASSANDRA_USER=%s
+      - CASSANDRA_PASSWORD=%s
     networks:
       - shared_network
 
@@ -123,5 +186,5 @@ volumes:
 networks:
   shared_network:
     external: true
-`, port)
+`, port, username, password)
 }

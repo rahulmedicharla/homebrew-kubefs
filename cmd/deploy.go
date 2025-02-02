@@ -25,13 +25,13 @@ var deployCmd = &cobra.Command{
 	},
 }
 
-func downloadZip(url string, name string, file string) int {
+func downloadZip(url string, name string) int {
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s && rm -rf deploy)", name))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmdErr := cmd.Run()
 	if cmdErr != nil {
-		utils.PrintError(fmt.Sprintf("Error unzipping helm chart: %v", cmdErr))
+		utils.PrintError(fmt.Sprintf("Error removing old helm charts: %v", cmdErr))
 		return types.ERROR
 	}
 
@@ -56,7 +56,7 @@ func downloadZip(url string, name string, file string) int {
 		return types.ERROR
 	}
 
-	cmd = exec.Command("sh", "-c", fmt.Sprintf("(cd %s && unzip helm.zip && mv %s deploy && rm -rf helm.zip __MACOSX && echo '')", name, file))
+	cmd = exec.Command("sh", "-c", fmt.Sprintf("(cd %s && unzip helm.zip -d deploy && rm -rf helm.zip deploy/__MACOSX && echo '')", name))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmdErr = cmd.Run()
@@ -78,25 +78,99 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 		// helmify
 
 		if resource.Type == "api"{
-			err := downloadZip(types.APIHELM, resource.Name, "api")
+			err := downloadZip(types.APIHELM, resource.Name)
 			if err == types.ERROR {
 				return types.ERROR
 			}
+
+			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false")
+			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
+
+			if fileWriteErr != nil {
+				return types.ERROR
+			}
+
+			err, valuesYaml := utils.ReadYaml(fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
+			if err == types.ERROR {
+				return types.ERROR
+			}
+			for _, r := range utils.ManifestData.Resources {
+				valuesYaml["kubefsHelper"].(map[string]interface{})["env"] = append(valuesYaml["kubefsHelper"].(map[string]interface{})["env"].([]interface{}), map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
+			}
+
+			err = utils.WriteYaml(&valuesYaml, fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
+			if err == types.ERROR {
+				return types.ERROR
+			}
+
 		}else if resource.Type == "frontend"{
-			err := downloadZip(types.FRONTENDHELM, resource.Name, "frontend")
+			err := downloadZip(types.FRONTENDHELM, resource.Name)
+			if err == types.ERROR {
+				return types.ERROR
+			}
+
+			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "LoadBalancer", 80, "true")
+			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
+
+			if fileWriteErr != nil {
+				return types.ERROR
+			}
+
+			err, valuesYaml := utils.ReadYaml(fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
+			if err == types.ERROR {
+				return types.ERROR
+			}
+			for _, r := range utils.ManifestData.Resources {
+				valuesYaml["kubefsHelper"].(map[string]interface{})["env"] = append(valuesYaml["kubefsHelper"].(map[string]interface{})["env"].([]interface{}), map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
+			}
+
+			err = utils.WriteYaml(&valuesYaml, fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
 			if err == types.ERROR {
 				return types.ERROR
 			}
 		}else{
-			err := downloadZip(types.DBHELM, resource.Name, "db")
-			if err == types.ERROR {
+			var cmd *exec.Cmd
+
+			if resource.Framework == "cassandra"{
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("helm pull oci://registry-1.docker.io/bitnamicharts/cassandra --untar && mv cassandra %s/deploy", resource.Name))
+			}else{
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis %s/deploy", resource.Name))
+			}
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error pulling helm chart: %v", cmdErr))
 				return types.ERROR
 			}
+
 		}
 	}
 
 	if !onlyHelmify {
 		// deploy
+		if target == "local" {
+			var cmd *exec.Cmd
+
+			if resource.Type == "database"{
+				if resource.Framework == "cassandra"{
+					cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set service.ports.cql=%v --set persistence.size=1Gi --namespace %s", resource.Name, resource.Name, resource.Name, resource.Port, resource.Name))
+				}else{
+					cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set service.ports.redis=%v --set persistence.size=1Gi --namespace %s", resource.Name, resource.Name, resource.Name, resource.Port, resource.Name))
+				}
+			}else{
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
+			}
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error deploying resource %s: %v", resource.Name, cmdErr))
+				return types.ERROR
+			}
+		}
 	}
 
 	return types.SUCCESS

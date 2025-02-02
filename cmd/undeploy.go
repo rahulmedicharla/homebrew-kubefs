@@ -9,7 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
-
+	"os/exec"
+	"os"
 )
 
 // undeployCmd represents the undeploy command
@@ -22,8 +23,23 @@ var undeployCmd = &cobra.Command{
 	},
 }
 
-func undeployUnique(name string, closeCluster bool, target string) int {
-	// do something
+func undeployUnique(resource *types.Resource, closeCluster bool, target string) int {
+	
+	if target == "local" {
+		var cmd *exec.Cmd
+		if resource.Type == "database"{
+			cmd = exec.Command("sh", "-c", fmt.Sprintf("helm uninstall %s --namespace %s; kubectl delete namespace %s", resource.Name, resource.Name, resource.Name))
+		}else{
+			cmd = exec.Command("sh", "-c", fmt.Sprintf("helm uninstall %s", resource.Name))
+		}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmdErr := cmd.Run()
+		if cmdErr != nil {
+			utils.PrintError(fmt.Sprintf("Error undeploying resource %s: %v", resource.Name, cmdErr))
+			return types.ERROR
+		}
+	}
 
 	return types.SUCCESS
 
@@ -52,7 +68,7 @@ var undeployAllCmd = &cobra.Command{
         utils.PrintWarning("Undeploying all resources")
 
         for _, resource := range utils.ManifestData.Resources {
-			err := undeployUnique(resource.Name, closeCluster, target)
+			err := undeployUnique(&resource, closeCluster, target)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", resource.Name))
 			}
@@ -90,7 +106,20 @@ var undeployResourceCmd = &cobra.Command{
         name := args[0]
         utils.PrintWarning(fmt.Sprintf("Undeploying resource %s", name))
 
-		err := undeployUnique(name, closeCluster, target)
+		var resource *types.Resource
+		for _, res := range utils.ManifestData.Resources {
+			if res.Name == name {
+				resource = &res
+				break
+			}
+		}
+
+		if resource == nil {
+			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			return
+		}
+
+		err := undeployUnique(resource, closeCluster, target)
 		if err == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error undeploying resource %s", name))
 			return

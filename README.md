@@ -18,3 +18,9 @@ localhost:6000/health GET
 localhost:6000/env/{key} GET
 localhost:6000/api POST
 
+connect to cassandra by exec into it and cqlsh -u cassandra -p cassandra
+connect to redis with redis-cli
+
+minikube addons 
+ingress
+metrics-server

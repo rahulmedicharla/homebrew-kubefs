@@ -32,7 +32,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 		// build docker image
 		utils.PrintWarning(fmt.Sprintf("Building docker image for resource %s", resource.Name))
 
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm Dockerfile; rm .dockerignore; docker rmi %s:latest; rm docker-compose.yaml; echo '')", resource.Name, resource.DockerRepo))
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm Dockerfile; rm .dockerignore; docker rmi %s:latest; rm docker-compose.yaml; touch .dockerignore; echo 'deploy/' >> .dockerignore; echo '')", resource.Name, resource.DockerRepo))
 		err := cmd.Run()
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Error removing docker image: %v", err))
@@ -61,6 +61,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			commands = append(commands,
 				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
 				fmt.Sprintf("(cd %s && echo 'services:\n  traefik:\n    image: traefik:latest\n    command:\n      - \"--api.insecure=true\"\n      - \"--providers.docker=true\"\n      - \"--entrypoints.web.address=:80\"\n    ports:\n      - \"%v:80\"\n    volumes:\n      - \"/var/run/docker.sock:/var/run/docker.sock:ro\"\n    networks:\n      - shared_network\n\n  api:\n    image: %s:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.frontend.rule=PathPrefix(`/`)\"\n      - \"traefik.http.services.frontend.loadbalancer.server.port=%v\"\n    networks:\n      - shared_network\n\n  backend:\n    image: rmedicharla/kubefshelper:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.backend.rule=PathPrefix(`/env`)\"\n      - \"traefik.http.services.backend.loadbalancer.server.port=6000\"\n    networks:\n      - shared_network\n    environment: []\n\nnetworks:\n  shared_network:\n    external: true' > docker-compose.yaml)", resource.Name, resource.Port, resource.DockerRepo, resource.Port), 
+				fmt.Sprintf("(cd %s && echo 'Dockerfile\ndocker-compose.yaml\n' >> .dockerignore )", resource.Name),
 			)
 
 			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)
@@ -86,6 +87,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			commands = append(commands,
 				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
 				fmt.Sprintf("(cd %s && echo 'services:\n  traefik:\n    image: traefik:latest\n    command:\n      - \"--api.insecure=true\"\n      - \"--providers.docker=true\"\n      - \"--entrypoints.web.address=:80\"\n    ports:\n      - \"%v:80\"\n    volumes:\n      - \"/var/run/docker.sock:/var/run/docker.sock:ro\"\n    networks:\n      - shared_network\n\n  frontend:\n    image: %s:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.frontend.rule=PathPrefix(`/`)\"\n      - \"traefik.http.services.frontend.loadbalancer.server.port=80\"\n    networks:\n      - shared_network\n  backend:\n    image: rmedicharla/kubefshelper:latest\n    labels:\n      - \"traefik.enable=true\"\n      - \"traefik.http.routers.backend.rule=PathPrefix(`/env`) || PathPrefix(`/api`)\"\n      - \"traefik.http.services.backend.loadbalancer.server.port=6000\"\n    networks:\n      - shared_network\n    environment: []\n\nnetworks:\n  shared_network:\n    external: true' > docker-compose.yaml)", resource.Name, resource.Port, resource.DockerRepo),
+				fmt.Sprintf("(cd %s && echo 'node_modules\n.gitignore\nDockerfile\ndocker-compose.yaml\nREADME.md' >> .dockerignore )", resource.Name),
 			)
 			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)
 		} else {
@@ -100,14 +102,14 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 		
 			if resource.Framework == "cassandra" {
 				// cassandra
-				_, err = file.WriteString(types.GetCassandraCompose(resource.Port))
+				_, err = file.WriteString(types.GetCassandraCompose(resource.Port, resource.DbUsername, resource.DbPassword))
 				if err != nil {
 					fmt.Println("Error writing to file:", err)
 					return types.ERROR, ""
 				}
 			} else {
-				// mongodb
-				_, err = file.WriteString(types.GetMongoCompose(resource.Port))
+				// redis
+				_, err = file.WriteString(types.GetRedisCompose(resource.Port, resource.DbPassword))
 				if err != nil {
 					fmt.Println("Error writing to file:", err)
 					return types.ERROR, ""

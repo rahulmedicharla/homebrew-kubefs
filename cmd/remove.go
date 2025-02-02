@@ -36,12 +36,11 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 		if resource_type == "frontend"{
 			commands = append(commands, fmt.Sprintf("docker rmi traefik:latest; echo ''"))
 		}else if resource_type == "database"{
-			if framework == "mongodb" {
-				commands = append(commands, fmt.Sprintf("docker rmi mongo:latest; echo ''"))
+			if framework == "redis" {
+				commands = append(commands, fmt.Sprintf("docker rmi bitnami/redis:latest; echo ''"))
 			}else{
-				commands = append(commands, fmt.Sprintf("docker rmi cassandra:latest; echo ''"))
+				commands = append(commands, fmt.Sprintf("docker rmi bitnami/cassandra:latest; echo ''"))
 			}
-			commands = append(commands, fmt.Sprintf("docker volume prune; docker network prune; echo ''", name) )
 		}
 
 		for _, command := range commands {
@@ -49,7 +48,7 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 			cmd.Stdout = os.Stdout
 			err := cmd.Run()
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error removing resource: %v", err))
+				utils.PrintError(fmt.Sprintf("%sError removing resource: %v", command, err))
 				return types.ERROR
 			}
 		}
