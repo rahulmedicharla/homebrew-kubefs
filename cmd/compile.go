@@ -92,33 +92,8 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)
 		} else {
 			// database
-
-			file, err := os.Create(fmt.Sprintf("%s/docker-compose.yaml", resource.Name))
-			if err != nil {
-				fmt.Println("Error creating file:", err)
-				return types.ERROR, ""
-			}
-			defer file.Close()
-		
-			if resource.Framework == "cassandra" {
-				// cassandra
-				_, err = file.WriteString(types.GetCassandraCompose(resource.Port, resource.DbUsername, resource.DbPassword))
-				if err != nil {
-					fmt.Println("Error writing to file:", err)
-					return types.ERROR, ""
-				}
-			} else {
-				// redis
-				_, err = file.WriteString(types.GetRedisCompose(resource.Port, resource.DbPassword))
-				if err != nil {
-					fmt.Println("Error writing to file:", err)
-					return types.ERROR, ""
-				}
-			}
-
-			up_docker = fmt.Sprintf("(cd %s && docker compose up)", resource.Name)
-
-			return types.SUCCESS, up_docker
+			
+			return types.SUCCESS, resource.UpDocker
 		}
 
 		for _, command := range commands {

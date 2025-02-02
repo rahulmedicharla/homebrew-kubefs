@@ -159,7 +159,7 @@ var createApiCmd = &cobra.Command{
 				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n@app.get(\"/\")\nasync def root():\n\treturn {\"message\": \"Hello World\"}' > main.py", resourceName),
 			}
 
-			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --port %v", resourcePort)
+			up_local = fmt.Sprintf("(cd %s && source venv/bin/activate && uvicorn main:app --port %v)", resourceName,resourcePort)
 			framework = "fast"			
 		}else if resourceFramework == "koa" {
 			commands = []string{
@@ -332,21 +332,17 @@ var createDbCmd = &cobra.Command{
 		password := strings.TrimSpace(input)
 
 		var commands []string
-		var up_local string
-		var framework string
 		var clusterHost string
 
 		if resourceFramework == "cassandra" {
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 			}
-			framework = "cassandra"
 			clusterHost = fmt.Sprintf("%s-cassandra.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)		
 		}else{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 			}
-			framework = "redis"
 			clusterHost = fmt.Sprintf("%s-redis.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)
 		}
 
@@ -358,11 +354,36 @@ var createDbCmd = &cobra.Command{
 				return
 			}
 		}
+
+		up_docker := fmt.Sprintf("(cd %s && docker compose up)", resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:framework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), ClusterHost: clusterHost, DbUsername: username, DbPassword: password})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:resourceFramework, UpLocal: up_docker, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("%s-container-1:%v", resourceName, resourcePort), UpDocker:up_docker, ClusterHost: clusterHost, DbUsername: username, DbPassword: password})
 		
-		err := utils.WriteManifest(&utils.ManifestData)
-		if err == types.ERROR {
+		file, err := os.Create(fmt.Sprintf("%s/docker-compose.yaml", resourceName))
+		if err != nil {
+			fmt.Println("Error creating file:", err)
+			return
+		}
+		defer file.Close()
+	
+		if resourceFramework == "cassandra" {
+			// cassandra
+			_, err = file.WriteString(types.GetCassandraCompose(resourcePort, username, password))
+			if err != nil {
+				fmt.Println("Error writing to file:", err)
+				return
+			}
+		} else {
+			// redis
+			_, err = file.WriteString(types.GetRedisCompose(resourcePort, password))
+			if err != nil {
+				fmt.Println("Error writing to file:", err)
+				return
+			}
+		}
+
+		fileErr := utils.WriteManifest(&utils.ManifestData)
+		if fileErr == types.ERROR {
 			return
 		}
 		utils.PrintSuccess(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))

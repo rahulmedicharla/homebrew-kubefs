@@ -24,14 +24,14 @@ var initCmd = &cobra.Command{
 			return
 		}
 
-		if len(args) < 2 {
-			utils.PrintError("Please provide a name and description for the project")
+		if len(args) < 1 {
+			utils.PrintError("Please provide a name & description for the project")
 			cmd.Help()
 			return
 		}
 
 		projectName := args[0]
-		description := args[1]
+		description, _ := cmd.Flags().GetString("description")
 
 		err := os.Mkdir(projectName, 0755)
 		if err != nil {
@@ -76,4 +76,6 @@ var initCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	initCmd.Flags().StringP("description", "d", "", "Description of the project")
+	initCmd.MarkFlagRequired("description")
 }

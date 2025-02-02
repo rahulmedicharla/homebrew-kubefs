@@ -52,6 +52,16 @@ func runUnique(ctx context.Context, project *types.Project, resource *types.Reso
 	defer wg.Done()
 
 	if platform == "local" {
+		if resource.Type == "database"{
+			cmd := exec.CommandContext(ctx, "sh", "-c", "docker network inspect shared_network")
+			cmd.Run()
+			if cmd.ProcessState.ExitCode() != 0 {
+				utils.PrintWarning("Creating shared network for docker resources")
+				cmd = exec.CommandContext(ctx, "sh", "-c", "docker network create shared_network")
+				cmd.Run()
+			}
+		}
+
 		cmd := exec.CommandContext(ctx, "sh", "-c", resource.UpLocal)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -139,10 +149,6 @@ var runAllCmd = &cobra.Command{
 		}
 
         for _, resource := range utils.ManifestData.Resources {
-			if platform == "local" && resource.Type == "database" {
-				utils.PrintError("Docker platform not supported for database resources")
-				break
-			}
 			wg.Add(1)
 			go runUnique(ctx, &utils.ManifestData, &resource, platform, &wg)
         }
@@ -182,11 +188,6 @@ var runResourceCmd = &cobra.Command{
 
 		if resource == nil {
 			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-			return
-		}
-
-		if platform == "local" && resource.Type == "database" {
-			utils.PrintError("Docker platform not supported for database resources")
 			return
 		}
 
