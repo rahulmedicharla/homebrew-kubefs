@@ -42,7 +42,7 @@ const (
 )
 
 var FRAMEWORKS = map[string][]string{
-	"api": {"koa", "fast", "go"},
+	"api": {"nest", "fast", "go"},
 	"frontend": {"next", "sveltekit", "remix"},
 	"database": {"cassandra", "redis"},
 }

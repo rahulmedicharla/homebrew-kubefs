@@ -41,29 +41,15 @@ var runCmd = &cobra.Command{
 			return
 		}
 
-		if resource.Type == "frontend"{
+		if resource.Type == "database"{
+			utils.PrintError(fmt.Sprintf("Cannot run database resource %s", name))
+			return
+		}else {
 			uplocalCmd = fmt.Sprintf("cd %s && ", resource.Name)
 			for _, resource := range utils.ManifestData.Resources {
 				uplocalCmd += fmt.Sprintf("%sHOST=%s ", resource.Name, resource.LocalHost)
 			}
 			uplocalCmd += resource.UpLocal
-
-		} else if resource.Type == "api" {
-			// cmdString := fmt.Sprintf("cd %s && rm kubefs.env; touch kubefs.env", resource.Name)
-			// for _, resource := range utils.ManifestData.Resources {
-			// 	cmdString += fmt.Sprintf(" && echo %sHOST=%s >> kubefs.env", resource.Name, resource.LocalHost)
-			// }
-			// command := exec.Command("sh", "-c", cmdString)
-			// command.Stdout = os.Stdout
-			// command.Stderr = os.Stderr
-			// err := command.Run()
-			// if err != nil {
-			// 	utils.PrintError(fmt.Sprintf("Error setting up kubefs.env: %v", err))
-			// 	return
-			// }
-		}else{
-			utils.PrintError("Cannot run a database resource")
-			return
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Running command %s", uplocalCmd))

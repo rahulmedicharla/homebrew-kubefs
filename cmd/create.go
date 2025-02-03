@@ -157,26 +157,25 @@ var createApiCmd = &cobra.Command{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" python-dotenv && pip freeze > requirements.txt && deactivate && touch main.py", resourceName),
-				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n#KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES@app.get(\"/health\")\nasync def root():\n\treturn {\"status\": \"ok\"}' > main.py", resourceName),
+				fmt.Sprintf("cd %s && echo 'from fastapi import FastAPI\napp = FastAPI()\n#KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n@app.get(\"/health\")\nasync def root():\n\treturn {\"status\": \"ok\"}' > main.py", resourceName),
 			}
 
-			up_local = fmt.Sprintf("(cd %s && source venv/bin/activate && uvicorn main:app --reload --port %v)", resourceName,resourcePort)
-		}else if resourceFramework == "koa" {
+			up_local = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --reload --port %v", resourcePort)
+		}else if resourceFramework == "nest" {
 			commands = []string{
-				fmt.Sprintf("mkdir %s", resourceName),
-				fmt.Sprintf("cd %s && npm init -y && npm i koa nodemon", resourceName),
-				fmt.Sprintf("cd %s && echo '\"use strict\";\nconst Koa = require(\"koa\");\nconst app = new Koa();\n\napp.use(ctx => {\n\tctx.body = \"Hello World\";\n});\n\napp.listen(%v);' > index.js", resourceName, resourcePort),
+				fmt.Sprintf("npx -p @nestjs/cli nest new %s -g -p npm", resourceName),
+				fmt.Sprintf("cd %s/src/ && head -n 11 app.controller.ts > temp && mv temp app.controller.ts && echo '\t//KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n\t@Get(\"/health\")\n\tgetHealth(): string {\n\t\t return \"ok\";\n\t}\n}' >> app.controller.ts", resourceName),
 			}
 
-			up_local = fmt.Sprintf("cd %s && npx nodemon index.js", resourceName)
+			up_local = fmt.Sprintf("PORT=%v npm run start:debug", resourcePort)
 		}else{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 				fmt.Sprintf("cd %s && go mod init %s && go get -u github.com/gorilla/mux", resourceName, resourceName),
-				fmt.Sprintf("cd %s && echo 'package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"github.com/gorilla/mux\"\n)\n\nfunc main() {\n\tr := mux.NewRouter()\n\tr.HandleFunc(\"/\", func(w http.ResponseWriter, r *http.Request) {\n\t\tfmt.Fprintf(w, \"Hello World\")\n\t})\n\tfmt.Println(\"Listening on Port %v\")\n\thttp.ListenAndServe(\":%v\", r)\n}' > main.go", resourceName, resourcePort, resourcePort),
+				fmt.Sprintf("cd %s && echo 'package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"github.com/gorilla/mux\"\n)\n\nfunc main() {\n\tr := mux.NewRouter()\n\t//KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n\tr.HandleFunc(\"/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tfmt.Fprintf(w, \"ok\")\n\t})\n\tfmt.Println(\"Listening on Port %v\")\n\thttp.ListenAndServe(\":%v\", r)\n}' > main.go", resourceName, resourcePort, resourcePort),
 			}
 
-			up_local = fmt.Sprintf("cd %s && go run main.go", resourceName)
+			up_local = fmt.Sprintf("go run main.go")
 		}
 
 		for _, command := range commands {
@@ -331,7 +330,7 @@ func init() {
 	createCmd.AddCommand(createApiCmd)
 	createCmd.AddCommand(createFrontendCmd)
 	createCmd.AddCommand(createDbCmd)
-	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | koa | go]")
+	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | nest | go]")
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis]")
 
