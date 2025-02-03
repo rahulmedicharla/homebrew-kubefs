@@ -299,7 +299,7 @@ var createDbCmd = &cobra.Command{
 		password := strings.TrimSpace(input)
 
 		var commands []string
-		dockerRepo := fmt.Sprintf("bitnami/%s:latest", resourceFramework)
+		dockerRepo := fmt.Sprintf("bitnami/%s", resourceFramework)
 		
 		commands = []string{
 			fmt.Sprintf("mkdir %s", resourceName),

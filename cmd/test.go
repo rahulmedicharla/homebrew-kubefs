@@ -24,42 +24,10 @@ var testCmd = &cobra.Command{
 }
 
 var rawCompose = map[string]interface{}{
-	"services": map[string]interface{}{
-		"kubefsHelper": map[string]interface{}{
-		"image": "rmedicharla/kubefshelper:latest",
-		"labels": []string{
-			"traefik.enable=true",
-			"traefik.http.routers.backend.rule=PathPrefix(`/env`) || PathPrefix(`/api`)",
-			"traefik.http.services.backend.loadbalancer.server.port=6000",
-		},
-		"networks": []string{
-			"shared_network",
-		},
-		"environment": []string{},
-		},
-		"traefik": map[string]interface{}{
-		"image": "traefik:latest",
-		"command": []string{
-			"--api.insecure=true",
-			"--providers.docker=true",
-			"--entrypoints.web.address=:80",
-			"--api.dashboard=true",
-		},
-		"networks": []string{
-			"shared_network",
-		},
-		"ports": []string{
-			"80:80",
-			"8080:8080",
-		},
-		"volumes": []string{
-			"/var/run/docker.sock:/var/run/docker.sock:ro",
-		},
-		},
-	},
+	"services": map[string]interface{}{},
 	"networks": map[string]interface{}{
 		"shared_network": map[string]string{
-		"driver": "bridge",
+			"driver": "bridge",
 		},
 	},
 	"volumes": map[string]interface{}{},
@@ -83,10 +51,7 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 		"environment": []string{},
 	}
 
-	if resource.Type == "api" {
-		service["labels"] = []string{
-			"traefik.enable=false",
-		}
+	if resource.Type == "api" || resource.Type == "frontend" {
 		service["ports"] = []string{
 			fmt.Sprintf("%v:%v", resource.Port, resource.Port),
 		}
@@ -95,17 +60,7 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
 		}
 
-	}else if resource.Type == "frontend" {
-		service["labels"] = []string{
-			"traefik.enable=true",
-			fmt.Sprintf("traefik.http.routers.%s.rule=PathPrefix(`/`)", resource.Name),
-			fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=80", resource.Name),
-		}
 	}else{
-		service["labels"] = []string{
-			"traefik.enable=false",
-		}
-
 		if resource.Framework == "redis" {
 			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.DbPassword)}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
@@ -115,15 +70,16 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 				"driver": "local",
 			}
 		}else{
-			service["environment"] = []string{fmt.Sprintf("CASANDRA_USER=%s", resource.DbUsername), fmt.Sprintf("CASSANDRA_PASSWORD=%s", resource.DbPassword)}
-			service["ports"] = []string{fmt.Sprintf("%v:9042", resource.Port)}
+			service["environment"] = []string{fmt.Sprintf("CASANDRA_USER=%s", resource.DbUsername), fmt.Sprintf("CASSANDRA_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("CASSANDRA_CQL_PORT_NUMBER=%v", resource.Port)}
+			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
 			service["volumes"] = []string{"cassandra_data:/bitnami"}
-			(*rawCompose)["volumes"].(map[string]interface{})["cassandra_data"] = map[string]string{}
+			(*rawCompose)["volumes"].(map[string]interface{})["cassandra_data"] = map[string]string{
+				"driver": "local",
+			}
 		}
 	}
 
 	(*rawCompose)["services"].(map[string]interface{})[resource.Name] = service
-	(*rawCompose)["services"].(map[string]interface{})["kubefsHelper"].(map[string]interface{})["environment"] = append((*rawCompose)["services"].(map[string]interface{})["kubefsHelper"].(map[string]interface{})["environment"].([]string), fmt.Sprintf("%sHOST=%s", resource.Name, resource.DockerHost))
 }
 
 var testAllCmd = &cobra.Command{
@@ -148,24 +104,27 @@ var testAllCmd = &cobra.Command{
 			return
 		}
 
-		utils.PrintWarning("View your frontend resources at http://localhost\n View the traefik dashboard at http://localhost:8080")
+		var onlyWrite bool
+		onlyWrite, _ = cmd.Flags().GetBool("only-write")
 
-		command := exec.Command("sh", "-c", "docker compose up")
-		command.Stdout = os.Stdout
-		command.Stderr = os.Stderr
-		err := command.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
-			return
-		}
+		if !onlyWrite {
+			command := exec.Command("sh", "-c", "docker compose up")
+			command.Stdout = os.Stdout
+			command.Stderr = os.Stderr
+			err := command.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
+				return
+			}
 
-		command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
-		command.Stdout = os.Stdout
-		command.Stderr = os.Stderr
-		err = command.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
-			return
+			command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
+			command.Stdout = os.Stdout
+			command.Stderr = os.Stderr
+			err = command.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
+				return
+			}
 		}
 	},
 }
@@ -204,26 +163,29 @@ var testResourceCmd = &cobra.Command{
 			return
 		}
 
-		utils.PrintWarning("View your frontend resources at http://localhost\n View the traefik dashboard at http://localhost:8080")
+		var onlyWrite bool
+		onlyWrite, _ = cmd.Flags().GetBool("only-write")
 
-		command := exec.Command("sh", "-c", fmt.Sprintf("(cd %s && docker compose up)", resource.Name))
-		command.Stdout = os.Stdout
-		command.Stderr = os.Stderr
-		err := command.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
-			return
+		if !onlyWrite {
+			command := exec.Command("sh", "-c", fmt.Sprintf("(cd %s && docker compose up)", resource.Name))
+			command.Stdout = os.Stdout
+			command.Stderr = os.Stderr
+			err := command.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
+				return
+			}
+
+			command = exec.Command("sh", "-c", fmt.Sprintf("(cd %s && docker compose down -v --rmi all)", resource.Name))
+			command.Stdout = os.Stdout
+			command.Stderr = os.Stderr
+			err = command.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
+				return
+			}
+
 		}
-
-		command = exec.Command("sh", "-c", fmt.Sprintf("(cd %s && docker compose down -v --rmi all)", resource.Name))
-		command.Stdout = os.Stdout
-		command.Stderr = os.Stderr
-		err = command.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
-			return
-		}
-
 	},
 }
 
@@ -231,4 +193,6 @@ func init() {
 	rootCmd.AddCommand(testCmd)
 	testCmd.AddCommand(testAllCmd)
 	testCmd.AddCommand(testResourceCmd)
+
+	testCmd.PersistentFlags().BoolP("only-write", "w", false, "only create the docker compose file; dont start it")
 }

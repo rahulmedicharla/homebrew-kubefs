@@ -164,13 +164,15 @@ func RemoveAll(project *types.Project) int {
 }
 
 func RemoveResource(project *types.Project, name string) int {
+    resourceList := []types.Resource{}
+    
     for i, resource := range project.Resources {
-        if resource.Name == name {
-            project.Resources = append(project.Resources[:i], project.Resources[i+1:]...)
-            return WriteManifest(project)
+        if resource.Name != name {
+            resourceList = append(resourceList, project.Resources[i])            
         }
     }
-    return types.ERROR
+    project.Resources = resourceList
+    return WriteManifest(project)
 }
 
 func ValidateProject() int{

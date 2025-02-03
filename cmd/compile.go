@@ -24,76 +24,49 @@ var compileCmd = &cobra.Command{
 }
 
 func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int){
+	if resource.Type == "database" {
+		utils.PrintWarning(fmt.Sprintf("Cannot compile database resource %s", resource.Name))
+		return types.SUCCESS
+	}
 	
 	var commands []string
 	
 	if !onlyPush {
 		// build docker image
-		utils.PrintWarning(fmt.Sprintf("Building docker image for resource %s", resource.Name))
-
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm Dockerfile; rm .dockerignore; docker rmi %s:latest; touch .dockerignore; echo 'deploy/\nkubefs.env' >> .dockerignore; echo '')", resource.Name, resource.DockerRepo))
-		err := cmd.Run()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error removing docker image: %v", err))
-			return types.ERROR
-		}
-
-		if resource.Type == "api" {
+		commands = append(commands, fmt.Sprintf("cd %s && echo 'node_modules\nDockerfile\ndocker-compose.yaml\n.*\ndeploy/' > .dockerignore; echo ''", resource.Name))
+		if resource.Type== "api"{
 			// api
-			if resource.Framework == "koa" {
-				// koa
-				commands = append(commands,
-					fmt.Sprintf("(cd %s && echo 'FROM node:alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN yarn install --production\nCOPY . .\nEXPOSE %v\nENV NODE_ENV=production\nCMD [\"node\", \"index.js\"]' > Dockerfile)", resource.Name, resource.Port),
-				)
-			} else if resource.Framework == "fast" {
+			if resource.Framework == "nest"{
+				// nest
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'dist' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /usr/src/app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\nENV PORT=%v\nCMD [\"node\",\"dist/main\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
+			}else if resource.Framework == "fast"{
 				// fast
 				commands = append(commands,
-					fmt.Sprintf("(cd %s && echo 'FROM python:slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\nCOPY . .\nEXPOSE %v\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"%v\"]' > Dockerfile)", resource.Name, resource.Port, resource.Port),
+					fmt.Sprintf("cd %s && source venv/bin/activate && pip freeze > requirements.txt && deactivate", resource.Name),
+					fmt.Sprintf("cd %s && echo 'venv' >> .dockerignore && echo 'FROM python:slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE %v\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"%v\"]' > Dockerfile", resource.Name, resource.Port, resource.Port),
 				)
 			}else{
 				// go
-				commands = append(commands,
-					fmt.Sprintf("(cd %s && source venv/bin/activate && pip freeze > requirements.txt && deactivate)", resource.Name),
-					fmt.Sprintf("(cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\n# Command to run the executable\nCMD [\"./%s\"]' > Dockerfile)", resource.Name, resource.Name, resource.Port, resource.Name),
-				)
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\nCMD [\"./%s\"]' > Dockerfile", resource.Name, resource.Name, resource.Port, resource.Name))
 			}
-
-			commands = append(commands,
-				fmt.Sprintf("(cd %s && echo 'Dockerfile\ndocker-compose.yaml\n' >> .dockerignore )", resource.Name),
-				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
-			)
-
-		} else if resource.Type == "frontend" {
+		}else{
 			// frontend
-			if resource.Framework == "react" {
-				// react
-				commands = append(commands,
-					fmt.Sprintf("(cd %s && echo 'FROM node:alpine AS builder\nWORKDIR /app\nCOPY package.json yarn.lock ./\nRUN yarn install --frozen-lockfile --silent\nCOPY . .\nRUN yarn build\n\nFROM nginx:alpine\nCOPY --from=builder /app/build /usr/share/nginx/html\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]' > Dockerfile)", resource.Name),
-				)
-			} else if resource.Framework == "angular" {
-				// angular
-				commands = append(commands,
-					fmt.Sprintf("(cd %s && echo 'FROM node:alpine AS builder\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install --silent\nCOPY . .\nRUN npm run build\n\nFROM nginx:alpine\nCOPY --from=builder /app/dist/%s/browser /usr/share/nginx/html\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]' > Dockerfile)", resource.Name, resource.Name),
-				)
+			if resource.Framework == "next"{
+				// next js
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
+			}else if resource.Framework == "remix"{
+				// remix
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'build/' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
 			}else{
-				// vue
-				commands = append(commands,
-					fmt.Sprintf("(cd %s && echo 'FROM node:alpine AS builder\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install --silent\nCOPY . .\nRUN npm run build\n\nFROM nginx:alpine\nCOPY --from=builder /app/dist /usr/share/nginx/html\nEXPOSE 80\nCMD [\"nginx\", \"-g\", \"daemon off;\"]' > Dockerfile)", resource.Name),
-				)
+				// svelte
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nCMD [\"npm\",\"run\", \"preview\", \"--\", \"--port\", \"%v\", \"--host\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
 			}
-
-			commands = append(commands,
-				fmt.Sprintf("(cd %s && echo 'node_modules\n.gitignore\nDockerfile\ndocker-compose.yaml\nREADME.md' >> .dockerignore )", resource.Name),
-				fmt.Sprintf("(cd %s && docker buildx build -t %s:latest .)", resource.Name, resource.DockerRepo),
-			)
-		} else {
-			// database nothing to do 
-			return types.SUCCESS
 		}
 
+		commands = append(commands, fmt.Sprintf("cd %s && docker build -t %s:latest .", resource.Name, resource.DockerRepo))
+
 		for _, command := range commands {
-			// run command
-			cmd = exec.Command("sh", "-c", command)
+			cmd := exec.Command("sh", "-c", command)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			err := cmd.Run()
@@ -102,22 +75,22 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 				return types.ERROR
 			}
 		}
-
 	}
 
 	if !onlyBuild {
 		// push docker image
-		if resource.DockerRepo == ""{
-			utils.PrintError(fmt.Sprintf("Docker repo not found for resource %s", resource.Name))
-			return types.ERROR
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("docker images | grep %s", resource.DockerRepo))
+		err := cmd.Run()
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Docker image not found, cannot push %s", resource.Name))
 		}
 
-		utils.PrintWarning(fmt.Sprintf("Pushing docker image for resource %s to %s:latest", resource.Name, resource.DockerRepo))
+		utils.PrintWarning(fmt.Sprintf("Pushing docker image for resource %s", resource.Name))
 
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("(docker push %s:latest)",resource.DockerRepo))
+		cmd = exec.Command("sh", "-c", fmt.Sprintf("(docker push %s:latest)",resource.DockerRepo))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		err := cmd.Run()
+		err = cmd.Run()
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Error pushing docker image: %v", err))
 			return types.ERROR

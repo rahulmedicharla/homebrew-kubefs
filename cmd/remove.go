@@ -25,10 +25,10 @@ var removeCmd = &cobra.Command{
 	},
 }
 
-func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo string, resource_type string, framework string) int {
+func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) int {
 	if !onlyRemote {
 		// remove locally
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", name))
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", resource.Name))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
@@ -37,14 +37,14 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 			return types.ERROR
 		}
 
-		manifestErr := utils.RemoveResource(&utils.ManifestData, name)
+		manifestErr := utils.RemoveResource(&utils.ManifestData, resource.Name)
 		if manifestErr == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error removing resource: %v", manifestErr))	
 			return types.ERROR
 		}
 	}
 
-	if !onlyLocal && docker_repo != "" {
+	if !onlyLocal && resource.Type != "database" {
 		// remove from docker hub
 		url := "https://hub.docker.com/v2/users/login/"
 
@@ -76,7 +76,7 @@ func removeUnique(name string, onlyLocal bool, onlyRemote bool, docker_repo stri
 			return types.ERROR 
 		}
 
-		url = fmt.Sprintf("https://hub.docker.com/v2/repositories/%s", docker_repo)
+		url = fmt.Sprintf("https://hub.docker.com/v2/repositories/%s", resource.DockerRepo)
 		headers = map[string]string{
 			"Authorization": fmt.Sprintf("JWT %s", response.Token),
 		}
@@ -109,7 +109,7 @@ var removeAllCmd = &cobra.Command{
         utils.PrintWarning("Removing all resources")
 
         for _, resource := range utils.ManifestData.Resources {
-			err := removeUnique(resource.Name, onlyLocal, onlyRemote, resource.DockerRepo, resource.Type, resource.Framework)
+			err := removeUnique(&resource, onlyLocal, onlyRemote)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error removing resource %s", resource.Name))
 			}
@@ -142,24 +142,15 @@ var removeResourceCmd = &cobra.Command{
         name := args[0]
         utils.PrintWarning(fmt.Sprintf("Removing resource %s", name))
 
-		var dockerRepo string
-		var resourceType string
-		var resourceFramework string
-		for _, resource := range utils.ManifestData.Resources {
-			if resource.Name == name {
-				dockerRepo = resource.DockerRepo
-				resourceType = resource.Type
-				resourceFramework = resource.Framework
-				break
-			}
-		}
+		var resource *types.Resource
+		resource = utils.GetResourceFromName(name)
 
-		if resourceType == "" {
+		if resource == nil {
 			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
 			return
 		}
 
-		err := removeUnique(name, onlyLocal, onlyRemote, dockerRepo, resourceType, resourceFramework)
+		err := removeUnique(resource, onlyLocal, onlyRemote)
 		if err == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
 			return
