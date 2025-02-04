@@ -141,6 +141,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) i
 			for _, r := range utils.ManifestData.Resources {
 				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
 			}
+			valuesYaml["env"] = env
 		
 			envErr, envData := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
 			if envErr == types.SUCCESS {
