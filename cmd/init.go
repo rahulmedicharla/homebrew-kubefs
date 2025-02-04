@@ -17,7 +17,10 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init <name> <description>",
 	Short: "kubefs init - initialize a new kubefs project",
-	Long: `kubefs init - initialize a new kubefs project`,
+	Long: `kubefs init - initialize a new kubefs project
+example:
+	kubefs init my-project "My project description"
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			cmd.Help()

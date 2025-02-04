@@ -18,27 +18,11 @@ localhost:6000/health GET
 localhost:6000/env/{key} GET
 localhost:6000/api POST
 
-connect to cassandra by exec into it and cqlsh -u cassandra -p cassandra
-connect to redis with redis-cli
+connect to cassandra by exec into it and ```cqlsh [host] [port] -u cassandra -p [password]```
+connect to redis by exec into it and ```redis-cli -h [host] -p [port] -a [password]```
 
 minikube addons 
 ingress
 metrics-server
-
-const response = await fetch("/api", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        "method": "DELETE",
-        "url": apiHOST + "/delete/" + index,
-        "headers": {
-          "Content-Type": "application/json"
-        },
-        "body": ""
-      }),
-
-python api update requirements.txt
 
 api's need to load env to get dynamic paths

@@ -17,7 +17,11 @@ import (
 var testCmd = &cobra.Command{
 	Use:   "test [command]",
 	Short: "kubefs test - test your build environment in docker locally before deploying",
-	Long: `kubefs test - test your build environment in docker locally before deploying`,
+	Long: `kubefs test - test your build environment in docker locally before deploying
+example:
+	kubefs test all --flags,
+	kubefs test resource my-api my-frontend my-database --flags,
+	kubefs test resource my-api --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -64,13 +68,13 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 		if resource.Framework == "redis" {
 			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.DbPassword)}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
-			service["command"] = []string{"redis-server", "--port", fmt.Sprintf("%v", resource.Port), "--requirepass", resource.DbPassword}
+			service["command"] = []string{"redis-server", fmt.Sprintf("--port %v", resource.Port), fmt.Sprintf("--requirepass %s", resource.DbPassword)}
 			service["volumes"] = []string{"redis_data:/bitnami/redis/data"}
 			(*rawCompose)["volumes"].(map[string]interface{})["redis_data"] = map[string]string{
 				"driver": "local",
 			}
 		}else{
-			service["environment"] = []string{fmt.Sprintf("CASANDRA_USER=%s", resource.DbUsername), fmt.Sprintf("CASSANDRA_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("CASSANDRA_CQL_PORT_NUMBER=%v", resource.Port)}
+			service["environment"] = []string{fmt.Sprintf("CASSANDRA_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("CASSANDRA_PASSWORD_SEEDER=yes"), fmt.Sprintf("CASSANDRA_CQL_PORT_NUMBER=%v", resource.Port)}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
 			service["volumes"] = []string{"cassandra_data:/bitnami"}
 			(*rawCompose)["volumes"].(map[string]interface{})["cassandra_data"] = map[string]string{
@@ -85,7 +89,10 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 var testAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "kubefs test all - test your entire build environment in docker locally before deploying",
-	Long: `kubefs test all - test your entire build environment in docker locally before deploying`,
+	Long: `kubefs test all - test your entire build environment in docker locally before deploying
+example:
+	kubefs test all --flags
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -105,7 +112,9 @@ var testAllCmd = &cobra.Command{
 		}
 
 		var onlyWrite bool
+		var persist bool
 		onlyWrite, _ = cmd.Flags().GetBool("only-write")
+		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
 			command := exec.Command("sh", "-c", "docker compose up")
@@ -117,7 +126,12 @@ var testAllCmd = &cobra.Command{
 				return
 			}
 
-			command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
+			if persist{
+				command = exec.Command("sh", "-c", "docker compose down")
+			}else{
+				command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
+			}
+
 			command.Stdout = os.Stdout
 			command.Stderr = os.Stderr
 			err = command.Run()
@@ -130,44 +144,53 @@ var testAllCmd = &cobra.Command{
 }
 
 var testResourceCmd = &cobra.Command{
-	Use:   "resource [name]",
-	Short: "kubefs test resource - test a specific resource in docker locally before deploying",
-	Long: `kubefs test resource - test a specific resource in docker locally before deploying`,
+	Use:   "resource [name, ...]",
+	Short: "kubefs test resource [name, ...] - test listed resource in docker locally before deploying",
+	Long: `kubefs test resource [name ...] - test listed resource in docker locally before deploying
+example:
+	kubefs test resource my-api my-frontend my-database --flags,
+	kubefs test resource my-api --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
 
+		var names = args
+
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
 
-        name := args[0]
-        utils.PrintWarning(fmt.Sprintf("Removing resource %s", name))
+		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", names))
 
-		var resource *types.Resource
-		resource = utils.GetResourceFromName(name)
+		for _, name := range names {
 
-		if resource == nil {
-			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-			return
+			var resource *types.Resource
+			resource = utils.GetResourceFromName(name)
+
+			if resource == nil {
+				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+				break
+			}
+
+			modifyRawCompose(&rawCompose, resource)
 		}
 
-		modifyRawCompose(&rawCompose, resource)
-
-		fileErr := utils.WriteYaml(&rawCompose, fmt.Sprintf("%s/docker-compose.yaml", resource.Name))
+		fileErr := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if fileErr == types.ERROR {
 			utils.PrintError("Error writing docker-compose.yaml file")
 			return
 		}
 
 		var onlyWrite bool
+		var persist bool
 		onlyWrite, _ = cmd.Flags().GetBool("only-write")
+		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
-			command := exec.Command("sh", "-c", fmt.Sprintf("(cd %s && docker compose up)", resource.Name))
+			command := exec.Command("sh", "-c", "docker compose up")
 			command.Stdout = os.Stdout
 			command.Stderr = os.Stderr
 			err := command.Run()
@@ -176,7 +199,12 @@ var testResourceCmd = &cobra.Command{
 				return
 			}
 
-			command = exec.Command("sh", "-c", fmt.Sprintf("(cd %s && docker compose down -v --rmi all)", resource.Name))
+			if persist{
+				command = exec.Command("sh", "-c", "docker compose down")
+			}else{
+				command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
+			}
+
 			command.Stdout = os.Stdout
 			command.Stderr = os.Stderr
 			err = command.Run()
@@ -184,7 +212,6 @@ var testResourceCmd = &cobra.Command{
 				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
 				return
 			}
-
 		}
 	},
 }
@@ -195,4 +222,5 @@ func init() {
 	testCmd.AddCommand(testResourceCmd)
 
 	testCmd.PersistentFlags().BoolP("only-write", "w", false, "only create the docker compose file; dont start it")
+	testCmd.PersistentFlags().BoolP("persist-data", "p", false, "persist images & volume data after testing")
 }

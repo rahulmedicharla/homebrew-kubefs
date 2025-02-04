@@ -16,7 +16,10 @@ import (
 var configCmd = &cobra.Command{
 	Use:   "config [command]",
 	Short: "kubefs config - configure kubefs environment and auth configurations",
-	Long: `kubefs config - configure kubefs environment and auth configurations`,
+	Long: `kubefs config - configure kubefs environment and auth configurations
+example: 
+	kubefs config docker --flag
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -25,7 +28,10 @@ var configCmd = &cobra.Command{
 var dockerCmd = &cobra.Command{
 	Use:   "docker",
 	Short: "Configure Docker settings",
-	Long:  `Configure Docker settings for kubefs`,
+	Long:  `Configure Docker settings for kubefs
+example: 
+	kubefs config docker --flags
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// get service information
 		service := "docker"
@@ -69,7 +75,10 @@ var dockerCmd = &cobra.Command{
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configurations",
-	Long:  `List all configurations for kubefs`,
+	Long:  `List all configurations for kubefs
+example: 
+	kubefs config list
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		user := "kubefs"
 		services := []string{"docker", "aws", "azure", "gcp"}

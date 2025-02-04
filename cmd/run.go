@@ -17,7 +17,9 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run [name]",
 	Short: "kubefs run - run a resource locally (dev)",
-	Long: `kubefs run - run a resource locally (dev)`,
+	Long: `kubefs run - run a resource locally (dev)
+example:
+	kubefs run my-api --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()

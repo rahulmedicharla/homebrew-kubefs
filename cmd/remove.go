@@ -18,8 +18,13 @@ import (
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
 	Use:   "remove [command]",
-	Short: "kubefs remove - delete a resource locally and from docker hub",
-	Long: "kubefs remove - delete a resource locally and from docker hub",
+	Short: "kubefs remove - delete listed resource locally and from docker hub",
+	Long: `kubefs remove - delete listed resource locally and from docker hub
+example:
+	kubefs remove all --flags,
+	kubefs remove resource my-api my-frontend my-database --flags,
+	kubefs remove resource my-api --flags
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -95,7 +100,10 @@ func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) int
 var removeAllCmd = &cobra.Command{
     Use:   "all",
     Short: "kubefs remove all - remove all resources locally and from docker hub",
-    Long:  "kubefs remove all - remove all resources locally and from docker hub",
+    Long:  `kubefs remove all - remove all resources locally and from docker hub
+example:
+	kubefs remove all --flags
+	`,
     Run: func(cmd *cobra.Command, args []string) {
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
@@ -121,14 +129,20 @@ var removeAllCmd = &cobra.Command{
 }
 
 var removeResourceCmd = &cobra.Command{
-    Use:   "resource [name]",
-    Short: "kubefs remove resource [name] - remove a specific resource locally and from docker hub",
-    Long:  "kubefs remove resource [name] - remove a specific resource locally and from docker hub",
+    Use:   "resource [name, ...]",
+    Short: "kubefs remove resource [name, ...] - remove listed resource locally and from docker hub",
+    Long:  `kubefs remove resource [name, ...] - remove listed resource locally and from docker hub
+example:
+	kubefs remove resource my-api my-frontend my-database --flags,
+	kubefs remove resource my-api --flags
+`,
     Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
+
+		names := args 
 
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -139,24 +153,26 @@ var removeResourceCmd = &cobra.Command{
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
 		onlyRemote, _ = cmd.Flags().GetBool("only-remote")		
 
-        name := args[0]
-        utils.PrintWarning(fmt.Sprintf("Removing resource %s", name))
+        utils.PrintWarning(fmt.Sprintf("Removing resource %v", names))
 
-		var resource *types.Resource
-		resource = utils.GetResourceFromName(name)
+		for _, name := range names {
+			var resource *types.Resource
+			resource = utils.GetResourceFromName(name)
 
-		if resource == nil {
-			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-			return
+			if resource == nil {
+				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+				break
+			}
+
+			err := removeUnique(resource, onlyLocal, onlyRemote)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
+				break
+			}
 		}
 
-		err := removeUnique(resource, onlyLocal, onlyRemote)
-		if err == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
-			return
-		}
+		utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", names))
 
-        utils.PrintSuccess(fmt.Sprintf("Resource %s removed successfully", name))
     },
 }
 

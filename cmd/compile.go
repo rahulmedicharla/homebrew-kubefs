@@ -17,7 +17,12 @@ import (
 var compileCmd = &cobra.Command{
 	Use:   "compile [command]",
 	Short: "kubefs compile - build and push docker images for resources",
-	Long: `kubefs compile - build and push docker images for resources`,
+	Long: `kubefs compile - build and push docker images for resources
+example: 
+	kubefs compile all --flags,
+	kubefs compile resource <frontend> <api> <database> --flags,
+	kubefs compile resource <frontend> --flags,
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -104,7 +109,10 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 var compileAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "kubefs compile all - build and push docker images for all resources",
-	Long: `kubefs compile - build and push docker images for all resources`,
+	Long: `kubefs compile - build and push docker images for all resources
+example: 
+	kubefs compile all --flags,
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -130,9 +138,13 @@ var compileAllCmd = &cobra.Command{
 }	
 
 var compileResourceCmd = &cobra.Command{
-	Use:   "resource [name]",
-	Short: "kubefs compile resource [name] - build and push docker images for a unique resources",
-	Long: `kubefs compile resource [name] - build and push docker images for a unique resources`,
+	Use:   "resource [name, ...]",
+	Short: "kubefs compile resource [name, ...] - build and push docker images for listed resources",
+	Long: `kubefs compile resource [name, ...] - build and push docker images for listed resources
+example: 
+	kubefs compile resource <frontend> <api> <database> --flags,
+	kubefs compile resource <frontend> --flags,
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
@@ -144,33 +156,31 @@ var compileResourceCmd = &cobra.Command{
 			return
 		}
 
+		var names = args
 		var onlyBuild, onlyPush bool
 		onlyBuild, _ = cmd.Flags().GetBool("only-build")
 		onlyPush, _ = cmd.Flags().GetBool("only-push")
 
-		name := args[0]
-		utils.PrintWarning(fmt.Sprintf("Compiling resource %s", name))
+		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", names))
 
-		var resource *types.Resource
-		for _, r := range utils.ManifestData.Resources {
-			if r.Name == name {
-				resource = &r
+		for _, name := range names{
+			var resource *types.Resource
+			resource = utils.GetResourceFromName(name)
+			 
+			if resource == nil {
+				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
 				break
 			}
+
+			err := compileUnique(resource, onlyBuild, onlyPush)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error compiling resource %s", name))
+				return
+			}
+
 		}
 
-		if resource == nil {
-			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-			return
-		}
-
-		err := compileUnique(resource, onlyBuild, onlyPush)
-		if err == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error compiling resource %s", name))
-			return
-		}
-
-		utils.PrintSuccess(fmt.Sprintf("Resource %s compiled successfully", name))
+		utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", names))
 	},
 }	
 

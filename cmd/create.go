@@ -25,7 +25,12 @@ var resourceName string
 var createCmd = &cobra.Command{
 	Use:   "create [command]",
 	Short: "kubefs create - easily create backend, frontend, & db resources to be used within your application",
-	Long: `kubefs create - easily create backend, frontend, & db resources to be used within your application`,
+	Long: `kubefs create - easily create backend, frontend, & db resources to be used within your application
+example:
+	kubefs create api my-api --flags
+	kubefs create frontend my-frontend
+	kubefs create database my-db
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -139,7 +144,10 @@ func createDockerRepo(name string) (int, string) {
 var createApiCmd = &cobra.Command{
 	Use:   "api [name]",
 	Short: "kubefs create api - create a new API resource",
-	Long: `kubefs create api - create a new API resource`,
+	Long: `kubefs create api - create a new API resource
+example: 
+	kubefs create api my-api --flags,
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -190,7 +198,7 @@ var createApiCmd = &cobra.Command{
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:resourceFramework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://host.docker.internal:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:resourceFramework, UpLocal: up_local, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err := utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -203,7 +211,10 @@ var createApiCmd = &cobra.Command{
 var createFrontendCmd = &cobra.Command{
 	Use:   "frontend [name]",
 	Short: "kubefs create frontend - create a new frontend resource",
-	Long: `kubefs create frontend - create a new frontend resource`,
+	Long: `kubefs create frontend - create a new frontend resource
+example:
+	kubefs create frontend my-frontend --flags
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -219,7 +230,7 @@ var createFrontendCmd = &cobra.Command{
 
 		if resourceFramework == "next" {
 			commands = []string{
-				fmt.Sprintf("npx create-next-app@latest %s --src-dir --yes", resourceName),
+				fmt.Sprintf("npx create-next-app@latest %s --yes", resourceName),
 				fmt.Sprintf("cd %s && rm -rf .git", resourceName),
 			}
 
@@ -279,7 +290,10 @@ var createFrontendCmd = &cobra.Command{
 var createDbCmd = &cobra.Command{
 	Use:   "database [name]",
 	Short: "kubefs create database - create a new database resource",
-	Long: `kubefs create database - create a new database resource`,
+	Long: `kubefs create database - create a new database resource
+example:
+	kubefs create database mydb --flags
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -291,9 +305,6 @@ var createDbCmd = &cobra.Command{
 		}
 
 		var input string
-		fmt.Print("Enter the username for the database: ")	
-		fmt.Scanln(&input)
-		username := strings.TrimSpace(input)
 		fmt.Print("Enter the password for the database: ")
 		fmt.Scanln(&input)
 		password := strings.TrimSpace(input)
@@ -304,7 +315,13 @@ var createDbCmd = &cobra.Command{
 		commands = []string{
 			fmt.Sprintf("mkdir %s", resourceName),
 		}
-		clusterHost := fmt.Sprintf("http://%s-%s.%s.svc.cluster.local:%v", resourceName, resourceFramework, resourceName, resourcePort)		
+
+		var clusterHost string
+		if resourceFramework == "cassandra" {
+			clusterHost = fmt.Sprintf("http://%s-%s.%s.svc.cluster.local:%v", resourceName, resourceFramework, resourceName, resourcePort)		
+		}else{
+			clusterHost = fmt.Sprintf("http://%s-redis-master.%s.svc.cluster.local:%v", resourceName, resourceName, resourcePort)	
+		}
 
 		for _, command := range commands {
 			cmd := exec.Command("sh", "-c", command)
@@ -315,7 +332,7 @@ var createDbCmd = &cobra.Command{
 			}
 		}
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:resourceFramework, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: clusterHost, DbUsername: username, DbPassword: password})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:resourceFramework, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: clusterHost, DbPassword: password})
 
 		fileErr := utils.WriteManifest(&utils.ManifestData)
 		if fileErr == types.ERROR {

@@ -21,7 +21,6 @@ type Resource struct {
 	DockerHost string `yaml:"docker_host,omitempty"`
 	DockerRepo string `yaml:"docker_repo,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
-  DbUsername string `yaml:"db_username,omitempty"`
   DbPassword string `yaml:"db_password,omitempty"`
 }
 
@@ -103,30 +102,6 @@ readinessProbe:
   httpGet:
     path: %s
     port: http
-
-kubefsHelper:
-  volumeMounts:
-    - name: traefik-config
-      mountPath: /config
-  volumes:
-    - name: traefik-config
-      configMap:
-        name: traefik-config
-  port: 6000
-  env: []
-  livenessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 5
-    httpGet:
-      path: /health
-      port: 6000
-  readinessProbe:
-    initialDelaySeconds: 5
-    periodSeconds: 5
-    httpGet:
-      path: /health
-      port: 6000
-
 autoscaling:
   enabled: false
   minReplicas: 1

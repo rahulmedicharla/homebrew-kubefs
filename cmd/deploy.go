@@ -19,7 +19,11 @@ import (
 var deployCmd = &cobra.Command{
 	Use:   "deploy [command]",
 	Short: "kubefs deploy - create helm charts & deploy the build targets onto the cluster",
-	Long: `kubefs deploy - create helm charts & deploy the build targets onto the cluster`,
+	Long: `kubefs deploy - create helm charts & deploy the build targets onto the cluster
+example:
+	kubefs deploy all --flags,
+	kubefs deploy resource <frontend> <api> <database> --flags,
+	kubefs deploy resource <frontend> --flags,`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -68,7 +72,7 @@ func downloadZip(url string, name string) int {
 	return types.SUCCESS
 }
 
-func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) int {
+func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) int {
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", resource.DockerRepo))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -81,13 +85,47 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 	if !onlyDeploy {
 		// helmify
 
-		if resource.Type == "api"{
+		if resource.Type == "database"{
+			// database
+			cmd = exec.Command("sh", "-c", fmt.Sprintf("minikube status | grep Running"))
+			err := cmd.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Minikube not running: %v", err))
+				return types.ERROR
+			}
+
+			var cmd *exec.Cmd
+
+			if resource.Framework == "cassandra"{
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/cassandra --untar && mv cassandra deploy)", resource.Name))
+			}else{
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", resource.Name))
+			}
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error pulling helm chart: %v", cmdErr))
+				return types.ERROR
+			}
+
+		}else{
+			// api or frontend
 			err := downloadZip(types.APIHELM, resource.Name)
 			if err == types.ERROR {
 				return types.ERROR
 			}
 
-			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "/health")
+			var defaultYaml string
+			if resource.Type == "api"{
+				// api
+				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "/health")
+			}else{
+				// frontend
+				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "LoadBalancer", resource.Port, "true", "/")
+			}
+
 			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
 
 			if fileWriteErr != nil {
@@ -108,74 +146,29 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			if err == types.ERROR {
 				return types.ERROR
 			}
-
-		}else if resource.Type == "frontend"{
-			err := downloadZip(types.FRONTENDHELM, resource.Name)
-			if err == types.ERROR {
-				return types.ERROR
-			}
-
-			defaultYaml := types.GetHelmChart(resource.DockerRepo, resource.Name, "LoadBalancer", 80, "true", "/")
-			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
-
-			if fileWriteErr != nil {
-				return types.ERROR
-			}
-
-			err, valuesYaml := utils.ReadYaml(fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
-			if err == types.ERROR {
-				return types.ERROR
-			}
-			for _, r := range utils.ManifestData.Resources {
-				valuesYaml["kubefsHelper"].(map[string]interface{})["env"] = append(valuesYaml["kubefsHelper"].(map[string]interface{})["env"].([]interface{}), map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
-			}
-
-			err = utils.WriteYaml(&valuesYaml, fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
-			if err == types.ERROR {
-				return types.ERROR
-			}
-		}else{
-			var cmd *exec.Cmd
-
-			if resource.Framework == "cassandra"{
-				cmd = exec.Command("sh", "-c", fmt.Sprintf("helm pull oci://registry-1.docker.io/bitnamicharts/cassandra --untar && mv cassandra %s/deploy", resource.Name))
-			}else{
-				cmd = exec.Command("sh", "-c", fmt.Sprintf("helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis %s/deploy", resource.Name))
-			}
-
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmdErr := cmd.Run()
-			if cmdErr != nil {
-				utils.PrintError(fmt.Sprintf("Error pulling helm chart: %v", cmdErr))
-				return types.ERROR
-			}
-
 		}
 	}
 
 	if !onlyHelmify {
 		// deploy
-		if target == "local" {
-			var cmd *exec.Cmd
+		var cmd *exec.Cmd
 
-			if resource.Type == "database"{
-				if resource.Framework == "cassandra"{
-					cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set service.ports.cql=%v --set persistence.size=1Gi --namespace %s", resource.Name, resource.Name, resource.Name, resource.Port, resource.Name))
-				}else{
-					cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set service.ports.redis=%v --set persistence.size=1Gi --namespace %s", resource.Name, resource.Name, resource.Name, resource.Port, resource.Name))
-				}
+		if resource.Type == "database"{
+			if resource.Framework == "cassandra"{
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set service.ports.cql=%v --set persistence.size=1Gi --set dbUser.password=%s --set cluster.datacenter=datacenter1 --set replicaCount=3 --namespace %s", resource.Name, resource.Name, resource.Name, resource.Port, resource.DbPassword, resource.Name))
 			}else{
-				cmd = exec.Command("sh", "-c", fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
+				cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set persistence.size=1Gi --set master.service.ports.redis=%v --set auth.password=%s --namespace %s", resource.Name, resource.Name, resource.Name, resource.Port, resource.DbPassword, resource.Name))
 			}
+		}else{
+			cmd = exec.Command("sh", "-c", fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
+		}
 
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmdErr := cmd.Run()
-			if cmdErr != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying resource %s: %v", resource.Name, cmdErr))
-				return types.ERROR
-			}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmdErr := cmd.Run()
+		if cmdErr != nil {
+			utils.PrintError(fmt.Sprintf("Error deploying resource %s: %v", resource.Name, cmdErr))
+			return types.ERROR
 		}
 	}
 
@@ -186,28 +179,24 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 var deployAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "kubefs deploy all - create helm charts & deploy the build targets onto the cluster for all resources",
-	Long: `kubefs deploy all - create helm charts & deploy the build targets onto the cluster for all resources`,
+	Long: `kubefs deploy all - create helm charts & deploy the build targets onto the cluster for all resources
+example: 
+	kubefs deploy all --flags,
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var onlyHelmify, onlyDeploy bool
-		var target string
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
-		target, _ = cmd.Flags().GetString("target")
 
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
 
-		if target != "local" && target != "aws" && target != "gcp" && target != "azure" {
-			utils.PrintError("Invalid target cluster: use 'local', 'aws', 'gcp', or 'azure'")
-			return
-		}
-
         utils.PrintWarning("Deploying all resources")
 
         for _, resource := range utils.ManifestData.Resources {
-			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
+			err := deployUnique(&resource, onlyHelmify, onlyDeploy)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s", resource.Name))
 			}
@@ -218,49 +207,50 @@ var deployAllCmd = &cobra.Command{
 }
 
 var deployResourceCmd = &cobra.Command{
-	Use:   "resource [name]",
-	Short: "kubefs deploy resource - create helm charts & deploy the build targets onto the cluster for a specific resource",
-	Long: `kubefs deploy resource - create helm charts & deploy the build targets onto the cluster for a specific resource`,
+	Use:   "resource [name, ...]",
+	Short: "kubefs deploy resource [name, ...] - create helm charts & deploy the build targets onto the cluster for listed resource",
+	Long: `kubefs deploy resource [name, ...] - create helm charts & deploy the build targets onto the cluster for listed resource
+example: 
+	kubefs deploy resource <frontend> <api> <database> --flags,
+	kubefs deploy resource <frontend> --flags
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
 
+		var names = args
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return
 		}
 
+
 		var onlyHelmify, onlyDeploy bool
-		var target string
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
-		target, _ = cmd.Flags().GetString("target")
 
-		if target != "local" && target != "aws" && target != "gcp" && target != "azure" {
-			utils.PrintError("Invalid target cluster: use 'local', 'aws', 'gcp', or 'azure'")
-			return
+		utils.PrintWarning(fmt.Sprintf("Deploying resource %v", names))
+
+		for _, name := range names {
+			var resource *types.Resource
+			resource = utils.GetResourceFromName(name)
+
+			if resource == nil {
+				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+				return
+			}
+
+			err := deployUnique(resource, onlyHelmify, onlyDeploy)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error deploying resource %s", name))
+				break
+			}
+
 		}
 
-        name := args[0]
-        utils.PrintWarning(fmt.Sprintf("Deploying resource %s", name))
-
-		var resource *types.Resource
-		resource = utils.GetResourceFromName(name)
-
-		if resource == nil {
-			utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-			return
-		}
-
-		err := deployUnique(resource, onlyHelmify, onlyDeploy, target)
-		if err == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %s", name))
-			return
-		}
-
-        utils.PrintSuccess(fmt.Sprintf("Resource %s deployed successfully", name))
+		utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", names))
 	},
 }
 
@@ -269,7 +259,6 @@ func init() {
 	deployCmd.AddCommand(deployAllCmd)
 	deployCmd.AddCommand(deployResourceCmd)
 
-	deployCmd.PersistentFlags().StringP("target", "t", "local", "target cluster to deploy the resources onto [local|aws|gcp|azure]")
 	deployCmd.PersistentFlags().BoolP("only-helmify", "w", false, "only helmify the resources")
 	deployCmd.PersistentFlags().BoolP("only-deploy", "d", false, "only deploy the resources")
 
