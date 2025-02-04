@@ -66,9 +66,8 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 
 	}else{
 		if resource.Framework == "redis" {
-			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.DbPassword)}
+			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("REDIS_PORT_NUMBER=%v", resource.Port)}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
-			service["command"] = []string{"redis-server", fmt.Sprintf("--port %v", resource.Port), fmt.Sprintf("--requirepass %s", resource.DbPassword)}
 			service["volumes"] = []string{"redis_data:/bitnami/redis/data"}
 			(*rawCompose)["volumes"].(map[string]interface{})["redis_data"] = map[string]string{
 				"driver": "local",

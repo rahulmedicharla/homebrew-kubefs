@@ -36,14 +36,12 @@ const (
 
 const (
   APIHELM = "https://www.dropbox.com/scl/fi/ajfh7yugc00y9z84mmwxw/kubefs-helm-api.zip?rlkey=hthd6914sleelssvesjj0i9uc&st=1vgniqlf&dl=1"
-  FRONTENDHELM = "https://www.dropbox.com/scl/fi/svzju9j1anh4bbkavjarh/kubefs-helm-frontend.zip?rlkey=yqq9w05ilki3db2jr48dlm54g&st=c2pgcdro&dl=1"
-  DBHELM = "https://www.dropbox.com/scl/fi/osr60qcihytmosu3vqqvg/kubefs-helm-db.zip?rlkey=0xgzcbvo54ung88abyg3rdxrq&st=ete907jx&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{
 	"api": {"nest", "fast", "go"},
 	"frontend": {"next", "sveltekit", "remix"},
-	"database": {"cassandra", "redis"},
+	"database": {"cassandra", "redis", "elasticsearch"},
 }
 
 func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, healthCheck string) string{
