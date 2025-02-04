@@ -22,6 +22,7 @@ type Resource struct {
 	DockerRepo string `yaml:"docker_repo,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
   DbPassword string `yaml:"db_password,omitempty"`
+  UrlHost string `yaml:"url_host,omitempty"`
 }
 
 type ApiResponse struct {
@@ -35,7 +36,7 @@ const (
 )
 
 const (
-  HELMCHART = "https://www.dropbox.com/scl/fi/jbqomul5hjtfgv8m63yb9/helm-chart.zip?rlkey=2074siep7yu5p6ep4n3hkt6uy&st=3txy2jef&dl=1"
+  HELMCHART = "https://www.dropbox.com/scl/fi/chq6lczkjpi04zvg67jql/helm-chart.zip?rlkey=bjkdq8mexvwwfvrq2io71ka6p&st=uaj467d5&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{
@@ -44,7 +45,7 @@ var FRAMEWORKS = map[string][]string{
 	"database": {"cassandra", "redis"},
 }
 
-func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, healthCheck string) string{
+func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, ingressHost string, healthCheck string) string{
   return fmt.Sprintf(`
 replicaCount: 3
 image:
@@ -86,7 +87,7 @@ ingress:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/rewrite-target: /
   #CHANGE LINE BELOW, ADD HOST PATH FOR FRONTEND INGRESS
-  host: ""
+  host: %s
   tls: []
 
 env: []
@@ -112,5 +113,5 @@ volumeMounts: []
 nodeSelector: {}
 tolerations: []
 affinity: {}
-`, dockerRepo, name, serviceType, port, ingressEnabled, healthCheck, healthCheck)
+`, dockerRepo, name, serviceType, port, ingressEnabled, ingressHost, healthCheck, healthCheck)
 }

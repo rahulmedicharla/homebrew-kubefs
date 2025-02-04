@@ -225,6 +225,8 @@ example:
 			return
 		}
 
+		url_host, _ := cmd.Flags().GetString("host-url")
+
 		var commands []string
 		var start_command string
 
@@ -277,7 +279,7 @@ example:
 		var dockerRepo string
 		_, dockerRepo = createDockerRepo(resourceName)
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:resourceFramework, UpLocal: "npm run dev", LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:resourceFramework, UpLocal: "npm run dev", UrlHost: url_host, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
 		
 		err = utils.WriteManifest(&utils.ManifestData)
 		if err == types.ERROR {
@@ -304,10 +306,7 @@ example:
 			return
 		}
 
-		var input string
-		fmt.Print("Enter the password for the database: ")
-		fmt.Scanln(&input)
-		password := strings.TrimSpace(input)
+		password, _ := cmd.Flags().GetString("auth-password")
 
 		var commands []string
 		dockerRepo := fmt.Sprintf("bitnami/%s", resourceFramework)
@@ -338,6 +337,7 @@ example:
 		if fileErr == types.ERROR {
 			return
 		}
+		utils.PrintWarning(fmt.Sprintf("Creating database with '%s' as password. Store this to interact with the database", password))
 		utils.PrintSuccess(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
@@ -351,5 +351,7 @@ func init() {
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
 	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis]")
 
+	createDbCmd.Flags().StringP("auth-password", "a", "password", "Password for the database")
+	createFrontendCmd.Flags().StringP("host-url", "u", "", "host url for the resource")
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
 }

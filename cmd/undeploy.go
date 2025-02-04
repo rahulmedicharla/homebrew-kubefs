@@ -54,8 +54,10 @@ var undeployAllCmd = &cobra.Command{
 example:
 	kubefs undeploy all --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var closeCluster bool
+		var closeCluster, pauseCluster bool
 		closeCluster, _ = cmd.Flags().GetBool("close")
+		pauseCluster, _ = cmd.Flags().GetBool("pause")
+
 
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -70,6 +72,18 @@ example:
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", resource.Name))
 			}
         }
+
+		if pauseCluster {
+			utils.PrintWarning("Pausing the cluster")
+			cmd := exec.Command("sh", "-c", "minikube pause")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error pausing the cluster: %v", cmdErr))
+				return
+			}
+		}
 
 		if closeCluster {
 			utils.PrintWarning("Closing the cluster")
@@ -106,8 +120,9 @@ example:
 			return
 		}
 
-		var closeCluster bool
+		var closeCluster, pauseCluster bool
 		closeCluster, _ = cmd.Flags().GetBool("close")
+		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		names := strings.Split(args[0], ",")
 
         utils.PrintWarning(fmt.Sprintf("Undeploying resource %v", names))
@@ -128,6 +143,18 @@ example:
 				break
 			}
 
+		}
+
+		if pauseCluster {
+			utils.PrintWarning("Pausing the cluster")
+			cmd := exec.Command("sh", "-c", "minikube pause")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error pausing the cluster: %v", cmdErr))
+				return
+			}
 		}
 
 		if closeCluster {
@@ -153,4 +180,5 @@ func init() {
 	undeployCmd.AddCommand(undeployResourceCmd)
 
 	undeployCmd.PersistentFlags().BoolP("close", "c", false, "Stop the cluster after undeploying the resources")
+	undeployCmd.PersistentFlags().BoolP("pause", "p", false, "Pause the cluster after undeploying the resources")
 }

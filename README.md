@@ -27,3 +27,7 @@ ingress
 api's need to load env to get dynamic paths
 
 .env stored as secrets, not in docker image
+
+hosts are added to frontend resource ingress
+need to add 127.0.0.1 domain to /etc/hosts
+minikube tunnel

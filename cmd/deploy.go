@@ -88,13 +88,6 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) i
 
 		if resource.Type == "database"{
 			// database
-			cmd = exec.Command("sh", "-c", fmt.Sprintf("minikube status | grep Running"))
-			err := cmd.Run()
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Minikube not running: %v", err))
-				return types.ERROR
-			}
-
 			var cmd *exec.Cmd
 
 			if resource.Framework == "cassandra"{
@@ -121,10 +114,10 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) i
 			var defaultYaml string
 			if resource.Type == "api"{
 				// api
-				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "/health")
+				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "", "/health")
 			}else{
 				// frontend
-				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "LoadBalancer", resource.Port, "true", "/")
+				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "NodePort", resource.Port, "true", resource.UrlHost, "/")
 			}
 
 			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
@@ -209,10 +202,12 @@ example:
 			err := deployUnique(&resource, onlyHelmify, onlyDeploy)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s", resource.Name))
+				return
 			}
         }
 
         utils.PrintSuccess("All resources deployed successfully")
+
 	},
 }
 
