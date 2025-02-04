@@ -349,7 +349,7 @@ func init() {
 	createCmd.AddCommand(createDbCmd)
 	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | nest | go]")
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
-	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis | elasticsearch]")
+	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis]")
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
 }

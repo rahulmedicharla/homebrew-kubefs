@@ -41,7 +41,7 @@ const (
 var FRAMEWORKS = map[string][]string{
 	"api": {"nest", "fast", "go"},
 	"frontend": {"next", "sveltekit", "remix"},
-	"database": {"cassandra", "redis", "elasticsearch"},
+	"database": {"cassandra", "redis"},
 }
 
 func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, healthCheck string) string{
