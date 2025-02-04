@@ -11,6 +11,7 @@ import (
 	"github.com/rahulmedicharla/kubefs/utils"
 	"os/exec"
 	"os"
+	"strings"
 )
 
 // compileCmd represents the compile command
@@ -20,7 +21,7 @@ var compileCmd = &cobra.Command{
 	Long: `kubefs compile - build and push docker images for resources
 example: 
 	kubefs compile all --flags,
-	kubefs compile resource <frontend> <api> <database> --flags,
+	kubefs compile resource <frontend>,<api>,<database> --flags,
 	kubefs compile resource <frontend> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -142,7 +143,7 @@ var compileResourceCmd = &cobra.Command{
 	Short: "kubefs compile resource [name, ...] - build and push docker images for listed resources",
 	Long: `kubefs compile resource [name, ...] - build and push docker images for listed resources
 example: 
-	kubefs compile resource <frontend> <api> <database> --flags,
+	kubefs compile resource <frontend>,<api>,<database> --flags,
 	kubefs compile resource <frontend> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -156,7 +157,7 @@ example:
 			return
 		}
 
-		var names = args
+		names := strings.Split(args[0], ",")
 		var onlyBuild, onlyPush bool
 		onlyBuild, _ = cmd.Flags().GetBool("only-build")
 		onlyPush, _ = cmd.Flags().GetBool("only-push")

@@ -22,8 +22,8 @@ var removeCmd = &cobra.Command{
 	Long: `kubefs remove - delete listed resource locally and from docker hub
 example:
 	kubefs remove all --flags,
-	kubefs remove resource my-api my-frontend my-database --flags,
-	kubefs remove resource my-api --flags
+	kubefs remove resource <frontend>,<api>,<database> --flags,
+	kubefs remove resource <frontend> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -133,8 +133,8 @@ var removeResourceCmd = &cobra.Command{
     Short: "kubefs remove resource [name, ...] - remove listed resource locally and from docker hub",
     Long:  `kubefs remove resource [name, ...] - remove listed resource locally and from docker hub
 example:
-	kubefs remove resource my-api my-frontend my-database --flags,
-	kubefs remove resource my-api --flags
+	kubefs remove resource <frontend>,<api>,<database> --flags,
+	kubefs remove resource <frontend> --flags
 `,
     Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
@@ -142,7 +142,7 @@ example:
 			return
 		}
 
-		names := args 
+		names := strings.Split(args[0], ",")
 
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")

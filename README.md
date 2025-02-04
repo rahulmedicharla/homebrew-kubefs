@@ -23,6 +23,7 @@ connect to redis by exec into it and ```redis-cli -h [host] -p [port] -a [passwo
 
 minikube addons 
 ingress
-metrics-server
 
 api's need to load env to get dynamic paths
+
+.env stored as secrets, not in docker image

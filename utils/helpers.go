@@ -8,6 +8,7 @@ import (
     "gopkg.in/yaml.v3"
     "reflect"
     "encoding/json"
+    "bufio"
 )
 
 var ManifestData types.Project
@@ -146,6 +147,31 @@ func WriteJson(data map[string]interface{}, path string) int {
     }
 
     return types.SUCCESS
+}
+
+func ReadEnv(path string) (int, []string) {
+    _, err := os.Stat(path)
+    if os.IsNotExist(err) {
+        return types.ERROR, nil
+    }
+
+    file, err := os.Open(path)
+    if err != nil {
+        PrintError(fmt.Sprintf("Error opening env file: %v", err))
+        return types.ERROR, nil
+    }
+    defer file.Close()
+
+    scanner := bufio.NewScanner(file)
+    var envData []string
+    for scanner.Scan() {
+        line := scanner.Text()
+        envData = append(envData, line)
+    }
+
+    return types.SUCCESS, envData
+
+
 }
 
 func UpdateResource(project *types.Project, resource *types.Resource, field string, new_value string) int{

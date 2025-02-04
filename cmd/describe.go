@@ -10,6 +10,7 @@ import (
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
 	"reflect"
+	"strings"
 )
 
 // describeCmd represents the describe command
@@ -19,7 +20,8 @@ var describeCmd = &cobra.Command{
 	Long: `kubefs describe - describe a resource 
 example: 
 	kubefs describe all,
-	kubefs describe resource my-resource
+	kubefs describe resource <frontend>,<api>,<database>
+	kubefs describe resource <frontend>
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -59,7 +61,8 @@ var describeResourceCmd = &cobra.Command{
     Short: "kubefs describe resource [name, ...] - describe listed resource",
     Long:  `kubefs describe resource [name, ...] - describe a specific resource
 example: 
-	kubefs describe resource my-resource
+	kubefs describe resource <frontend>,<api>,<database>
+	kubefs describe resource <frontend>
 	`,
     Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
@@ -72,7 +75,7 @@ example:
 			return
 		}
 
-		names := args
+		names := strings.Split(args[0], ",")
 
 		utils.PrintWarning(fmt.Sprintf("Describing resource %v\n", names))
 

@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os"
 	"github.com/rahulmedicharla/kubefs/types"
+	"strings"
 )
 
 // testCmd represents the test command
@@ -20,8 +21,8 @@ var testCmd = &cobra.Command{
 	Long: `kubefs test - test your build environment in docker locally before deploying
 example:
 	kubefs test all --flags,
-	kubefs test resource my-api my-frontend my-database --flags,
-	kubefs test resource my-api --flags`,
+	kubefs test resource <frontend>,<api>,<database> --flags,
+	kubefs test resource <frontend> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -62,6 +63,13 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 
 		for _, r := range utils.ManifestData.Resources {
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
+		}
+
+	 	envErr, envData := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+		if envErr == types.SUCCESS {
+			for _,line := range envData {
+				service["environment"] = append(service["environment"].([]string), line)
+			}
 		}
 
 	}else{
@@ -147,15 +155,15 @@ var testResourceCmd = &cobra.Command{
 	Short: "kubefs test resource [name, ...] - test listed resource in docker locally before deploying",
 	Long: `kubefs test resource [name ...] - test listed resource in docker locally before deploying
 example:
-	kubefs test resource my-api my-frontend my-database --flags,
-	kubefs test resource my-api --flags`,
+	kubefs test resource <frontend>,<api>,<database> --flags,
+	kubefs test resource <frontend> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
 
-		var names = args
+		var names = strings.Split(args[0], ",")
 
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")

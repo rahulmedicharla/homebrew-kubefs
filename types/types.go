@@ -35,7 +35,7 @@ const (
 )
 
 const (
-  APIHELM = "https://www.dropbox.com/scl/fi/ajfh7yugc00y9z84mmwxw/kubefs-helm-api.zip?rlkey=hthd6914sleelssvesjj0i9uc&st=1vgniqlf&dl=1"
+  HELMCHART = "https://www.dropbox.com/scl/fi/jbqomul5hjtfgv8m63yb9/helm-chart.zip?rlkey=2074siep7yu5p6ep4n3hkt6uy&st=3txy2jef&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{
@@ -90,6 +90,7 @@ ingress:
   tls: []
 
 env: []
+secrets: []
 resources: {}
 
 livenessProbe:

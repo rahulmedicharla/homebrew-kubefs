@@ -13,6 +13,7 @@ import (
 	"os"
 	"net/http"
 	"io"
+	"strings"
 )
 
 // deployCmd represents the deploy command
@@ -22,7 +23,7 @@ var deployCmd = &cobra.Command{
 	Long: `kubefs deploy - create helm charts & deploy the build targets onto the cluster
 example:
 	kubefs deploy all --flags,
-	kubefs deploy resource <frontend> <api> <database> --flags,
+	kubefs deploy resource <frontend>,<api>,<database> --flags,
 	kubefs deploy resource <frontend> --flags,`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -112,7 +113,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) i
 
 		}else{
 			// api or frontend
-			err := downloadZip(types.APIHELM, resource.Name)
+			err := downloadZip(types.HELMCHART, resource.Name)
 			if err == types.ERROR {
 				return types.ERROR
 			}
@@ -140,7 +141,15 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) i
 			for _, r := range utils.ManifestData.Resources {
 				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
 			}
-			valuesYaml["env"] = env
+		
+			envErr, envData := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+			if envErr == types.SUCCESS {
+				secrets := valuesYaml["secrets"].([]interface{})
+				for _,line := range envData {
+					secrets = append(secrets, map[string]interface{}{"name": strings.Split(line, "=")[0], "value": strings.Split(line, "=")[1], "secretRef": fmt.Sprintf("%s-deploy-secret", resource.Name)})
+				}
+				valuesYaml["secrets"] = secrets
+			}
 
 			err = utils.WriteYaml(&valuesYaml, fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
 			if err == types.ERROR {
@@ -211,7 +220,7 @@ var deployResourceCmd = &cobra.Command{
 	Short: "kubefs deploy resource [name, ...] - create helm charts & deploy the build targets onto the cluster for listed resource",
 	Long: `kubefs deploy resource [name, ...] - create helm charts & deploy the build targets onto the cluster for listed resource
 example: 
-	kubefs deploy resource <frontend> <api> <database> --flags,
+	kubefs deploy resource <frontend>,<api>,<database> --flags,
 	kubefs deploy resource <frontend> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -220,7 +229,7 @@ example:
 			return
 		}
 
-		var names = args
+		names := strings.Split(args[0], ",")
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
 			return

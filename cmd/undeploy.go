@@ -11,6 +11,7 @@ import (
 	"github.com/rahulmedicharla/kubefs/types"
 	"os/exec"
 	"os"
+	"strings"
 )
 
 // undeployCmd represents the undeploy command
@@ -20,8 +21,8 @@ var undeployCmd = &cobra.Command{
 	Long: `kubefs undeploy - undeploy the created resources from the clusters
 example:
 	kubefs undeploy all --flags,
-	kubefs undeploy resource my-api my-frontend my-database --flags,
-	kubefs undeploy resource my-api --flags`,
+	kubefs undeploy resource <frontend>,<api>,<database> --flags,
+	kubefs undeploy resource <frontend> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -91,8 +92,8 @@ var undeployResourceCmd = &cobra.Command{
 	Short: "kubefs undeploy resource - undeploy listed resource from the clusters",
 	Long: `kubefs undeploy resource - undeploy listed resource from the clusters
 example:
-	kubefs undeploy resource my-api my-frontend my-database --flags,
-	kubefs undeploy resource my-api --flags
+	kubefs undeploy resource <frontend>,<api>,<database> --flags,
+	kubefs undeploy resource <frontend> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
@@ -107,7 +108,7 @@ example:
 
 		var closeCluster bool
 		closeCluster, _ = cmd.Flags().GetBool("close")
-		names := args
+		names := strings.Split(args[0], ",")
 
         utils.PrintWarning(fmt.Sprintf("Undeploying resource %v", names))
 

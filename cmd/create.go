@@ -27,9 +27,9 @@ var createCmd = &cobra.Command{
 	Short: "kubefs create - easily create backend, frontend, & db resources to be used within your application",
 	Long: `kubefs create - easily create backend, frontend, & db resources to be used within your application
 example:
-	kubefs create api my-api --flags
-	kubefs create frontend my-frontend
-	kubefs create database my-db
+	kubefs create api <api name> --flags
+	kubefs create frontend <frontend name> --flags
+	kubefs create database <database name> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -146,7 +146,7 @@ var createApiCmd = &cobra.Command{
 	Short: "kubefs create api - create a new API resource",
 	Long: `kubefs create api - create a new API resource
 example: 
-	kubefs create api my-api --flags,
+	kubefs create api <name> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
@@ -213,7 +213,7 @@ var createFrontendCmd = &cobra.Command{
 	Short: "kubefs create frontend - create a new frontend resource",
 	Long: `kubefs create frontend - create a new frontend resource
 example:
-	kubefs create frontend my-frontend --flags
+	kubefs create frontend <name> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
@@ -292,7 +292,7 @@ var createDbCmd = &cobra.Command{
 	Short: "kubefs create database - create a new database resource",
 	Long: `kubefs create database - create a new database resource
 example:
-	kubefs create database mydb --flags
+	kubefs create database <db> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus == types.ERROR {
