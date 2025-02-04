@@ -116,15 +116,28 @@ example:
 
         utils.PrintWarning("Removing all resources")
 
+		var errors []string
+		var successes []string
+	
         for _, resource := range utils.ManifestData.Resources {
 			err := removeUnique(&resource, onlyLocal, onlyRemote)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error removing resource %s", resource.Name))
+				errors = append(errors, resource.Name)
+				break
 			}
+			utils.RemoveResource(&utils.ManifestData, resource.Name)
+			successes = append(successes, resource.Name)
         }
 
-        utils.RemoveAll(&utils.ManifestData)
-        utils.PrintSuccess("All resources removed successfully")
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error removing resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+		}
+
     },
 }
 
@@ -155,6 +168,9 @@ example:
 
         utils.PrintWarning(fmt.Sprintf("Removing resource %v", names))
 
+		var errors []string
+		var successes []string
+
 		for _, name := range names {
 			var resource *types.Resource
 			resource = utils.GetResourceFromName(name)
@@ -167,11 +183,20 @@ example:
 			err := removeUnique(resource, onlyLocal, onlyRemote)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
+				errors = append(errors, name)
 				break
 			}
+			successes = append(successes, name)
+			utils.RemoveResource(&utils.ManifestData, name)
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", names))
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error removing resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+		}
 
     },
 }

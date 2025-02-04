@@ -66,12 +66,26 @@ example:
 
         utils.PrintWarning("Undeploying all resources")
 
+		var errors []string
+		var successes []string
+
         for _, resource := range utils.ManifestData.Resources {
 			err := undeployUnique(&resource)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", resource.Name))
+				errors = append(errors, resource.Name)
+				break
 			}
+			successes = append(successes, resource.Name)
         }
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
+		}
 
 		if pauseCluster {
 			utils.PrintWarning("Pausing the cluster")
@@ -96,8 +110,6 @@ example:
 				return
 			}
 		}
-
-        utils.PrintSuccess("All resources undeployed successfully")
 	},
 }
 
@@ -125,6 +137,9 @@ example:
 		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		names := strings.Split(args[0], ",")
 
+		var errors []string
+		var successes []string
+
         utils.PrintWarning(fmt.Sprintf("Undeploying resource %v", names))
 
 		for _, name := range names {
@@ -140,9 +155,18 @@ example:
 			err := undeployUnique(resource)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", name))
+				errors = append(errors, name)
 				break
 			}
+			successes = append(successes, name)
+		}
 
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 
 		if pauseCluster {
@@ -168,8 +192,6 @@ example:
 				return
 			}
 		}
-
-        utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", names))
 	},
 }
 

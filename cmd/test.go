@@ -109,7 +109,7 @@ example:
         utils.PrintWarning("Testing all resources in docker")
 		
 		for _, resource := range utils.ManifestData.Resources {
-			modifyRawCompose(&rawCompose, &resource,)
+			modifyRawCompose(&rawCompose, &resource)
 		}
 
 		fileErr := utils.WriteYaml(&rawCompose, "docker-compose.yaml")

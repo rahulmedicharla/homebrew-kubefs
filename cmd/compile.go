@@ -124,17 +124,30 @@ example:
 		onlyBuild, _ = cmd.Flags().GetBool("only-build")
 		onlyPush, _ = cmd.Flags().GetBool("only-push")
 
+		var errors []string
+		var successes []string
+
         utils.PrintWarning("Compiling all resources")
 
 		for _, resource := range utils.ManifestData.Resources {
 			err := compileUnique(&resource, onlyBuild, onlyPush)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error compiling resource %s", resource.Name))
-				return 
+				errors = append(errors, resource.Name)
+				break 
 			}
+
+			successes = append(successes, resource.Name)
 		}
 
-		utils.PrintSuccess("All resources compiled successfully")
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error compiling resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", successes))
+		}
+
 	},
 }	
 
@@ -162,6 +175,9 @@ example:
 		onlyBuild, _ = cmd.Flags().GetBool("only-build")
 		onlyPush, _ = cmd.Flags().GetBool("only-push")
 
+		var errors []string
+		var successes []string
+
 		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", names))
 
 		for _, name := range names{
@@ -176,12 +192,21 @@ example:
 			err := compileUnique(resource, onlyBuild, onlyPush)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error compiling resource %s", name))
-				return
+				errors = append(errors, name)
+				break
 			}
+
+			successes = append(successes, name)
 
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", names))
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error compiling resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", successes))
+		}
 	},
 }	
 

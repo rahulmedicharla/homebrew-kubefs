@@ -196,17 +196,37 @@ example:
 			return
 		}
 
+		var errors []string
+		var successes []string
+		var hosts []string
+
         utils.PrintWarning("Deploying all resources")
 
         for _, resource := range utils.ManifestData.Resources {
 			err := deployUnique(&resource, onlyHelmify, onlyDeploy)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s", resource.Name))
-				return
+				errors = append(errors, resource.Name)
+				break
+			}
+			successes = append(successes, resource.Name)
+			if resource.Type == "frontend" {
+				hosts = append(hosts, resource.UrlHost)
 			}
         }
 
-        utils.PrintSuccess("All resources deployed successfully")
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+		}
+
+		if len(hosts) > 0 {
+			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v", hosts))
+		}
+
 
 	},
 }
@@ -236,6 +256,10 @@ example:
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
 
+		var successes []string
+		var errors []string
+		var hosts []string
+
 		utils.PrintWarning(fmt.Sprintf("Deploying resource %v", names))
 
 		for _, name := range names {
@@ -244,18 +268,34 @@ example:
 
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				return
+				break
 			}
 
 			err := deployUnique(resource, onlyHelmify, onlyDeploy)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s", name))
+				errors = append(errors, name)
 				break
+			}
+
+			successes = append(successes, name)
+			if resource.Type == "frontend"{
+				hosts = append(hosts, resource.UrlHost)
 			}
 
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", names))
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+		}
+
+		if len(hosts) > 0 {
+			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v", hosts))
+		}
 	},
 }
 
