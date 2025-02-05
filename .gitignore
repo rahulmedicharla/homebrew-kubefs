@@ -3,4 +3,8 @@ docker-compose.yaml
 Dockerfile
 .env
 
-bin/
+bin/kubefs
+
+.auth
+# Added by goreleaser init:
+dist/
