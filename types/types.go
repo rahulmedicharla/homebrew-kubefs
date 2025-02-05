@@ -36,7 +36,7 @@ const (
 )
 
 const (
-  HELMCHART = "https://www.dropbox.com/scl/fi/chq6lczkjpi04zvg67jql/helm-chart.zip?rlkey=bjkdq8mexvwwfvrq2io71ka6p&st=uaj467d5&dl=1"
+  HELMCHART = "https://www.dropbox.com/scl/fi/ysju5bkpup02eiy7b3qde/helm-template.zip?rlkey=9gzobe08xdugaymr7kz1kyt4o&st=eskuno42&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{
