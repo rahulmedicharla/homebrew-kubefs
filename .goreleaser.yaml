@@ -114,8 +114,6 @@ brews:
     dependencies:
       - name: helm
       - name: minikube
-      - name: docker
-
     # So you can `brew test` your formula.
     #
     # Template: allowed
