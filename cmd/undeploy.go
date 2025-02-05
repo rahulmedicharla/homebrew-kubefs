@@ -74,7 +74,7 @@ example:
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", resource.Name))
 				errors = append(errors, resource.Name)
-				break
+				continue
 			}
 			successes = append(successes, resource.Name)
         }
@@ -149,14 +149,14 @@ example:
 
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				break
+				continue
 			}
 
 			err := undeployUnique(resource)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", name))
 				errors = append(errors, name)
-				break
+				continue
 			}
 			successes = append(successes, name)
 		}

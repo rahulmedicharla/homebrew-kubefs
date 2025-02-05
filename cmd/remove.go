@@ -140,7 +140,7 @@ example:
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error removing resource %s", resource.Name))
 				errors = append(errors, resource.Name)
-				break
+				continue
 			}
 			utils.RemoveResource(&utils.ManifestData, resource.Name)
 			successes = append(successes, resource.Name)
@@ -193,14 +193,14 @@ example:
 
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				break
+				continue
 			}
 
 			err := removeUnique(resource, onlyLocal, onlyRemote)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
 				errors = append(errors, name)
-				break
+				continue
 			}
 			successes = append(successes, name)
 			utils.RemoveResource(&utils.ManifestData, name)

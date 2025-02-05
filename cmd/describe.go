@@ -83,7 +83,7 @@ example:
 			resource := utils.GetResourceFromName(name)
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				break
+				continue
 			}
 
 			resourceValue := reflect.ValueOf(resource)

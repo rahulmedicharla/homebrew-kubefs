@@ -15,8 +15,10 @@ refresh:
 	minikube addons enable ingress
 	minikube addons enable metrics-server
 	minikube stop
-	echo "export GOPATH=$HOME/go\nexport GOROOT=$(brew --prefix go)/libexec\nexport PATH=$PATH:$GOPATH/bin\nexport PATH=$PATH:$GOROOT/bin" >> ~/.zprofile
+# echo "export GOPATH=$HOME/go\nexport GOROOT=$(brew --prefix go)/libexec\nexport PATH=$PATH:$GOPATH/bin\nexport PATH=$PATH:$GOROOT/bin" >> ~/.zprofile
+	echo 'alias k=kubectl' >> ~/.zprofile
 	go mod tidy
+	echo 'alias kubefs=${pwd}/bin/kubefs' >> ~/.zprofile
 	echo "restart the terminal to reflect the changes"
 
 

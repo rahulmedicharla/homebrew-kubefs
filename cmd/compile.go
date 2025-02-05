@@ -134,7 +134,7 @@ example:
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error compiling resource %s", resource.Name))
 				errors = append(errors, resource.Name)
-				break 
+				continue 
 			}
 
 			successes = append(successes, resource.Name)
@@ -186,14 +186,14 @@ example:
 			 
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				break
+				continue
 			}
 
 			err := compileUnique(resource, onlyBuild, onlyPush)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error compiling resource %s", name))
 				errors = append(errors, name)
-				break
+				continue
 			}
 
 			successes = append(successes, name)

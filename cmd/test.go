@@ -179,7 +179,7 @@ example:
 
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				break
+				continue
 			}
 
 			modifyRawCompose(&rawCompose, resource)

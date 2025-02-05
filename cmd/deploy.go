@@ -207,7 +207,7 @@ example:
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s", resource.Name))
 				errors = append(errors, resource.Name)
-				break
+				continue
 			}
 			successes = append(successes, resource.Name)
 			if resource.Type == "frontend" {
@@ -268,14 +268,14 @@ example:
 
 			if resource == nil {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				break
+				continue
 			}
 
 			err := deployUnique(resource, onlyHelmify, onlyDeploy)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s", name))
 				errors = append(errors, name)
-				break
+				continue
 			}
 
 			successes = append(successes, name)
