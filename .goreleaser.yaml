@@ -49,79 +49,24 @@ release:
 
 brews:
   - name: kubefs
-    # NOTE: make sure the url_template, the token and given repo (github or
-    # gitlab) owner and name are from the same kind.
-    # We will probably unify this in the next major version like it is
-    # done with scoop.
-
-    # URL which is determined by the given Token (github, gitlab or gitea).
-    #
-    # Default depends on the client.
-    # Templates: allowed.
     url_template: "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-
-    # Headers to include in the `url` stanza.
-    # This can be a more modern alternative to `download_strategy` in some
-    # cases.
-
-    # Allows you to set a custom download strategy. Note that you'll need
-    # to implement the strategy and add it to your tap repository.
-    # Example: https://docs.brew.sh/Formula-Cookbook#specifying-the-download-strategy-explicitly
     download_strategy: CurlDownloadStrategy
-
-    # Git author used to commit to the repository.
     commit_author:
       name: rahulmedicharla
       email: rmedicharla@gmail.o
-
-    # The project name and current git tag are used in the format string.
-    #
-    # Templates: allowed.
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-
-    # Directory inside the repository to put the formula.
     directory: Formula
-
-    # Caveats for the user of your binary.
-    caveats: "How to use this binary"
-
-    # Your app's homepage.
-    #
-    # Default: inferred from global metadata.
+    caveats: "kubefs is a cli tool to simplify the process of creating, testing, and deploying full stack applications onto kubernetes clusters.\nVisit https://github.com/rahulmedicharla/kubefs to get started."
     homepage: "https://github.com/rahulmedicharla/kubefs"
-
-    # Your app's description.
-    #
-    # Templates: allowed.
-    # Default: inferred from global metadata.
     description: "a cli tool to simplify the process of creating, testing, and deploying full stack applications onto kubernetes clusters."
-
-    # SPDX identifier of your app's license.
-    #
-    # Default: inferred from global metadata.
     license: "MIT"
-
-    # Setting this will prevent goreleaser to actually try to commit the updated
-    # formula - instead, the formula file will be stored on the dist directory
-    # only, leaving the responsibility of publishing it to the user.
-    # If set to auto, the release will not be uploaded to the homebrew tap
-    # in case there is an indicator for prerelease in the tag e.g. v1.0.0-rc1
-    #
-    # Templates: allowed.
     skip_upload: false
-
-    # Packages your package depends on.
     dependencies:
       - name: helm
       - name: minikube
-    # So you can `brew test` your formula.
-    #
-    # Template: allowed
     test: |
       system "#{bin}/kubefs --help"
       # ...
-
-    # Repository to push the generated files to.
     repository:
       owner: rahulmedicharla
       name: homebrew-kubefs
