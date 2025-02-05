@@ -5,25 +5,24 @@
 class Kubefs < Formula
   desc "a cli tool to simplify the process of creating, testing, and deploying full stack applications onto kubernetes clusters."
   homepage "https://github.com/rahulmedicharla/kubefs"
-  version "1.0.2"
+  version "1.0.3"
   license "MIT"
 
-  depends_on "docker"
   depends_on "helm"
   depends_on "minikube"
 
   on_macos do
     if Hardware::CPU.intel?
-      url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.2/homebrew-kubefs_Darwin_x86_64.tar.gz", using: CurlDownloadStrategy
-      sha256 "ad8fd8bfe4809b4a023f675b645670465b1a76c1fb31b758b0a67f34c1e92458"
+      url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.3/homebrew-kubefs_Darwin_x86_64.tar.gz", using: CurlDownloadStrategy
+      sha256 "41bf67a1b1950232f30cdd847dfef2b66a3777b9ee79ed1eda2a9ab4e6e28814"
 
       def install
         bin.install "kubefs"
       end
     end
     if Hardware::CPU.arm?
-      url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.2/homebrew-kubefs_Darwin_arm64.tar.gz", using: CurlDownloadStrategy
-      sha256 "f8d08d58ddaf57c4aa4b8c1996900ee62973f99d48b77872f9ffe1c78c3c118c"
+      url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.3/homebrew-kubefs_Darwin_arm64.tar.gz", using: CurlDownloadStrategy
+      sha256 "79fc45543cfc286c04cacc2695bf7d8411d63721c111433585b59841f505eac3"
 
       def install
         bin.install "kubefs"
@@ -34,8 +33,8 @@ class Kubefs < Formula
   on_linux do
     if Hardware::CPU.intel?
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.2/homebrew-kubefs_Linux_x86_64.tar.gz", using: CurlDownloadStrategy
-        sha256 "26e23a57accc8db40f2dd9001bdce4384ce7fbe51bc2cc1d815a2da14c3b6c57"
+        url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.3/homebrew-kubefs_Linux_x86_64.tar.gz", using: CurlDownloadStrategy
+        sha256 "b8ea8b158605e9c777cc143f944977045fc4431e99a0e1ee6422482a451d30ea"
 
         def install
           bin.install "kubefs"
@@ -44,8 +43,8 @@ class Kubefs < Formula
     end
     if Hardware::CPU.arm?
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.2/homebrew-kubefs_Linux_arm64.tar.gz", using: CurlDownloadStrategy
-        sha256 "59c5474ae88816696c0e9638884cdad10432b29ad164ad137589f561337d9daf"
+        url "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/v1.0.3/homebrew-kubefs_Linux_arm64.tar.gz", using: CurlDownloadStrategy
+        sha256 "f99f008c1bf2c318f8318c99530216986308eda43b5077cf5d67b0ea3aceca1e"
 
         def install
           bin.install "kubefs"
