@@ -42,6 +42,22 @@ func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) int
 			return types.ERROR
 		}
 
+		cmd = exec.Command("sh", "-c", fmt.Sprintf("docker images | grep %s", resource.DockerRepo))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err == nil {
+			cmd = exec.Command("sh", "-c", fmt.Sprintf("docker rmi %s:latest", resource.DockerRepo))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err = cmd.Run()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing docker image: %v", err))
+				return types.ERROR
+			}
+		}
+
+
 		manifestErr := utils.RemoveResource(&utils.ManifestData, resource.Name)
 		if manifestErr == types.ERROR {
 			utils.PrintError(fmt.Sprintf("Error removing resource: %v", manifestErr))	
