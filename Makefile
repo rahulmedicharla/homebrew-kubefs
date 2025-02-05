@@ -1,7 +1,7 @@
 build:
-	sudo rm -rf /usr/local/bin/scripts
-	sudo cp -r scripts /usr/local/bin/scripts
-	sudo cp kubefs /usr/local/bin
+	go build -o bin/kubefs .
 
-release-api:
-	zip -r kubefs-api.zip kubefs-api -x "kubefs-api/Dockerfile" "kubefs-api/docker-compose.yaml" "kubefs-api/.dockerignore"	
+publish:
+	git tag -a v$(VERSION) -m "kubefs-cli Release version $(VERSION)"
+	git push https://github.com/rahulmedicharla/homebrew-kubefs.git v$(VERSION)
+	GITHUB_TOKEN=${GITHUB_TOKEN} goreleaser release --clean

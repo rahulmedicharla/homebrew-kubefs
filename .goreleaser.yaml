@@ -1,0 +1,74 @@
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go mod download 
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    binary: kubefs
+
+archives:
+  - formats: ['tar.gz' ]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        formats: ['zip']
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: rahulmedicharla
+    name: homebrew-kubefs    
+  footer: >-
+
+    ---
+
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+
+brews:
+  - name: kubefs
+    url_template: "https://github.com/rahulmedicharla/homebrew-kubefs/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    download_strategy: CurlDownloadStrategy
+    commit_author:
+      name: rahulmedicharla
+      email: rmedicharla@gmail.o
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Formula
+    caveats: "kubefs is a cli tool to simplify the process of creating, testing, and deploying full stack applications onto kubernetes clusters.\nVisit https://github.com/rahulmedicharla/kubefs to get started."
+    homepage: "https://github.com/rahulmedicharla/kubefs"
+    description: "a cli tool to simplify the process of creating, testing, and deploying full stack applications onto kubernetes clusters."
+    license: "MIT"
+    skip_upload: false
+    dependencies:
+      - name: helm
+      - name: minikube
+    test: |
+      system "#{bin}/kubefs --help"
+      # ...
+    repository:
+      owner: rahulmedicharla
+      name: homebrew-kubefs
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"
