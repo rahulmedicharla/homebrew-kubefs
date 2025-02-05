@@ -38,6 +38,9 @@ changelog:
       - "^test:"
 
 release:
+  github:
+    owner: rahulmedicharla
+    name: homebrew-kubefs    
   footer: >-
 
     ---
