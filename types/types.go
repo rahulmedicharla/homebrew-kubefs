@@ -9,6 +9,7 @@ type Project struct {
 	Version string `yaml:"version"`
 	Description string `yaml:"description"`
 	Resources []Resource `yaml:"resources"`
+  Addons []Addon `yaml:"addons"`
 }
 
 type Resource struct {
@@ -23,6 +24,15 @@ type Resource struct {
 	ClusterHost string `yaml:"cluster_host,omitempty"`
   DbPassword string `yaml:"db_password,omitempty"`
   UrlHost string `yaml:"url_host,omitempty"`
+}
+
+type Addon struct {
+  Name string `yaml:"name"`
+  Port int `yaml:"port"`
+  DockerRepo string `yaml:"docker_repo"`
+  LocalHost string `yaml:"local_host"`
+  DockerHost string `yaml:"docker_host"`
+  ClusterHost string `yaml:"cluster_host"`
 }
 
 type ApiResponse struct {

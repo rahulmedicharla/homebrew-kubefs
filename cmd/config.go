@@ -81,7 +81,7 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		user := "kubefs"
-		services := []string{"docker", "aws", "azure", "gcp"}
+		services := []string{"docker"}
 
 		fmt.Println("Listing all configurations \n")
 

@@ -42,11 +42,18 @@ example:
 			return
 		}
 
+		err = os.Mkdir(projectName + "/addons", 0755)
+		if err != nil {
+			fmt.Printf("Error initializing project: %v\n", err)
+			return
+		}
+
 		project := types.Project{
 			KubefsName: projectName,
 			Version: "0.0.1",
 			Description: description,
 			Resources: []types.Resource{},
+			Addons: []types.Addon{},
 		}
 	
 		data, err := yaml.Marshal(&project)
