@@ -101,15 +101,14 @@ example:
 
 				commands := []string{
 					fmt.Sprintf("mkdir addons/%s", name),
-					fmt.Sprintf("openssl genpkey -algorithm RSA -aes256 -out addons/%s/private_key.pem", name),
-					fmt.Sprintf("openssl rsa -pubout -in addons/%s/private_key.pem -out addons/%s/public_key.pem", name, name),
+					fmt.Sprintf("openssl genrsa -out addons/%s/private_key.pem -aes256 -passout pass:kubefs", name),
+					fmt.Sprintf("openssl rsa -passin pass:kubefs -pubout -in addons/%s/private_key.pem -out addons/%s/public_key.pem", name, name),
 				}
 
 				var isErr bool
 				isErr = false
 				for _, command := range commands {
 					cmd := exec.Command("sh", "-c", command)
-					cmd.Stdout = os.Stdout
 					cmd.Stderr = os.Stderr
 					err := cmd.Run()
 					fmt.Println(err)
