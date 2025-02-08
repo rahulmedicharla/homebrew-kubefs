@@ -1,10 +1,9 @@
-.dockerignore
-docker-compose.yaml 
-Dockerfile
-.env
 
 bin/kubefs
 
 .auth
 # Added by goreleaser init:
 dist/
+
+addons/oauth/private_key.pem
+addons/oauth/public_key.pem

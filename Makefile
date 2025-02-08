@@ -1,5 +1,5 @@
 build:
-	go build -o bin/kubefs .
+	go build -o bin/kubefs github.com/rahulmedicharla/kubefs
 
 publish:
 	git tag -a v$(VERSION) -m "kubefs-cli Release version $(VERSION)"

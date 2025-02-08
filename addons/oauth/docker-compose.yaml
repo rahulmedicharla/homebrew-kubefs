@@ -1,0 +1,15 @@
+services:
+  auth:
+    image: rmedicharla/auth
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - REDIRECT_URL=http://localhost:3000
+    volumes:
+      - ./private_key.pem:/etc/ssl/private/private_key.pem
+      - store:/app/store
+
+volumes:
+  store:
+    driver: local
