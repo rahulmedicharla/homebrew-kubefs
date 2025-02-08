@@ -44,6 +44,17 @@ func GetResourceFromName(name string) *types.Resource {
     return nil
 }
 
+func GetAddonFromName(name string) *types.Addon {
+    for _, addon := range ManifestData.Addons {
+        if addon.Name == name {
+            return &addon
+        }
+    }
+    PrintError(fmt.Sprintf("Addon %s not found", name))
+    return nil
+}
+
+
 func ReadYaml(path string) (int, map[string]interface{}) {
     data, err := os.ReadFile(path)
     if err != nil {
@@ -132,7 +143,6 @@ func ReadJson(path string) (int, map[string]interface{}) {
     return types.SUCCESS, jsonData
 }
 
-
 func WriteJson(data map[string]interface{}, path string) int {
     jsonData, err := json.MarshalIndent(data, "", "  ")
     if err != nil {
@@ -201,6 +211,18 @@ func RemoveResource(project *types.Project, name string) int {
     return WriteManifest(project)
 }
 
+func RemoveAddon(project *types.Project, name string) int {
+    addonList := []types.Addon{}
+    
+    for i, addon := range project.Addons {
+        if addon.Name != name {
+            addonList = append(addonList, project.Addons[i])            
+        }
+    }
+    project.Addons = addonList
+    return WriteManifest(project)
+}
+
 func ValidateProject() int{
     _, err := os.Stat("manifest.yaml")
     if os.IsNotExist(err) {
@@ -208,4 +230,63 @@ func ValidateProject() int{
         return types.ERROR
     }
     return types.SUCCESS 
+}
+
+func VerifyName(name string) bool {
+    for _, resource := range ManifestData.Resources {
+        if resource.Name == name {
+            PrintError(fmt.Sprintf("Resource %s already exists", name))
+            return false
+        }
+    }
+
+    for _, addon := range ManifestData.Addons {
+        if addon.Name == name {
+            PrintError(fmt.Sprintf("Addon %s already exists", name))
+            return false
+        }
+    }
+
+    return true
+}
+
+func VerifyPort(port int) bool {
+    if port == 6000 || port == 8000 {
+        PrintError("Port 6000 and 8000 are reserved")
+        return false
+    }
+
+    for _, resource := range ManifestData.Resources {
+        if resource.Port == port {
+            PrintError(fmt.Sprintf("Port %d already in use %s", port, resource.Name))
+            return false
+        }
+    }
+
+    for _, addon := range ManifestData.Addons {
+        if addon.Port == port {
+            PrintError(fmt.Sprintf("Port %d already in use by %s", port, addon.Name))
+            return false
+        }
+    }
+
+    return true
+}
+
+func VerifyFramework(framework string, rType string) bool {
+    for _, f := range types.FRAMEWORKS[rType] {
+        if f == framework {
+            return true
+        }
+    }
+    PrintError(fmt.Sprintf("Framework %s not supported for %s", framework, rType))
+    return false
+}
+
+func GetCurrentResourceNames() []string {
+    var names []string
+    for _, resource := range ManifestData.Resources {
+        names = append(names, resource.Name)
+    }
+    return names
 }

@@ -43,38 +43,22 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) int {
 	}
 
 	name := args[0]
+	if !utils.VerifyName(name) {
+		return types.ERROR
+	} 
 	resourceName = name
-	port, err := cmd.Flags().GetInt("port")
-	if err != nil || port == 6000 || port == 8000 {
-		utils.PrintError(fmt.Sprintf(" Invalid port. Port 6000 & 8000 reserved for kubefs: %v", err))
+	
+	port, _ := cmd.Flags().GetInt("port")
+	if !utils.VerifyPort(port){
 		return types.ERROR
 	}
 	resourcePort = port
 
-	framework, err := cmd.Flags().GetString("framework")
-	if err != nil {
-		utils.PrintError(fmt.Sprintf("Error reading framework: %v", err))
+	framework, _ := cmd.Flags().GetString("framework")
+	if !utils.VerifyFramework(framework, resource){
 		return types.ERROR
 	}
 	resourceFramework = framework
-
-	allowableFrameworks := types.FRAMEWORKS[resource]
-	if (!utils.Contains(allowableFrameworks, framework)) {
-		utils.PrintError(fmt.Sprintf("Invalid framework: %s. Allowed frameworks are: %v", framework, allowableFrameworks))
-		return types.ERROR
-	}
-
-	for _, resource := range utils.ManifestData.Resources {
-		if resource.Name == name {
-			utils.PrintError(fmt.Sprintf("Resource with name %s already exists", name))
-			return types.ERROR
-		}
-		
-		if resource.Port == port {
-			utils.PrintError(fmt.Sprintf("Resource with port %v already exists", port))
-			return types.ERROR
-		}
-	}
 
 	utils.PrintWarning(fmt.Sprintf("Creating %s named %s on port %v using the %s framework\n", resource, name, port, framework))
 	return types.SUCCESS

@@ -33,6 +33,7 @@ type Addon struct {
   LocalHost string `yaml:"local_host"`
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
+  Env []string `yaml:"env,omitempty"`
 }
 
 type ApiResponse struct {
@@ -53,6 +54,7 @@ var FRAMEWORKS = map[string][]string{
 	"api": {"nest", "fast", "go"},
 	"frontend": {"next", "sveltekit", "remix"},
 	"database": {"cassandra", "redis"},
+  "addons": {"oauth2"},
 }
 
 func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, ingressHost string, healthCheck string) string{
