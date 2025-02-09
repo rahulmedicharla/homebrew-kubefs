@@ -75,20 +75,16 @@ example:
 			var newAddon types.Addon
 			if name == "oauth2" {
 				var input string
-				fmt.Print(fmt.Sprintf("What resource would you like to be redirected to after authentication?%v: ", utils.GetCurrentResourceNames()))
+				fmt.Print(fmt.Sprintf("What resource would you like the headless oauth2 to be attached to?%v: ", utils.GetCurrentResourceNames()))
 				fmt.Scanln(&input)
 				
-				redirectResource := utils.GetResourceFromName(input)
-				if redirectResource == nil {
+				attachedResource := utils.GetResourceFromName(input)
+				if attachedResource == nil {
 					utils.PrintError(fmt.Sprintf("Resource %s not found", input))
 					errors = append(errors, name)
 					continue
 				}
 				
-				fmt.Print(fmt.Sprintf("What path would you like to be redirected to on %s after authentication? (ex. /): ", redirectResource.Name))
-				fmt.Scanln(&input)
-				redirectPath := input
-
 				fmt.Print(fmt.Sprintf("What resource would you like to to have confirm the auth tokens?%v: ", utils.GetCurrentResourceNames()))
 				fmt.Scanln(&input)
 				
@@ -101,8 +97,8 @@ example:
 
 				commands := []string{
 					fmt.Sprintf("mkdir addons/%s", name),
-					fmt.Sprintf("openssl genrsa -out addons/%s/private_key.pem -aes256 -passout pass:kubefs", name),
-					fmt.Sprintf("openssl rsa -passin pass:kubefs -pubout -in addons/%s/private_key.pem -out addons/%s/public_key.pem", name, name),
+					fmt.Sprintf("openssl genrsa -out addons/%s/private_key.pem", name),
+					fmt.Sprintf("openssl rsa -pubout -in addons/%s/private_key.pem -out addons/%s/public_key.pem", name, name),
 				}
 
 				var isErr bool
@@ -130,12 +126,11 @@ example:
 					LocalHost: fmt.Sprintf("http://localhost:%s", addonPort),
 					DockerHost: fmt.Sprintf("http://oauth2:%s", addonPort),
 					ClusterHost: fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local:%s", addonPort),
-					Env: []string{
-						fmt.Sprintf("PORT=%s", addonPort), 
-						fmt.Sprintf("REDIRECT_RESOURCE=%s", redirectResource.Name),
-						fmt.Sprintf("REDIRECT_PATH=%s", redirectPath),
-						fmt.Sprintf("CONFIRM_RESOURCE=%s", confirmResource.Name),
+					Opts: map[string]string{
+						"attached_resource": attachedResource.Name,
+						"confirm_resource": confirmResource.Name,
 					},
+					Dependencies: []string{attachedResource.Name, confirmResource.Name},
 				}
 
 				utils.ManifestData.Addons = append(utils.ManifestData.Addons, newAddon)

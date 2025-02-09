@@ -17,6 +17,7 @@ import (
 	"time"
 	"strings"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/gin-contrib/cors"
 )
 
 type Account struct {
@@ -30,9 +31,11 @@ type Account struct {
 type AuthRequest struct {
 	Email string `json:"email"`
 	Password string `json:"password"`
-	ConfirmPassword string `json:"confirm_password omitempty"`
-	SecurityQuestion string `json:"security_question omitempty"`
-	SecurityAnswer string `json:"security_answer omitempty"`
+	NewPassword string `json:"new_password,omitempty"`
+	ConfirmPassword string `json:"confirm_password,omitempty"`
+	ConfirmNewPassword string `json:"confirm_new_password,omitempty"`
+	SecurityQuestion string `json:"security_question,omitempty"`
+	SecurityAnswer string `json:"security_answer,omitempty"`
 }
 
 const SUCCESS = 1
@@ -253,16 +256,16 @@ func refresh(refreshToken string, uid string) (int, string){
 
 }
 
-func resetPassword(email string, newPassword string, confirmNewPassword string, securityQuestion, securityAnswer string) (int, string) {
+func resetPassword(data *AuthRequest) (int, string) {
 	// verify if passwords match
-	if newPassword != confirmNewPassword {
+	if data.NewPassword != data.ConfirmNewPassword {
 		return ERROR, "Passwords do not match"
 	}
 
 	// Find account
 	var account Account
 	dbErr := db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(email))
+		item, err := txn.Get([]byte(data.Email))
 
 		if err != nil {
 			return err
@@ -287,23 +290,23 @@ func resetPassword(email string, newPassword string, confirmNewPassword string, 
 	}
 
 	// Check security question
-	if account.SecurityAnswer != securityAnswer || account.SecurityQuestion != securityQuestion {
+	if account.SecurityAnswer != data.SecurityAnswer || account.SecurityQuestion != data.SecurityQuestion {
 		return ERROR, "Invalid security question/answer"
 	}
 
 	// verify length of password && not same as old password
-	if len(newPassword) < 8 {
+	if len(data.NewPassword) < 8 {
 		return ERROR, "Password must be at least 8 characters"
 	}
 
-	if newPassword == account.Password {
+	if data.NewPassword == account.Password {
 		return ERROR, "New password cannot be the same as old password"
 	}
 	
 
 	// Save new password
 	dbErr = db.Update(func(txn *badger.Txn) error {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.NewPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
@@ -331,7 +334,6 @@ func resetPassword(email string, newPassword string, confirmNewPassword string, 
 
 func main() {
 	r := gin.Default()
-	r.LoadHTMLGlob("public/*")
 	
 	// set port
 	PORT := os.Getenv("PORT")
@@ -339,10 +341,17 @@ func main() {
 		PORT = "3000"
 	}
 
-	REDIRECT_URL := os.Getenv("REDIRECT_URL")
-	if REDIRECT_URL == "" {
-		panic("REDIRECT_URL not set")
+	ALLOWED_ORIGINS := os.Getenv("ALLOWED_ORIGINS")
+	if ALLOWED_ORIGINS == "" {
+		panic("allowed orgins not set")
 	}
+
+	// cors
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{ALLOWED_ORIGINS},
+		AllowMethods: []string{"GET", "POST", "DELETE"},
+		AllowHeaders: []string{"Authorization", "Content-Type"},
+	}))
 
 	// read RSA private key from file	
 	privateKey_file, err := ioutil.ReadFile("/etc/ssl/private/private_key.pem")
@@ -377,33 +386,6 @@ func main() {
 
 	// Close the database
 	defer db.Close()
-
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "login.html", gin.H{})
-	})
-
-	r.GET("/login", func(c *gin.Context) {
-		errMsg := c.Query("error")
-		successMsg := c.Query("success")		
-		c.HTML(http.StatusOK, "login.html", gin.H{
-			"error": errMsg,
-			"success": successMsg,
-		})
-	})
-
-	r.GET("/signup", func(c *gin.Context) {
-		errMsg := c.Query("error")
-		c.HTML(http.StatusOK, "signup.html", gin.H{
-			"error": errMsg,
-		})
-	})
-
-	r.GET("/forgotpassword", func(c *gin.Context) {
-		errMsg := c.Query("error")
-		c.HTML(http.StatusOK, "forgotpassword.html", gin.H{
-			"error": errMsg,
-		})
-	})
 	
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -412,63 +394,82 @@ func main() {
 	})
 
 	r.POST("/signup", func(c *gin.Context) {
-		email := c.PostForm("email")
-		password := c.PostForm("password")
-		confirmPassword := c.PostForm("confirmPassword")
-		securityQuestion := c.PostForm("securityQuestion")
-		securityAnswer := c.PostForm("securityAnswer")
-
-		data := AuthRequest{
-			Email: email,
-			Password: password,
-			ConfirmPassword: confirmPassword,
-			SecurityQuestion: securityQuestion,
-			SecurityAnswer: securityAnswer,
+		var data AuthRequest
+		err := c.BindJSON(&data)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": "error",
+				"message": err.Error(),
+			})
+			return
 		}
-
+		
 		status, response, refreshToken := create_account(&data)
 		if status == ERROR {
-			c.Redirect(http.StatusFound, "/signup?error=" + response)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": "error",
+				"message": response,
+			})
 			return
 		}
 
-		c.Redirect(http.StatusFound, REDIRECT_URL + "?access_token=" + response + "&refresh_token=" + refreshToken)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"access_token": response,
+			"refresh_token": refreshToken,
+		})
 		return
 	})
 
 	r.POST("/login", func(c *gin.Context) {
-		email := c.PostForm("email")
-		password := c.PostForm("password")
-
-		data := AuthRequest{
-			Email: email,
-			Password: password,
+		var data AuthRequest
+		err := c.BindJSON(&data)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": "error",
+				"message": err.Error(),
+			})
+			return
 		}
 
 		status, response, refreshToken := login(&data)
 		if status == ERROR {
-			c.Redirect(http.StatusFound, "/login?error=" + response)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": "error",
+				"message": response,
+			})
 			return
 		}
 
-		c.Redirect(http.StatusFound, REDIRECT_URL + "?access_token=" + response + "&refresh_token=" + refreshToken)
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"access_token": response,
+			"refresh_token": refreshToken,
+		})
 		return
 	})
 
 	r.POST("/forgotpassword", func(c *gin.Context) {
-		email := c.PostForm("email")
-		newPassword := c.PostForm("newPassword")
-		confirmNewPassword := c.PostForm("confirmNewPassword")
-		security_question := c.PostForm("securityQuestion")
-		securityAnswer := c.PostForm("securityAnswer")
-
-		status, response := resetPassword(email, newPassword, confirmNewPassword, security_question, securityAnswer)
-		if status == ERROR {
-			c.Redirect(http.StatusFound, "/forgotpassword?error=" + response)
+		var data AuthRequest
+		err := c.BindJSON(&data)
+		if err != nil {
+			c.Redirect(http.StatusFound, "/forgotpassword?error=" + err.Error())
 			return
 		}
 
-		c.Redirect(http.StatusFound, "/login?success=" + response)
+		status, response := resetPassword(&data)
+		if status == ERROR {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": "error",
+				"message": response,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"message": response,
+		})
 		return
 	})
 
@@ -486,7 +487,6 @@ func main() {
 
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
-			"access_token": response,
 		})
 	})
 

@@ -1,114 +1,112 @@
 
-# OAuth Service
+# Headless OAuth2 Server
 
-This service provides OAuth functionalities including user signup, login, password reset, and token refresh using JWT and BadgerDB.
+This is a headless OAuth2 server implemented using Go and the Gin framework. It provides endpoints for user authentication, account creation, password reset, and token refresh.
+
+Note. This addon mounts a public_key.pem file into the specified verification resource at the path /app/public_key.pem in the container for you to verify the JWT Tokens with 
 
 ## Endpoints
 
-### GET /
+### Health Check
 
-Serves the login page.
+- **URL:** `/health`
+- **Method:** `GET`
+- **Description:** Checks the health of the server.
+- **Response:**
+  - `200 OK` with JSON `{ "status": "success" }`
 
-### GET /login
+### Sign Up
 
-Serves the login page with optional error and success messages.
+- **URL:** `/signup`
+- **Method:** `POST`
+- **Description:** Creates a new user account.
+- **Request Body:**
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123",
+    "confirm_password": "password123",
+    "security_question": "Your favorite color?",
+    "security_answer": "Blue"
+  }
+  ```
+- **Response:**
+  - `200 OK` with JSON `{ "status": "success", "access_token": "token", "refresh_token": "token" }`
+  - `400 Bad Request` with JSON `{ "status": "error", "message": "error message" }`
 
-### GET /signup
+### Login
 
-Serves the signup page with optional error messages.
+- **URL:** `/login`
+- **Method:** `POST`
+- **Description:** Authenticates a user and returns access and refresh tokens.
+- **Request Body:**
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123"
+  }
+  ```
+- **Response:**
+  - `200 OK` with JSON `{ "status": "success", "access_token": "token", "refresh_token": "token" }`
+  - `400 Bad Request` with JSON `{ "status": "error", "message": "error message" }`
 
-### GET /forgotpassword
+### Forgot Password
 
-Serves the forgot password page with optional error messages.
+- **URL:** `/forgotpassword`
+- **Method:** `POST`
+- **Description:** Resets the user's password.
+- **Request Body:**
+  ```json
+  {
+    "email": "user@example.com",
+    "security_question": "Your favorite color?",
+    "security_answer": "Blue",
+    "new_password": "newpassword123",
+    "confirm_new_password": "newpassword123"
+  }
+  ```
+- **Response:**
+  - `200 OK` with JSON `{ "status": "success", "message": "Password reset successful" }`
+  - `400 Bad Request` with JSON `{ "status": "error", "message": "error message" }`
 
-### GET /health
+### Delete Account
 
-Returns the health status of the service.
+- **URL:** `/delete/:email`
+- **Method:** `DELETE`
+- **Description:** Deletes a user account.
+- **Response:**
+  - `200 OK` with JSON `{ "status": "success" }`
+  - `400 Bad Request` with JSON `{ "status": "error", "message": "error message" }`
 
-### POST /signup
+### Refresh Token
 
-Creates a new user account.
+- **URL:** `/refresh/:uid`
+- **Method:** `GET`
+- **Description:** Refreshes the access token using the refresh token.
+- **Headers:**
+  - `Authorization: Bearer <refresh_token>`
+- **Response:**
+  - `200 OK` with JSON `{ "status": "success", "access_token": "new_access_token" }`
+  - `400 Bad Request` with JSON `{ "status": "error", "message": "error message" }`
 
-**Request Parameters:**
-- `email`: User's email address.
-- `password`: User's password.
-- `confirmPassword`: Confirmation of the user's password.
-- `securityQuestion`: Security question for password recovery.
-- `securityAnswer`: Answer to the security question.
+## Environment Variables
 
-**Response:**
-- Redirects to the specified `REDIRECT_URL` with access and refresh tokens on success.
-- Redirects to `/signup` with an error message on failure.
+- `PORT`: The port on which the server will run (default: `3000`).
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins for CORS.
 
-### POST /login
+## Running the Server
 
-Logs in an existing user.
+1. Ensure you have Go installed.
+2. Set up the required environment variables.
+3. Run the server:
+   ```sh
+   go run main.go
+   ```
 
-**Request Parameters:**
-- `email`: User's email address.
-- `password`: User's password.
+## Dependencies
 
-**Response:**
-- Redirects to the specified `REDIRECT_URL` with access and refresh tokens on success.
-- Redirects to `/login` with an error message on failure.
-
-### POST /forgotpassword
-
-Resets the user's password.
-
-**Request Parameters:**
-- `email`: User's email address.
-- `newPassword`: New password.
-- `confirmNewPassword`: Confirmation of the new password.
-- `securityQuestion`: Security question for password recovery.
-- `securityAnswer`: Answer to the security question.
-
-**Response:**
-- Redirects to `/login` with a success message on success.
-- Redirects to `/forgotpassword` with an error message on failure.
-
-### DELETE /delete/:email
-
-Deletes a user account.
-
-**Request Parameters:**
-- `email`: User's email address.
-
-**Response:**
-- JSON response with status and message.
-
-### GET /refresh/:uid
-
-Refreshes the access token using the refresh token.
-
-**Request Headers:**
-- `Authorization`: Bearer token containing the refresh token.
-
-**Response:**
-- JSON response with status and new access token.
-
-## Functions
-
-### issueAccessToken(uid string) (int, string)
-
-Issues a new JWT access token for the given user ID.
-
-### create_account(data *AuthRequest) (int, string, string)
-
-Creates a new user account.
-
-### login(data *AuthRequest) (int, string, string)
-
-Logs in an existing user.
-
-### delete(email string) (int, string)
-
-Deletes a user account.
-
-### refresh(refreshToken string, uid string) (int, string)
-
-Refreshes the access token using the refresh token.
-
-### resetPassword(email string, newPassword string, confirmNewPassword string, securityQuestion, securityAnswer string) (int, string)
-
-Resets the user's password.
+- [Gin](https://github.com/gin-gonic/gin)
+- [Badger](https://github.com/dgraph-io/badger)
+- [JWT](https://github.com/golang-jwt/jwt)
+- [bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)
+- [cors](https://github.com/gin-contrib/cors)

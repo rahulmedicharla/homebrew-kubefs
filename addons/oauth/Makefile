@@ -3,4 +3,5 @@ compile:
 	docker push rmedicharla/auth:latest
 
 build:
-	go build -o main .
+	go build -o oauth2 ./main.go
+	rm ./oauth2

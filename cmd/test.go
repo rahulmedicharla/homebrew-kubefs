@@ -38,6 +38,68 @@ var rawCompose = map[string]interface{}{
 	"volumes": map[string]interface{}{},
 }
 
+func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", addon.DockerRepo))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Error pulling docker image: %v", err))
+		return types.ERROR
+	}
+
+	service := map[string]interface{}{
+		"image": addon.DockerRepo,
+		"networks": []string{
+			"shared_network",
+		},
+		"environment": []string{},
+	}
+
+	if addon.Name == "oauth2" {
+		service["ports"] = []string{
+			fmt.Sprintf("%v:%v", addon.Port, addon.Port),
+		}
+
+		service["volumes"] = []string{
+			"./addons/oauth2/private_key.pem:/etc/ssl/private/private_key.pem",
+			"oauth2Store:/app/store",
+		}
+
+		attachedResource := utils.GetResourceFromName(addon.Opts["attached_resource"])
+		confirmResource := utils.GetResourceFromName(addon.Opts["confirm_resource"])
+
+		if (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name] == nil || (*rawCompose)["services"].(map[string]interface{})[confirmResource.Name] == nil {
+			utils.PrintError(fmt.Sprintf("Please test with dependencies %s & %s", addon.Opts["attached_resource"], addon.Opts["confirm_resource"]))
+			return types.ERROR
+		}
+
+		service["environment"] = append(service["environment"].([]string), fmt.Sprintf("ALLOWED_ORIGINS=%s", attachedResource.DockerHost), fmt.Sprintf("PORT=%v", addon.Port))
+
+		redirectService := (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name].(map[string]interface{})
+		redirectEnv := redirectService["environment"].([]string)
+		redirectEnv = append(redirectEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
+		redirectService["environment"] = redirectEnv
+
+		confirmService := (*rawCompose)["services"].(map[string]interface{})[confirmResource.Name].(map[string]interface{})
+		confirmEnv := confirmService["environment"].([]string)
+		confirmEnv = append(confirmEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
+		confirmService["environment"] = confirmEnv
+
+		confirmVolumes := confirmService["volumes"].([]string)
+		confirmVolumes = append(confirmVolumes, "./addons/oauth2/public_key.pem:/app/public_key.pem")
+		confirmService["volumes"] = confirmVolumes
+		
+		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
+			"driver": "local",
+		}
+	}
+	(*rawCompose)["services"].(map[string]interface{})[addon.Name] = service
+
+
+	return types.SUCCESS
+}
+
 func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resource) {
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", resource.DockerRepo))
 	cmd.Stdout = os.Stdout
@@ -54,6 +116,7 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 			"shared_network",
 		},
 		"environment": []string{},
+		"volumes": []string{},
 	}
 
 	if resource.Type == "api" || resource.Type == "frontend" {
@@ -112,6 +175,10 @@ example:
 			modifyRawCompose(&rawCompose, &resource)
 		}
 
+		for _, addon := range utils.ManifestData.Addons {
+			includeAddon(&rawCompose, &addon)
+		}
+
 		fileErr := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if fileErr == types.ERROR {
 			utils.PrintError("Error writing docker-compose.yaml file")
@@ -152,8 +219,8 @@ example:
 
 var testResourceCmd = &cobra.Command{
 	Use:   "resource [name, ...]",
-	Short: "kubefs test resource [name, ...] - test listed resource in docker locally before deploying",
-	Long: `kubefs test resource [name ...] - test listed resource in docker locally before deploying
+	Short: "kubefs test resource [name, ...] - test listed resources & addons in docker locally before deploying",
+	Long: `kubefs test resource [name ...] - test listed resource & addons in docker locally before deploying
 example:
 	kubefs test resource <frontend>,<api>,<database> --flags,
 	kubefs test resource <frontend> --flags`,
@@ -164,6 +231,12 @@ example:
 		}
 
 		var names = strings.Split(args[0], ",")
+		
+		addonNames, _ := cmd.Flags().GetString("with-addons")
+		var addonsList []string
+		if addonNames != "" {
+			addonsList = strings.Split(addonNames, ",")
+		}
 
 		if utils.ManifestStatus == types.ERROR {
 			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
@@ -183,6 +256,23 @@ example:
 			}
 
 			modifyRawCompose(&rawCompose, resource)
+		}
+
+		for _, name := range addonsList {
+
+			var addon *types.Addon
+			addon = utils.GetAddonFromName(name)
+
+			if addon == nil {
+				utils.PrintError(fmt.Sprintf("Addon %s not found", name))
+				continue
+			}
+
+			err := includeAddon(&rawCompose, addon)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error including addon %s", name))
+				return
+			}
 		}
 
 		fileErr := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
@@ -230,4 +320,5 @@ func init() {
 
 	testCmd.PersistentFlags().BoolP("only-write", "w", false, "only create the docker compose file; dont start it")
 	testCmd.PersistentFlags().BoolP("persist-data", "p", false, "persist images & volume data after testing")
+	testResourceCmd.Flags().StringP("with-addons", "a", "", "include addons in the test")
 }

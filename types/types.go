@@ -33,7 +33,8 @@ type Addon struct {
   LocalHost string `yaml:"local_host"`
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
-  Env []string `yaml:"env,omitempty"`
+  Opts map[string]string `yaml:"opts,omitempty"`
+  Dependencies []string `yaml:"dependencies,omitempty"`
 }
 
 type ApiResponse struct {
