@@ -85,11 +85,11 @@ example:
 					continue
 				}
 				
-				fmt.Print(fmt.Sprintf("What resource would you like to to have confirm the auth tokens?%v: ", utils.GetCurrentResourceNames()))
+				fmt.Print(fmt.Sprintf("What resource would you like to be projected by oauth?%v: ", utils.GetCurrentResourceNames()))
 				fmt.Scanln(&input)
 				
-				confirmResource := utils.GetResourceFromName(input)
-				if confirmResource == nil {
+				protectedResource := utils.GetResourceFromName(input)
+				if protectedResource == nil {
 					utils.PrintError(fmt.Sprintf("Resource %s not found", input))
 					errors = append(errors, name)
 					continue
@@ -128,9 +128,9 @@ example:
 					ClusterHost: fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local:%s", addonPort),
 					Opts: map[string]string{
 						"attached_resource": attachedResource.Name,
-						"confirm_resource": confirmResource.Name,
+						"protected_resource": protectedResource.Name,
 					},
-					Dependencies: []string{attachedResource.Name, confirmResource.Name},
+					Dependencies: []string{attachedResource.Name, protectedResource.Name},
 				}
 
 				utils.ManifestData.Addons = append(utils.ManifestData.Addons, newAddon)

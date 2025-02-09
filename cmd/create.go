@@ -216,7 +216,7 @@ example:
 
 		if resourceFramework == "next" {
 			commands = []string{
-				fmt.Sprintf("npx create-next-app@latest %s --yes", resourceName),
+				fmt.Sprintf("npx create-next-app@latest %s --ts --yes ", resourceName),
 				fmt.Sprintf("cd %s && rm -rf .git", resourceName),
 			}
 

@@ -5,9 +5,10 @@ services:
       - "4000:4000"
     environment:
       - PORT=4000
-      - ALLOWED_ORIGINS=http://localhost:3000
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4000
     volumes:
       - ./private_key.pem:/etc/ssl/private/private_key.pem
+      - ./public_key.pem:/etc/ssl/public/public_key.pem
       - store:/app/store
 
 volumes:

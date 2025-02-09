@@ -63,32 +63,29 @@ func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
 
 		service["volumes"] = []string{
 			"./addons/oauth2/private_key.pem:/etc/ssl/private/private_key.pem",
+			"./addons/oauth2/public_key.pem:/etc/ssl/public/public_key.pem",
 			"oauth2Store:/app/store",
 		}
 
 		attachedResource := utils.GetResourceFromName(addon.Opts["attached_resource"])
-		confirmResource := utils.GetResourceFromName(addon.Opts["confirm_resource"])
+		protectedResource := utils.GetResourceFromName(addon.Opts["protected_resource"])
 
-		if (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name] == nil || (*rawCompose)["services"].(map[string]interface{})[confirmResource.Name] == nil {
-			utils.PrintError(fmt.Sprintf("Please test with dependencies %s & %s", addon.Opts["attached_resource"], addon.Opts["confirm_resource"]))
+		if (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name] == nil || (*rawCompose)["services"].(map[string]interface{})[protectedResource.Name] == nil {
+			utils.PrintError(fmt.Sprintf("Please test with dependencies %s & %s", addon.Opts["attached_resource"], addon.Opts["protected_resource"]))
 			return types.ERROR
 		}
 
-		service["environment"] = append(service["environment"].([]string), fmt.Sprintf("ALLOWED_ORIGINS=%s", attachedResource.DockerHost), fmt.Sprintf("PORT=%v", addon.Port))
+		service["environment"] = append(service["environment"].([]string), fmt.Sprintf("ALLOWED_ORIGINS=%s,%s", attachedResource.DockerHost, protectedResource.DockerHost), fmt.Sprintf("PORT=%v", addon.Port))
 
 		redirectService := (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name].(map[string]interface{})
 		redirectEnv := redirectService["environment"].([]string)
 		redirectEnv = append(redirectEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
 		redirectService["environment"] = redirectEnv
 
-		confirmService := (*rawCompose)["services"].(map[string]interface{})[confirmResource.Name].(map[string]interface{})
-		confirmEnv := confirmService["environment"].([]string)
-		confirmEnv = append(confirmEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
-		confirmService["environment"] = confirmEnv
-
-		confirmVolumes := confirmService["volumes"].([]string)
-		confirmVolumes = append(confirmVolumes, "./addons/oauth2/public_key.pem:/app/public_key.pem")
-		confirmService["volumes"] = confirmVolumes
+		protectedService := (*rawCompose)["services"].(map[string]interface{})[protectedResource.Name].(map[string]interface{})
+		protectedEnv := protectedService["environment"].([]string)
+		protectedEnv = append(protectedEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
+		protectedService["environment"] = protectedEnv 
 		
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",

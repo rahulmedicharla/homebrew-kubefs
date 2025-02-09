@@ -8,8 +8,6 @@ import (
 	"errors"
 	"crypto/rsa"
 	"github.com/golang-jwt/jwt/v5"
-	"encoding/pem"
-	"crypto/x509"
 	"github.com/google/uuid"
 	"io/ioutil"
 	"github.com/dgraph-io/badger/v4"
@@ -18,6 +16,7 @@ import (
 	"strings"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/gin-contrib/cors"
+	"log"
 )
 
 type Account struct {
@@ -44,6 +43,7 @@ const ERROR = 0
 var (
 	// RSA private key
 	privateKey *rsa.PrivateKey
+	publicKey *rsa.PublicKey
 	db *badger.DB
 )
 
@@ -51,8 +51,7 @@ func issueAccessToken(uid string) (int, string) {
 	// Create a new token
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		"sub": uid,
-		"exp": 3600,
-		"iat": time.Now().Unix(),
+		"exp": time.Now().Add(time.Hour).Unix(),
 	})
 
 	// Sign the token & return
@@ -62,6 +61,26 @@ func issueAccessToken(uid string) (int, string) {
 	}
 
 	return SUCCESS, accessToken
+}
+
+func verifyToken(token string) (int, string) {
+	// Parse the token
+	var claims jwt.MapClaims
+	tkn, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, errors.New("Invalid signing method")
+		}
+		return publicKey, nil
+	})
+	if err != nil {
+		return ERROR, err.Error()
+	}
+
+	if !tkn.Valid {
+		return ERROR, "Invalid token"
+	}
+
+	return SUCCESS, "Token is valid"
 }
 
 func create_account(data *AuthRequest) (int, string, string) {
@@ -346,9 +365,14 @@ func main() {
 		panic("allowed orgins not set")
 	}
 
+	if os.Getenv("GIN_MODE") == "debug"{
+		log.Println("PORT = %v", PORT)
+		log.Println("ALLOWED_ORIGINS = %v", ALLOWED_ORIGINS)
+	}
+
 	// cors
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{ALLOWED_ORIGINS},
+		AllowOrigins: strings.Split(ALLOWED_ORIGINS, ","),
 		AllowMethods: []string{"GET", "POST", "DELETE"},
 		AllowHeaders: []string{"Authorization", "Content-Type"},
 	}))
@@ -360,21 +384,21 @@ func main() {
 	}
 
 	// Parse RSA private key
-	block, _ := pem.Decode(privateKey_file)
-	if block == nil {
-		panic(errors.New("failed to parse PEM block containing the key"))
-	}
-
-	// get private key
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	privateKey, err = jwt.ParseRSAPrivateKeyFromPEM(privateKey_file)
 	if err != nil {
 		panic(err)
 	}
 
-	var ok bool
-	privateKey, ok = key.(*rsa.PrivateKey)
-	if !ok {
-		panic(errors.New("failed to parse private key"))
+	// read RSA public key from file
+	publicKey_file, err := ioutil.ReadFile("/etc/ssl/public/public_key.pem")
+	if err != nil {
+		panic(err)
+	}
+
+	// Parse RSA public key
+	publicKey, err = jwt.ParseRSAPublicKeyFromPEM(publicKey_file)
+	if err != nil {
+		panic(err)
 	}
 
 	// Create a new badger database
@@ -516,6 +540,24 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
 			"access_token": response,
+		})
+	})
+
+	r.GET("/verify/:token", func(c *gin.Context) {
+		// verify token
+		token := c.Param("token")
+		status, response := verifyToken(token)
+		if status == ERROR {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": "error",
+				"message": response,
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status": "success",
+			"message": response,
 		})
 	})
 	
