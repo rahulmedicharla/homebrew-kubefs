@@ -111,12 +111,8 @@ This server has two required params passed in as environment variables. 1. PORT 
 
 ## Running the Server
 
-1. Ensure you have Go installed.
-2. Set up the required environment variables.
-3. Run the server:
-   ```sh
-   go run main.go
-   ```
+Enable the addon in your proejct with ```kubefs addons enable```
+This will prompt you to choose what resources you want to interact with the oauth2 server
 
 ## Dependencies
 
