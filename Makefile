@@ -6,6 +6,10 @@ publish:
 	git push https://github.com/rahulmedicharla/homebrew-kubefs.git v$(VERSION)
 	GITHUB_TOKEN=${GITHUB_TOKEN} goreleaser release --clean
 
+test-publish:
+	goreleaser check
+	goreleaser release --snapshot --clean
+
 #Allows to re initialize the project from sleeping state
 refresh:
 	brew install go

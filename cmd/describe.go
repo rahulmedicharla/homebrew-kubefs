@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
 	"reflect"
 	"strings"
 )
@@ -36,8 +35,8 @@ example:
 	kubefs describe all
 	`,
     Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
@@ -70,8 +69,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
@@ -80,14 +79,14 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Describing resource %v\n", names))
 
 		for _ , name := range names {
-			resource := utils.GetResourceFromName(name)
-			if resource == nil {
-				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			resource, err := utils.GetResourceFromName(name)
+			if err != nil {
+				utils.PrintError(err.Error())
 				continue
 			}
 
-			resourceValue := reflect.ValueOf(resource)
-			resourceType := reflect.TypeOf(resource)
+			resourceValue := reflect.ValueOf((*resource))
+			resourceType := reflect.TypeOf((*resource))
 			for i := 0; i < resourceValue.NumField(); i++ {
 				field := resourceType.Field(i)
 				value := resourceValue.Field(i)

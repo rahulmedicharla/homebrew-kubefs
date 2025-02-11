@@ -11,8 +11,6 @@ import (
 	"github.com/rahulmedicharla/kubefs/utils"
 	"strings"
 	"strconv"
-	"os/exec"
-	"os"
 	"reflect"
 )
 
@@ -39,9 +37,9 @@ example:
 	kubefs addons enable -a <addon-name:port>,<addon-name:port>
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
-			return
+		if utils.ManifestStatus != nil{
+			utils.PrintError(utils.ManifestStatus.Error())
+			return 
 		}
 
 		addons, _ := cmd.Flags().GetString("addon")
@@ -56,35 +54,47 @@ example:
 			name := strings.Split(addon, ":")[0]
 			addonPort := strings.Split(addon, ":")[1]
 
-			if !utils.VerifyFramework(name, "addons") {
+			if err := utils.VerifyFramework(name, "addons"); err != nil {
+				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
-			if !utils.VerifyName(name) {
+			if err := utils.VerifyName(name); err != nil {
+				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
 			port, err := strconv.Atoi(addonPort)
-			if err != nil || !utils.VerifyPort(port) {
+			if err != nil {
+				utils.PrintError(err.Error())
+				errors = append(errors, name)
+				continue
+			}
+
+			if err = utils.VerifyPort(port); err != nil {
+				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
 			var newAddon types.Addon
 			if name == "oauth2" {
-				var input string
-				fmt.Print(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()))
-				fmt.Scanln(&input)
+				input, err := utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()))
+				if err != nil {
+					utils.PrintError(err.Error())
+					errors = append(errors, name)
+					continue
+				}
 
 				names := strings.Split(input, ",")
 				var validAttachedResourceNames []string
 				for _,n := range names{
-					attachedResource := utils.GetResourceFromName(n)
-					if attachedResource == nil {
-						utils.PrintError(fmt.Sprintf("Resource %s not found", n))
-						errors = append(errors, n)
+					_, err := utils.GetResourceFromName(n)
+					if err != nil {
+						utils.PrintError(err.Error())
+						errors = append(errors, name)
 						continue
 					}
 					validAttachedResourceNames = append(validAttachedResourceNames, n)
@@ -96,23 +106,12 @@ example:
 					fmt.Sprintf("openssl rsa -pubout -in addons/%s/private_key.pem -out addons/%s/public_key.pem", name, name),
 				}
 
-				var isErr bool
-				isErr = false
-				for _, command := range commands {
-					cmd := exec.Command("sh", "-c", command)
-					cmd.Stderr = os.Stderr
-					err := cmd.Run()
-					fmt.Println(err)
-					if err != nil {
-						utils.PrintError(fmt.Sprintf("Error enabling addon %s", name))
-						errors = append(errors, name)
-						isErr = true
-						break
-					}
-				}
-				if isErr {
+				err = utils.RunMultipleCommands(commands, false, true)
+				if err != nil {
+					utils.PrintError(err.Error())
+					errors = append(errors, name)
 					continue
-				}
+				}					
 
 				newAddon = types.Addon{
 					Name: name,
@@ -129,7 +128,7 @@ example:
 			}
 		}
 
-		utils.WriteManifest(&utils.ManifestData)
+		utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 
 		if len(errors) > 0 {
 			utils.PrintError(fmt.Sprintf("Error enabling addons %v", errors))
@@ -150,8 +149,8 @@ example:
 	kubefs addons disable -a <addon-name>,<addon-name>
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
+		if utils.ManifestStatus != nil{
+			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
@@ -165,23 +164,26 @@ example:
 
 		for _, name := range addonList {
 
-			addon := utils.GetAddonFromName(name)
-			if addon == nil {
-				errors = append(errors, name)
-				continue
-			}
-
-			cmd := exec.Command("sh", "-c", fmt.Sprintf("rm -rf addons/%s", name))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err := cmd.Run()
+			_, err := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error disabling addon %s", name))
+				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
-			utils.RemoveAddon(&utils.ManifestData, name)
+			err = utils.RunCommand(fmt.Sprintf("rm -rf addons/%s", name), false, true)
+			if err != nil {
+				utils.PrintError(err.Error())
+				errors = append(errors, name)
+				continue
+			}
+
+			err = utils.RemoveAddon(&utils.ManifestData, name)
+			if err != nil {
+				utils.PrintError(err.Error())
+				errors = append(errors, name)
+				continue
+			}
 			successes = append(successes, name)
 		}
 
@@ -192,8 +194,6 @@ example:
 		if len(successes) > 0 {
 			utils.PrintSuccess(fmt.Sprintf("Addon %v enabled successfully", successes))
 		}
-		
-
 	},
 }
 
@@ -205,9 +205,8 @@ example:
 	kubefs addons list
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
-			return
+		if utils.ManifestStatus != nil{
+			utils.PrintError(utils.ManifestStatus.Error())
 		}
 
 		utils.PrintWarning("Listing addons")

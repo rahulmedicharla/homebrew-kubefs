@@ -9,10 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
-	"os/exec"
 	"github.com/zalando/go-keyring"
 	"strings"
-	"os"
 )
 
 // removeCmd represents the remove command
@@ -30,86 +28,62 @@ example:
 	},
 }
 
-func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) int {
+func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) error {
 	if !onlyRemote {
 		// remove locally
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("rm -rf %s", resource.Name))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
+		err := utils.RunCommand(fmt.Sprintf("rm -rf %s", resource.Name), true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error removing resource: %v", err))
-			return types.ERROR
+			return err
 		}
 
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("docker images | grep %s", resource.DockerRepo))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
+		err = utils.RunCommand(fmt.Sprintf("docker images | grep %s", resource.DockerRepo), true, true)
 		if err == nil {
-			cmd = exec.Command("sh", "-c", fmt.Sprintf("docker rmi %s:latest", resource.DockerRepo))
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err = cmd.Run()
+			err = utils.RunCommand(fmt.Sprintf("docker rmi %s:latest", resource.DockerRepo), true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error removing docker image: %v", err))
-				return types.ERROR
+				return err
 			}
 		}
 
-
-		manifestErr := utils.RemoveResource(&utils.ManifestData, resource.Name)
-		if manifestErr == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error removing resource: %v", manifestErr))	
-			return types.ERROR
+		err = utils.RemoveResource(&utils.ManifestData, resource.Name)
+		if err != nil {
+			return err
 		}
 	}
 
 	if !onlyLocal && resource.Type != "database" {
 		// remove from docker hub
-		url := "https://hub.docker.com/v2/users/login/"
-
-		headers := map[string]string{
-			"Content-Type": "application/json",
-		}
 
 		creds, err := keyring.Get("docker", "kubefs")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error getting Docker credentials: %v", err))
-			return types.ERROR 
+			return err
 		}
 
 		username, pat := strings.Split(creds, ":")[0], strings.Split(creds, ":")[1]
 
-		payload := map[string]interface{}{
-			"username": username,
-			"password": pat,
+		response, err := utils.PostRequest(types.DOCKER_LOGIN_ENDPOINT, 
+			map[string]string{
+				"Content-Type": "application/json",
+			}, map[string]interface{}{
+				"username": username,
+				"password": pat,
+			},
+		)
+		if err != nil {
+			return err
 		}
 
-		status, response, err := utils.PostRequest(url, headers, payload)
-		if status == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error logging into Docker: %v", err))
-			return types.ERROR 
-		}
+		url := fmt.Sprintf("%s%s", types.DOCKER_REPO_ENDPOINT, resource.DockerRepo)
 
-		if response.Token == "" {
-			utils.PrintError(fmt.Sprintf("Error logging into Docker: No token received. %s", response.Detail))
-			return types.ERROR 
-		}
-
-		url = fmt.Sprintf("https://hub.docker.com/v2/repositories/%s", resource.DockerRepo)
-		headers = map[string]string{
+		err = utils.DeleteRequest(url, map[string]string{
 			"Authorization": fmt.Sprintf("JWT %s", response.Token),
-		}
+		})
 
-		status, err = utils.DeleteRequest(url, headers)
-		if status == types.ERROR {
-			utils.PrintError(fmt.Sprintf("Error deleting resource from Docker: %v", err))
-			return types.ERROR
+		if err != nil {
+			return err
 		}
 	}
 
-	return types.SUCCESS
+	return nil
 
 }
 
@@ -121,14 +95,14 @@ example:
 	kubefs remove all --flags
 	`,
     Run: func(cmd *cobra.Command, args []string) {
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
+
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
 		onlyRemote, _ = cmd.Flags().GetBool("only-remote")
-
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
-			return
-		}
 
         utils.PrintWarning("Removing all resources")
 
@@ -137,8 +111,8 @@ example:
 	
         for _, resource := range utils.ManifestData.Resources {
 			err := removeUnique(&resource, onlyLocal, onlyRemote)
-			if err == types.ERROR {
-				utils.PrintError(fmt.Sprintf("Error removing resource %s", resource.Name))
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing resource %s. %v ", resource.Name, err.Error()))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -166,17 +140,17 @@ example:
 	kubefs remove resource <frontend> --flags
 `,
     Run: func(cmd *cobra.Command, args []string) {
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
+	
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
 
 		names := strings.Split(args[0], ",")
-
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
-			return
-		}
 
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
@@ -189,21 +163,21 @@ example:
 
 		for _, name := range names {
 			var resource *types.Resource
-			resource = utils.GetResourceFromName(name)
-
-			if resource == nil {
-				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				continue
-			}
-
-			err := removeUnique(resource, onlyLocal, onlyRemote)
-			if err == types.ERROR {
-				utils.PrintError(fmt.Sprintf("Error removing resource %s", name))
+			resource, err := utils.GetResourceFromName(name)
+			if err != nil {
+				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, name)
+
+			err = removeUnique(resource, onlyLocal, onlyRemote)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing resource %s. %v", name, err.Error()))
+				errors = append(errors, name)
+				continue
+			}
 			utils.RemoveResource(&utils.ManifestData, name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {

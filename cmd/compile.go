@@ -9,9 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"os/exec"
-	"os"
 	"strings"
+	"errors"
 )
 
 // compileCmd represents the compile command
@@ -29,10 +28,9 @@ example:
 	},
 }
 
-func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int){
+func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) error {
 	if resource.Type == "database" {
-		utils.PrintWarning(fmt.Sprintf("Cannot compile database resource %s", resource.Name))
-		return types.SUCCESS
+		return errors.New("Database resources cannot be compiled")
 	}
 	
 	var commands []string
@@ -71,39 +69,29 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) (int
 
 		commands = append(commands, fmt.Sprintf("cd %s && docker build -t %s:latest .", resource.Name, resource.DockerRepo))
 
-		for _, command := range commands {
-			cmd := exec.Command("sh", "-c", command)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err := cmd.Run()
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error building docker image: %v", err))
-				return types.ERROR
-			}
+		err := utils.RunMultipleCommands(commands, true, true)
+		if err != nil {
+			return err
 		}
+
 	}
 
 	if !onlyBuild {
 		// push docker image
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("docker images | grep %s", resource.DockerRepo))
-		err := cmd.Run()
+		err := utils.RunCommand(fmt.Sprintf("docker images | grep %s", resource.DockerRepo), true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Docker image not found, cannot push %s", resource.Name))
+			return err
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Pushing docker image for resource %s", resource.Name))
 
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("(docker push %s:latest)",resource.DockerRepo))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
+		err = utils.RunCommand(fmt.Sprintf("docker push %s:latest", resource.DockerRepo), true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error pushing docker image: %v", err))
-			return types.ERROR
+			return err
 		}
 	}
 
-	return types.SUCCESS
+	return nil
 }
 
 
@@ -115,8 +103,8 @@ example:
 	kubefs compile all --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
@@ -131,12 +119,11 @@ example:
 
 		for _, resource := range utils.ManifestData.Resources {
 			err := compileUnique(&resource, onlyBuild, onlyPush)
-			if err == types.ERROR {
-				utils.PrintError(fmt.Sprintf("Error compiling resource %s", resource.Name))
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error compiling resource %s. %v", resource.Name, err.Error()))
 				errors = append(errors, resource.Name)
-				continue 
+				continue
 			}
-
 			successes = append(successes, resource.Name)
 		}
 
@@ -165,8 +152,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
@@ -181,17 +168,16 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", names))
 
 		for _, name := range names{
-			var resource *types.Resource
-			resource = utils.GetResourceFromName(name)
-			 
-			if resource == nil {
-				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			resource, err := utils.GetResourceFromName(name)
+			if err != nil {
+				utils.PrintError(err.Error())
+				errors = append(errors, name)
 				continue
 			}
 
-			err := compileUnique(resource, onlyBuild, onlyPush)
-			if err == types.ERROR {
-				utils.PrintError(fmt.Sprintf("Error compiling resource %s", name))
+			err = compileUnique(resource, onlyBuild, onlyPush)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error compiling resource %s. %v", name, err.Error()))
 				errors = append(errors, name)
 				continue
 			}

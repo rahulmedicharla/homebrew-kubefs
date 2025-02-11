@@ -7,19 +7,17 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"os"
-	"gopkg.in/yaml.v3"
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
 )
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
-	Use:   "init <name> <description>",
+	Use:   "init <name>",
 	Short: "kubefs init - initialize a new kubefs project",
 	Long: `kubefs init - initialize a new kubefs project
 example:
-	kubefs init my-project "My project description"
+	kubefs init my-project -d "My project description"
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
@@ -36,16 +34,14 @@ example:
 		projectName := args[0]
 		description, _ := cmd.Flags().GetString("description")
 
-		err := os.Mkdir(projectName, 0755)
-		if err != nil {
-			fmt.Printf("Error initializing project: %v\n", err)
-			return
+		commands := []string{
+			fmt.Sprintf("mkdir %s", projectName),
+			fmt.Sprintf("mkdir %s/addons", projectName),
 		}
 
-		err = os.Mkdir(projectName + "/addons", 0755)
-		if err != nil {
-			fmt.Printf("Error initializing project: %v\n", err)
-			return
+		err := utils.RunMultipleCommands(commands, false, true)
+		if err != nil{
+			utils.PrintError(fmt.Sprintf("Couldn't initialize project: %v", err.Error()))
 		}
 
 		project := types.Project{
@@ -56,19 +52,13 @@ example:
 			Addons: []types.Addon{},
 		}
 	
-		data, err := yaml.Marshal(&project)
+		err = utils.WriteManifest(&project, projectName + "/manifest.yaml")
 		if err != nil {
-			fmt.Printf("Error initializing project: %v\n", err)
-			return
-		}
-	
-		err = os.WriteFile(projectName + "/manifest.yaml", data, 0644)
-		if err != nil {
-			fmt.Printf("Error initializing project: %v\n", err)
+			fmt.Printf("Error writing manifest: %v\n", err.Error())
 			return
 		}
 		
-		fmt.Println("Project initialized successfully")
+		utils.PrintSuccess(fmt.Sprintf("Project %s initialized successfully", projectName))
 	},
 }
 

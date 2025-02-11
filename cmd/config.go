@@ -40,28 +40,29 @@ example:
 		// Read remove flag
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err))
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err.Error()))
 			return
 		}
 
 		if remove {
 			err := keyring.Delete(service, user)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deleting Docker credentials: %v", err))
+				utils.PrintError(fmt.Sprintf("Error deleting Docker credentials: %v", err.Error()))
 				return
 			}
 			utils.PrintSuccess("Docker credentials removed successfully")
 		} else {
-			var input string
+			username, err := utils.ReadInput("Enter Docker username: ")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading Docker username: %v", err.Error()))
+			}
 
-			fmt.Print("Enter Docker username: ")
-			fmt.Scanln(&input)
-			username := strings.TrimSpace(input)
-			fmt.Print("Enter Docker PAT (https://docs.docker.com/security/for-developers/access-tokens/): ")
-			fmt.Scanln(&input)
-			pat := strings.TrimSpace(input)
+			pat, err := utils.ReadInput("Enter Docker PAT (https://docs.docker.com/security/for-developers/access-tokens/): ")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading Docker PAT: %v", err.Error()))
+			}
 
-			err := keyring.Set(service, user, fmt.Sprintf("%s:%s", username, pat))
+			err = keyring.Set(service, user, fmt.Sprintf("%s:%s", username, pat))
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error saving Docker credentials: %v", err))
 				return
