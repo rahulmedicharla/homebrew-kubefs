@@ -22,6 +22,7 @@
   <li>Dynamic Intra-cluster communication: maps the hosts for intra-cluster communication to the proper host name & port regardless of where you are in your development cycle so that you don't have to.</li>
   <li>Env vars as secrets: stores things you want to be kept secret, as a secret in a kubernetes native fashion</li>
   <li>Automatic Docker image & container creation and cleanup</li>
+  <li>Common Addons: Currently supports a self-contained headless <a href="https://github.com/rahulmedicharla/kubefs/tree/main/addons/oauth">oauth2</a> server for use.
   <li>Resilience through Replication</li>
 </ul>
 
