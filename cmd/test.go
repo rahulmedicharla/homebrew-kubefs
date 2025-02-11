@@ -67,25 +67,27 @@ func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
 			"oauth2Store:/app/store",
 		}
 
-		attachedResource := utils.GetResourceFromName(addon.Opts["attached_resource"])
-		protectedResource := utils.GetResourceFromName(addon.Opts["protected_resource"])
+		attachedResourceList := addon.Dependencies
 
-		if (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name] == nil || (*rawCompose)["services"].(map[string]interface{})[protectedResource.Name] == nil {
-			utils.PrintError(fmt.Sprintf("Please test with dependencies %s & %s", addon.Opts["attached_resource"], addon.Opts["protected_resource"]))
-			return types.ERROR
+		allowedHosts := ""
+		for _,name := range attachedResourceList {
+			resource := utils.GetResourceFromName(name)
+			if resource == nil {
+				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+				return types.ERROR
+			}
+			if (*rawCompose)["services"].(map[string]interface{})[resource.Name] == nil {
+				utils.PrintError(fmt.Sprintf("Please test with dependency %s", name))
+				return types.ERROR
+			}
+			if allowedHosts == "" {
+				allowedHosts = resource.DockerHost
+			}else{
+				allowedHosts = fmt.Sprintf("%s,%s", allowedHosts, resource.DockerHost)
+			}
 		}
 
-		service["environment"] = append(service["environment"].([]string), fmt.Sprintf("ALLOWED_ORIGINS=%s,%s", attachedResource.DockerHost, protectedResource.DockerHost), fmt.Sprintf("PORT=%v", addon.Port))
-
-		redirectService := (*rawCompose)["services"].(map[string]interface{})[attachedResource.Name].(map[string]interface{})
-		redirectEnv := redirectService["environment"].([]string)
-		redirectEnv = append(redirectEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
-		redirectService["environment"] = redirectEnv
-
-		protectedService := (*rawCompose)["services"].(map[string]interface{})[protectedResource.Name].(map[string]interface{})
-		protectedEnv := protectedService["environment"].([]string)
-		protectedEnv = append(protectedEnv, fmt.Sprintf("oauth2HOST=%v", addon.DockerHost))
-		protectedService["environment"] = protectedEnv 
+		service["environment"] = append(service["environment"].([]string), fmt.Sprintf("ALLOWED_ORIGINS=%s", allowedHosts), fmt.Sprintf("PORT=%v", addon.Port))
 		
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",
@@ -123,6 +125,9 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 
 		for _, r := range utils.ManifestData.Resources {
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
+		}
+		for _, a := range utils.ManifestData.Addons {
+			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a.Name, a.DockerHost))
 		}
 
 	 	envErr, envData := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))

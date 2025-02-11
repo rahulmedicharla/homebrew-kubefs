@@ -1,0 +1,90 @@
+replicaCount: 1
+image:
+  #CHANGE LINE BELOW
+  repository: rmedicharla/auth
+  pullPolicy: Always
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+#CHANGE LINE BELOW
+namespace: oauth2
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  #CHANGE BOTH LINES BELOW
+  type: ClusterIP
+  port: 4500
+
+ingress:
+  #CHANGE LINE BELOW
+  enabled: false
+  className: nginx
+  annotations: 
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  #CHANGE LINE BELOW, ADD HOST PATH FOR FRONTEND INGRESS
+  host: ""
+  tls: []
+
+env:
+  - name: PORT
+    value: "4500"
+  - name: ALLOWED_ORIGINS
+    value: "*"
+
+secrets: 
+  - name: public_key.pem
+    value: files/public_key.pem
+  - name: private_key.pem
+    value: files/private_key.pem
+resources: {}
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 4500
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 4500
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+volumes:
+  - name: store
+    emptyDir: {}
+  - name: keys
+    secret:
+      secretName: "oauth2-deploy-secret"
+
+volumeMounts:
+  - name: store
+    mountPath: /app/store
+  - name: keys
+    mountPath: /etc/ssl/private/private_key.pem
+    subPath: private_key.pem
+  - name: keys
+    mountPath: /etc/ssl/public/public_key.pem
+    subPath: public_key.pem
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

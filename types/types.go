@@ -33,7 +33,7 @@ type Addon struct {
   LocalHost string `yaml:"local_host"`
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
-  Opts map[string]string `yaml:"opts,omitempty"`
+  Opts map[string][]string `yaml:"opts,omitempty"`
   Dependencies []string `yaml:"dependencies,omitempty"`
 }
 
@@ -49,6 +49,7 @@ const (
 
 const (
   HELMCHART = "https://www.dropbox.com/scl/fi/ysju5bkpup02eiy7b3qde/helm-template.zip?rlkey=9gzobe08xdugaymr7kz1kyt4o&st=eskuno42&dl=1"
+  OAUTH2CHART = "https://www.dropbox.com/scl/fi/0jgd41yu5az584gd9me5i/kubefs-oauth-helm.zip?rlkey=a0y3mllr431dl8xedaz7q3x3z&st=uqka20an&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{
@@ -58,9 +59,9 @@ var FRAMEWORKS = map[string][]string{
   "addons": {"oauth2"},
 }
 
-func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, ingressHost string, healthCheck string) string{
+func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled string, ingressHost string, healthCheck string, healthPort string, replicaCount int) string{
   return fmt.Sprintf(`
-replicaCount: 3
+replicaCount: %v
 image:
   #CHANGE LINE BELOW
   repository: %s
@@ -110,11 +111,11 @@ resources: {}
 livenessProbe:
   httpGet:
     path: %s
-    port: http
+    port: %s
 readinessProbe:
   httpGet:
     path: %s
-    port: http
+    port: %s
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -126,5 +127,5 @@ volumeMounts: []
 nodeSelector: {}
 tolerations: []
 affinity: {}
-`, dockerRepo, name, serviceType, port, ingressEnabled, ingressHost, healthCheck, healthCheck)
+`, replicaCount, dockerRepo, name, serviceType, port, ingressEnabled, ingressHost, healthCheck, healthPort, healthCheck, healthPort)
 }

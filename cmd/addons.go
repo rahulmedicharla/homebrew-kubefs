@@ -75,26 +75,21 @@ example:
 			var newAddon types.Addon
 			if name == "oauth2" {
 				var input string
-				fmt.Print(fmt.Sprintf("What resource would you like the headless oauth2 to be attached to?%v: ", utils.GetCurrentResourceNames()))
+				fmt.Print(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()))
 				fmt.Scanln(&input)
-				
-				attachedResource := utils.GetResourceFromName(input)
-				if attachedResource == nil {
-					utils.PrintError(fmt.Sprintf("Resource %s not found", input))
-					errors = append(errors, name)
-					continue
-				}
-				
-				fmt.Print(fmt.Sprintf("What resource would you like to be projected by oauth?%v: ", utils.GetCurrentResourceNames()))
-				fmt.Scanln(&input)
-				
-				protectedResource := utils.GetResourceFromName(input)
-				if protectedResource == nil {
-					utils.PrintError(fmt.Sprintf("Resource %s not found", input))
-					errors = append(errors, name)
-					continue
-				}
 
+				names := strings.Split(input, ",")
+				var validAttachedResourceNames []string
+				for _,n := range names{
+					attachedResource := utils.GetResourceFromName(n)
+					if attachedResource == nil {
+						utils.PrintError(fmt.Sprintf("Resource %s not found", n))
+						errors = append(errors, n)
+						continue
+					}
+					validAttachedResourceNames = append(validAttachedResourceNames, n)
+				}
+				
 				commands := []string{
 					fmt.Sprintf("mkdir addons/%s", name),
 					fmt.Sprintf("openssl genrsa -out addons/%s/private_key.pem", name),
@@ -125,12 +120,8 @@ example:
 					DockerRepo: "rmedicharla/auth",
 					LocalHost: fmt.Sprintf("http://localhost:%s", addonPort),
 					DockerHost: fmt.Sprintf("http://oauth2:%s", addonPort),
-					ClusterHost: fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local:%s", addonPort),
-					Opts: map[string]string{
-						"attached_resource": attachedResource.Name,
-						"protected_resource": protectedResource.Name,
-					},
-					Dependencies: []string{attachedResource.Name, protectedResource.Name},
+					ClusterHost: fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local"),
+					Dependencies: validAttachedResourceNames,
 				}
 
 				utils.ManifestData.Addons = append(utils.ManifestData.Addons, newAddon)

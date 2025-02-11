@@ -28,6 +28,19 @@ example:
 	},
 }
 
+func undeployAddon(addon *types.Addon) int {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("helm uninstall %s", addon.Name))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmdErr := cmd.Run()
+	if cmdErr != nil {
+		utils.PrintError(fmt.Sprintf("Error undeploying addon %s: %v", addon.Name, cmdErr))
+		return types.ERROR
+	}
+
+	return types.SUCCESS
+}
+
 func undeployUnique(resource *types.Resource) int {
 	var cmd *exec.Cmd
 	if resource.Type == "database"{
@@ -65,6 +78,7 @@ example:
 		}
 
         utils.PrintWarning("Undeploying all resources")
+		utils.PrintWarning("Undeploying all addons")
 
 		var errors []string
 		var successes []string
@@ -78,6 +92,16 @@ example:
 			}
 			successes = append(successes, resource.Name)
         }
+
+		for _, addon := range utils.ManifestData.Addons {
+			err := undeployAddon(&addon)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error undeploying addon %s", addon.Name))
+				errors = append(errors, addon.Name)
+				continue
+			}
+			successes = append(successes, addon.Name)
+		}
 
 		if len(errors) > 0 {
 			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
@@ -137,10 +161,14 @@ example:
 		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		names := strings.Split(args[0], ",")
 
+		addons, _ := cmd.Flags().GetString("with-addons")
+		addonList := strings.Split(addons, ",")
+
 		var errors []string
 		var successes []string
 
         utils.PrintWarning(fmt.Sprintf("Undeploying resource %v", names))
+		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v", addonList))
 
 		for _, name := range names {
 			
@@ -155,6 +183,24 @@ example:
 			err := undeployUnique(resource)
 			if err == types.ERROR {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s", name))
+				errors = append(errors, name)
+				continue
+			}
+			successes = append(successes, name)
+		}
+
+		for _, name := range addonList {
+			var addon *types.Addon
+			addon = utils.GetAddonFromName(name)
+
+			if addon == nil {
+				utils.PrintError(fmt.Sprintf("Addon %s not found", name))
+				continue
+			}
+
+			err := undeployAddon(addon)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error undeploying addon %s", name))
 				errors = append(errors, name)
 				continue
 			}
@@ -203,4 +249,6 @@ func init() {
 
 	undeployCmd.PersistentFlags().BoolP("close", "c", false, "Stop the cluster after undeploying the resources")
 	undeployCmd.PersistentFlags().BoolP("pause", "p", false, "Pause the cluster after undeploying the resources")
+
+	undeployResourceCmd.Flags().StringP("with-addons", "a", "", "include addons in the undeploy")
 }

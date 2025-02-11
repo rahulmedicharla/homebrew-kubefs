@@ -73,6 +73,136 @@ func downloadZip(url string, name string) int {
 	return types.SUCCESS
 }
 
+func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) int {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", addon.DockerRepo))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		utils.PrintError(fmt.Sprintf("Docker image %s not found. Run 'kubefs compile' to set docker images", addon.Name))
+		return types.ERROR
+	}
+
+	if !onlyDeploy {
+		// helmify
+
+		if addon.Name == "oauth2"{
+			err := downloadZip(types.OAUTH2CHART, "addons/oauth2")
+			if err == types.ERROR {
+				return types.ERROR
+			}
+
+			var defaultYaml = types.GetHelmChart(addon.DockerRepo, addon.Name, "ClusterIP", addon.Port, "false", "", "/health", fmt.Sprintf("%v", addon.Port), 1)
+			
+			fileWriteErr := os.WriteFile("addons/oauth2/deploy/values.yaml", []byte(defaultYaml), 0644)
+
+			if fileWriteErr != nil {
+				utils.PrintError(fmt.Sprintf("Error writing values.yaml: %v", fileWriteErr))
+				return types.ERROR
+			}
+
+			err, valuesYaml := utils.ReadYaml("addons/oauth2/deploy/values.yaml")
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error reading values.yaml: %v", err))
+				return types.ERROR
+			}
+
+			env := valuesYaml["env"].([]interface{})
+			allowedOrigins := ""
+			for _, n := range addon.Dependencies {
+				attachedResource := utils.GetResourceFromName(n)
+				if attachedResource == nil {
+					utils.PrintError(fmt.Sprintf("Resource %s not found", n))
+					continue
+				}
+				if allowedOrigins == "" {
+					allowedOrigins = fmt.Sprintf("%s", attachedResource.ClusterHost)
+				}else{
+					allowedOrigins += fmt.Sprintf(",%s", attachedResource.ClusterHost)
+				}
+			}
+			env = append(env, map[string]interface{}{
+				"name": "ALLOWED_ORIGINS", 
+				"value": allowedOrigins,
+			}, map[string]interface{}{
+				"name": "PORT",
+				"value": fmt.Sprintf("%v", addon.Port),
+			})
+			valuesYaml["env"] = env
+
+			valuesYaml["secrets"] = []interface{}{
+				map[string]interface{}{
+					"name": "public_key.pem",
+					"value": "files/public_key.pem",
+				},
+				map[string]interface{}{
+					"name": "private_key.pem",
+					"value": "files/private_key.pem",
+				},
+			}
+
+			cmd = exec.Command("sh", "-c", fmt.Sprintf("mkdir -p addons/oauth2/deploy/files && cp addons/oauth2/public_key.pem addons/oauth2/deploy/files && cp addons/oauth2/private_key.pem addons/oauth2/deploy/files"))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error copying files: %v", cmdErr))
+				return types.ERROR
+			}
+
+			valuesYaml["volumes"] = []interface{}{
+				map[string]interface{}{
+					"name": "store",
+					"emptyDir": map[string]interface{}{},
+				},
+				map[string]interface{}{
+					"name": "keys",
+					"secret": map[string]string{
+						"secretName": "oauth2-deploy-secret",
+					},
+				},
+			}
+
+			valuesYaml["volumeMounts"] = []interface{}{
+				map[string]string{
+					"name": "store",
+					"mountPath": "/app/store",
+				},
+				map[string]string{
+					"name": "keys",
+					"mountPath": "/etc/ssl/private/private_key.pem",
+					"subPath": "private_key.pem",
+				},
+				map[string]string{
+					"name": "keys",
+					"mountPath": "/etc/ssl/public/public_key.pem",
+					"subPath": "public_key.pem",
+				},
+			}
+
+			err = utils.WriteYaml(&valuesYaml, "addons/oauth2/deploy/values.yaml")
+			if err == types.ERROR {
+				return types.ERROR
+			}
+		}
+	}
+	if !onlyHelmify {
+		// deploy
+		if addon.Name == "oauth2"{
+			cmd := exec.Command("sh", "-c", "helm upgrade --install oauth2 ./addons/oauth2/deploy")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmdErr := cmd.Run()
+			if cmdErr != nil {
+				utils.PrintError(fmt.Sprintf("Error deploying addon %s: %v", addon.Name, cmdErr))
+				return types.ERROR
+			}
+		}
+	}
+
+	return types.SUCCESS
+}
+
 func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) int {
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", resource.DockerRepo))
 	cmd.Stdout = os.Stdout
@@ -114,25 +244,30 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) i
 			var defaultYaml string
 			if resource.Type == "api"{
 				// api
-				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "", "/health")
+				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, "false", "", "/health", "http", 3)
 			}else{
 				// frontend
-				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "NodePort", resource.Port, "true", resource.UrlHost, "/")
+				defaultYaml = types.GetHelmChart(resource.DockerRepo, resource.Name, "NodePort", resource.Port, "true", resource.UrlHost, "/", "http", 3)
 			}
 
 			fileWriteErr := os.WriteFile(fmt.Sprintf("%s/deploy/values.yaml", resource.Name), []byte(defaultYaml), 0644)
 
 			if fileWriteErr != nil {
+				utils.PrintError(fmt.Sprintf("Error writing values.yaml: %v", fileWriteErr))
 				return types.ERROR
 			}
 
 			err, valuesYaml := utils.ReadYaml(fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
 			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error reading values.yaml: %v", err))
 				return types.ERROR
 			}
 			env := valuesYaml["env"].([]interface{})
 			for _, r := range utils.ManifestData.Resources {
 				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
+			}
+			for _, a := range utils.ManifestData.Addons {
+				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", a.Name), "value": a.ClusterHost})
 			}
 			valuesYaml["env"] = env
 		
@@ -211,9 +346,23 @@ example:
 			}
 			successes = append(successes, resource.Name)
 			if resource.Type == "frontend" {
-				hosts = append(hosts, resource.UrlHost)
+				if resource.UrlHost == "" {
+					hosts = append(hosts, "*")
+				}else{
+					hosts = append(hosts, resource.UrlHost)
+				}
 			}
         }
+
+		for _, addon := range utils.ManifestData.Addons {
+			err := deployAddon(&addon, onlyHelmify, onlyDeploy)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error deploying addon %s", addon.Name))
+				errors = append(errors, addon.Name)
+				continue
+			}
+			successes = append(successes, addon.Name)
+		}
 
 		if len(errors) > 0 {
 			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
@@ -226,8 +375,6 @@ example:
 		if len(hosts) > 0 {
 			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v", hosts))
 		}
-
-
 	},
 }
 
@@ -255,12 +402,16 @@ example:
 		var onlyHelmify, onlyDeploy bool
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
+		
+		addons, _ := cmd.Flags().GetString("with-addons")
+		addonList := strings.Split(addons, ",")
 
 		var successes []string
 		var errors []string
 		var hosts []string
 
 		utils.PrintWarning(fmt.Sprintf("Deploying resource %v", names))
+		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range names {
 			var resource *types.Resource
@@ -279,10 +430,33 @@ example:
 			}
 
 			successes = append(successes, name)
-			if resource.Type == "frontend"{
-				hosts = append(hosts, resource.UrlHost)
+			if resource.Type == "frontend" {
+				if resource.UrlHost == "" {
+					hosts = append(hosts, "*")
+				}else{
+					hosts = append(hosts, resource.UrlHost)
+				}
 			}
 
+		}
+
+		for _, addon := range addonList {
+			var addonResource *types.Addon
+			addonResource = utils.GetAddonFromName(addon)
+
+			if addonResource == nil {
+				utils.PrintError(fmt.Sprintf("Addon %s not found", addon))
+				continue
+			}
+
+			err := deployAddon(addonResource, onlyHelmify, onlyDeploy)
+			if err == types.ERROR {
+				utils.PrintError(fmt.Sprintf("Error deploying addon %s", addon))
+				errors = append(errors, addon)
+				continue
+			}
+
+			successes = append(successes, addon)
 		}
 
 		if len(errors) > 0 {
@@ -306,5 +480,7 @@ func init() {
 
 	deployCmd.PersistentFlags().BoolP("only-helmify", "w", false, "only helmify the resources")
 	deployCmd.PersistentFlags().BoolP("only-deploy", "d", false, "only deploy the resources")
+	
+	deployResourceCmd.Flags().StringP("with-addons", "a", "", "addons to be included in deployment (comma separated)")
 
 }
