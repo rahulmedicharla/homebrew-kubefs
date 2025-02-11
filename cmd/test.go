@@ -76,10 +76,6 @@ func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
 				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
 				return types.ERROR
 			}
-			if (*rawCompose)["services"].(map[string]interface{})[resource.Name] == nil {
-				utils.PrintError(fmt.Sprintf("Please test with dependency %s", name))
-				return types.ERROR
-			}
 			if allowedHosts == "" {
 				allowedHosts = resource.DockerHost
 			}else{
