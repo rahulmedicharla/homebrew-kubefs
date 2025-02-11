@@ -127,6 +127,9 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) int {
 			}, map[string]interface{}{
 				"name": "PORT",
 				"value": fmt.Sprintf("%v", addon.Port),
+			}, map[string]interface{}{
+				"name": "GIN_MODE",
+				"value": "release",
 			})
 			valuesYaml["env"] = env
 
