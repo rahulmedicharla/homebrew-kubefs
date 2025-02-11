@@ -14,8 +14,6 @@ builds:
       - windows
       - darwin
     binary: ./main.go
-    ignore:
-      - "addons/*"
 
 archives:
   - formats: ['tar.gz' ]
