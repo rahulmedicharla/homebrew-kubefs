@@ -319,10 +319,89 @@ example:
 	},
 }
 
+var testAddonCmd = &cobra.Command{
+	Use:   "addons [name, ...]",
+	Short: "kubefs test addons [name, ...] - test listed addons in docker locally before deploying",
+	Long: `kubefs test addons [name ...] - test listed addons in docker locally before deploying
+example:
+	kubefs test addons <addon_name>,<addon_name> --flags,
+	kubefs test addons <addon_name> --flags`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
+
+		var names = strings.Split(args[0], ",")
+
+		var errors []string
+		var successes []string
+		
+		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", names))
+
+		for _, name := range names {
+			addon, err := utils.GetAddonFromName(name)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error getting addon %s", name))
+				errors = append(errors, name)
+				continue
+			}
+
+			err = testAddon(&rawCompose, addon)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error including addon %s", name))
+				errors = append(errors, name)
+				continue
+			}
+			successes = append(successes, name)
+		}
+
+		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
+			return
+		}
+
+		utils.PrintWarning("Wrote docker-compose.yaml file")
+
+		var onlyWrite bool
+		var persist bool
+		onlyWrite, _ = cmd.Flags().GetBool("only-write")
+		persist, _ = cmd.Flags().GetBool("persist-data")
+
+		if !onlyWrite {
+			err := utils.RunCommand("docker compose up", true, true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
+				return
+			}
+
+			var command string
+			if persist{
+				command = "docker compose down"
+			}else{
+				command = "docker compose down -v --rmi all"
+			}
+
+			err = utils.RunCommand(command, true, true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
+				return
+			}
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(testCmd)
 	testCmd.AddCommand(testAllCmd)
 	testCmd.AddCommand(testResourceCmd)
+	testCmd.AddCommand(testAddonCmd)
 
 	testCmd.PersistentFlags().BoolP("only-write", "w", false, "only create the docker compose file; dont start it")
 	testCmd.PersistentFlags().BoolP("persist-data", "p", false, "persist images & volume data after testing")
