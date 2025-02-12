@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"os/exec"
-	"os"
 	"github.com/rahulmedicharla/kubefs/types"
 	"strings"
 )
@@ -38,14 +36,10 @@ var rawCompose = map[string]interface{}{
 	"volumes": map[string]interface{}{},
 }
 
-func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", addon.DockerRepo))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
+	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), false, true)
 	if err != nil {
-		utils.PrintError(fmt.Sprintf("Error pulling docker image: %v", err))
-		return types.ERROR
+		return err
 	}
 
 	service := map[string]interface{}{
@@ -69,21 +63,19 @@ func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
 
 		attachedResourceList := addon.Dependencies
 
-		allowedHosts := ""
+		var allowedHosts []string
 		for _,name := range attachedResourceList {
-			resource := utils.GetResourceFromName(name)
-			if resource == nil {
-				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
-				return types.ERROR
+			resource, err := utils.GetResourceFromName(name)
+			if err != nil {
+				return err
 			}
-			if allowedHosts == "" {
-				allowedHosts = resource.DockerHost
-			}else{
-				allowedHosts = fmt.Sprintf("%s,%s", allowedHosts, resource.DockerHost)
-			}
+			allowedHosts = append(allowedHosts, resource.DockerHost)
 		}
 
-		service["environment"] = append(service["environment"].([]string), fmt.Sprintf("ALLOWED_ORIGINS=%s", allowedHosts), fmt.Sprintf("PORT=%v", addon.Port))
+		service["environment"] = append(service["environment"].([]string), 
+			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")), 
+			fmt.Sprintf("PORT=%v", addon.Port),
+		)
 		
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",
@@ -91,18 +83,13 @@ func includeAddon(rawCompose *map[string]interface{}, addon *types.Addon) int {
 	}
 	(*rawCompose)["services"].(map[string]interface{})[addon.Name] = service
 
-
-	return types.SUCCESS
+	return nil
 }
 
-func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resource) {
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("docker pull %s", resource.DockerRepo))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+func testResource(rawCompose *map[string]interface{}, resource *types.Resource) error {
+	err := utils.RunCommand(fmt.Sprintf("docker pull %s", resource.DockerRepo), true, true)
 	if err != nil {
-		utils.PrintError(fmt.Sprintf("Error pulling docker image. Run 'kubefs compile' to set: %v", err))
-		return
+		return err
 	}
 
 	service := map[string]interface{}{
@@ -122,12 +109,14 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 		for _, r := range utils.ManifestData.Resources {
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
 		}
-		for _, a := range utils.ManifestData.Addons {
-			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a.Name, a.DockerHost))
+		
+		for _, a := range resource.Dependents{
+			addon, _ := utils.GetAddonFromName(a)
+			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a, addon.DockerHost))
 		}
 
-	 	envErr, envData := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
-		if envErr == types.SUCCESS {
+	 	envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+		if err == nil {
 			for _,line := range envData {
 				service["environment"] = append(service["environment"].([]string), line)
 			}
@@ -152,6 +141,7 @@ func modifyRawCompose(rawCompose *map[string]interface{}, resource *types.Resour
 	}
 
 	(*rawCompose)["services"].(map[string]interface{})[resource.Name] = service
+	return nil
 }
 
 var testAllCmd = &cobra.Command{
@@ -162,26 +152,43 @@ example:
 	kubefs test all --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
         utils.PrintWarning("Testing all resources in docker")
-		
+
+		var errors []string
+		var successes []string
+
 		for _, resource := range utils.ManifestData.Resources {
-			modifyRawCompose(&rawCompose, &resource)
+			err := testResource(&rawCompose, &resource)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error including resource %s. %v", resource.Name, err.Error()))
+				errors = append(errors, resource.Name)
+				continue
+			}
+			successes = append(successes, resource.Name)
 		}
 
 		for _, addon := range utils.ManifestData.Addons {
-			includeAddon(&rawCompose, &addon)
+			err := testAddon(&rawCompose, &addon)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error including addon %s. %v", addon.Name, err.Error()))
+				errors = append(errors, addon.Name)
+				continue
+			}
+			successes = append(successes, addon.Name)
 		}
 
-		fileErr := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
-		if fileErr == types.ERROR {
-			utils.PrintError("Error writing docker-compose.yaml file")
+		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
 			return
 		}
+
+		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		var onlyWrite bool
 		var persist bool
@@ -189,24 +196,20 @@ example:
 		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
-			command := exec.Command("sh", "-c", "docker compose up")
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
-			err := command.Run()
+			err := utils.RunCommand("docker compose up", true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
 				return
 			}
 
+			var command string
 			if persist{
-				command = exec.Command("sh", "-c", "docker compose down")
+				command = "docker compose down"
 			}else{
-				command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
+				command = "docker compose down -v --rmi all"
 			}
 
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
-			err = command.Run()
+			err = utils.RunCommand(command, true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
 				return
@@ -228,6 +231,11 @@ example:
 			return
 		}
 
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
+
 		var names = strings.Split(args[0], ",")
 		
 		addonNames, _ := cmd.Flags().GetString("with-addons")
@@ -236,48 +244,52 @@ example:
 			addonsList = strings.Split(addonNames, ",")
 		}
 
-		if utils.ManifestStatus == types.ERROR {
-			utils.PrintError("Not a valid kubefs project: use 'kubefs init' to create a new project")
-			return
-		}
-
+		var errors []string
+		var successes []string
+		
 		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", names))
 
 		for _, name := range names {
-
-			var resource *types.Resource
-			resource = utils.GetResourceFromName(name)
-
-			if resource == nil {
-				utils.PrintError(fmt.Sprintf("Resource %s not found", name))
+			resource, err := utils.GetResourceFromName(name)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error getting resource %s", name))
+				errors = append(errors, name)
 				continue
 			}
 
-			modifyRawCompose(&rawCompose, resource)
+			err = testResource(&rawCompose, resource)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error including resource %s", name))
+				errors = append(errors, name)
+				continue
+			}
+			successes = append(successes, name)
 		}
 
 		for _, name := range addonsList {
-
-			var addon *types.Addon
-			addon = utils.GetAddonFromName(name)
-
-			if addon == nil {
-				utils.PrintError(fmt.Sprintf("Addon %s not found", name))
+			addon, err := utils.GetAddonFromName(name)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error getting addon %s", name))
+				errors = append(errors, name)
 				continue
 			}
 
-			err := includeAddon(&rawCompose, addon)
-			if err == types.ERROR {
+			err = testAddon(&rawCompose, addon)
+			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error including addon %s", name))
-				return
+				errors = append(errors, name)
+				continue
 			}
+			successes = append(successes, name)
 		}
 
-		fileErr := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
-		if fileErr == types.ERROR {
-			utils.PrintError("Error writing docker-compose.yaml file")
+		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
 			return
 		}
+
+		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		var onlyWrite bool
 		var persist bool
@@ -285,24 +297,20 @@ example:
 		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
-			command := exec.Command("sh", "-c", "docker compose up")
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
-			err := command.Run()
+			err := utils.RunCommand("docker compose up", true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
 				return
 			}
 
+			var command string
 			if persist{
-				command = exec.Command("sh", "-c", "docker compose down")
+				command = "docker compose down"
 			}else{
-				command = exec.Command("sh", "-c", "docker compose down -v --rmi all")
+				command = "docker compose down -v --rmi all"
 			}
 
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
-			err = command.Run()
+			err = utils.RunCommand(command, true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
 				return

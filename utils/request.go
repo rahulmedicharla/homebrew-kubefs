@@ -1,4 +1,4 @@
-package utils
+package utils 
 
 import (
 	"net/http"
@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"github.com/rahulmedicharla/kubefs/types"
 	"io/ioutil"
+	"os"
+	"io"
 )
 
 var client *http.Client
@@ -15,19 +17,17 @@ var client *http.Client
 func GetHttpClient(){
 	client = &http.Client{Timeout: 10 * time.Second}
 }
-func PostRequest(url string, headers map[string]string, paylod map[string]interface{}) (int, types.ApiResponse , error){
+func PostRequest(url string, headers map[string]string, paylod map[string]interface{}) (*types.ApiResponse , error){
 	postBody, err := json.Marshal(paylod)
 	var apiResponse types.ApiResponse
 
 	if err != nil {
-		PrintError(fmt.Sprintf("Error marshalling payload: %v", err))
-		return types.ERROR, apiResponse, err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(postBody))
 	if err != nil {
-		PrintError(fmt.Sprintf("Error creating request: %v", err))
-		return types.ERROR, apiResponse, err
+		return nil, err
 	}
 
 	for key, value := range headers {
@@ -36,30 +36,27 @@ func PostRequest(url string, headers map[string]string, paylod map[string]interf
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return types.ERROR, apiResponse	, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
     if err != nil {
-        PrintError(fmt.Sprintf("Error reading response: %v", err))
-		return types.ERROR, apiResponse, err
+		return nil, err
     }
 
 	err = json.Unmarshal(body, &apiResponse)
 	if err != nil {
-		PrintError(fmt.Sprintf("Error unmarshalling response: %v", err))
-		return types.ERROR, apiResponse, err
+		return nil, err
 	}
 
-	return types.SUCCESS, apiResponse, nil
+	return &apiResponse, nil
 }
 
-func DeleteRequest(url string, headers map[string]string) (int, error){
+func DeleteRequest(url string, headers map[string]string) error{
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		PrintError(fmt.Sprintf("Error creating request: %v", err))
-		return types.ERROR, err
+		return err
 	}
 
 	for key, value := range headers {
@@ -68,10 +65,41 @@ func DeleteRequest(url string, headers map[string]string) (int, error){
 
 	resp, err := client.Do(req)
 	if err != nil {
-		PrintError(fmt.Sprintf("Error deleting resource: %v", err))
-		return types.ERROR, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	return types.SUCCESS, nil
+	return nil
+}
+
+func DownloadZip(url string, name string) error {
+	err := RunCommand(fmt.Sprintf("(cd %s && rm -rf deploy)", name), false, true)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	out, err := os.Create(fmt.Sprintf("%s/helm.zip", name))
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	err = RunCommand(fmt.Sprintf("(cd %s && unzip helm.zip -d deploy && rm -rf helm.zip deploy/__MACOSX && echo '')", name), false, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
