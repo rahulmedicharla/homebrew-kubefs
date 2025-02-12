@@ -178,8 +178,9 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
 			}
 
-			for _, a := range utils.ManifestData.Addons {
-				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", a.Name), "value": a.ClusterHost})
+			for _, a := range resource.Dependents{
+				addon, _ := utils.GetAddonFromName(a)
+				env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", a), "value": addon.ClusterHost})
 			}
 			valuesYaml["env"] = env
 		

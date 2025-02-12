@@ -165,7 +165,18 @@ example:
 			return
 		}
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "api", Framework:resourceFramework, UpLocal: upLocal, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
+			Name: resourceName, 
+			Port: resourcePort, 
+			Type: "api", 
+			Framework:resourceFramework, 
+			UpLocal: upLocal, 
+			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
+			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
+			DockerRepo: dockerRepo, 
+			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
+			Dependents: []string{},
+		})
 		
 		if err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml"); err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
@@ -246,7 +257,19 @@ example:
 			return
 		}
 
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "frontend", Framework:resourceFramework, UpLocal: "npm run dev", UrlHost: urlHost, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName)})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
+			Name: resourceName, 
+			Port: resourcePort, 
+			Type: "frontend", 
+			Framework:resourceFramework, 
+			UpLocal: "npm run dev", 
+			UrlHost: urlHost, 
+			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
+			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
+			DockerRepo: dockerRepo, 
+			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
+			Dependents: []string{},
+		})
 		
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
@@ -293,7 +316,17 @@ example:
 			return
 		}
 		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{Name: resourceName, Port: resourcePort, Type: "database", Framework:resourceFramework, LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), DockerRepo: dockerRepo, ClusterHost: clusterHost, DbPassword: password})
+		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
+			Name: resourceName, 
+			Port: resourcePort, 
+			Type: "database", 
+			Framework:resourceFramework, 
+			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
+			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
+			DockerRepo: dockerRepo, 
+			ClusterHost: clusterHost, 
+			DbPassword: password,
+		})
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {

@@ -6,7 +6,6 @@ import (
     "os"
     "github.com/rahulmedicharla/kubefs/types"
     "gopkg.in/yaml.v3"
-    "reflect"
     "encoding/json"
     "bufio"
     "errors"
@@ -144,10 +143,10 @@ func ReadEnv(path string) ([]string, error) {
     return envData, nil
 }
 
-func UpdateResource(project *types.Project, resource *types.Resource, field string, new_value string) error{
+func UpdateResource(project *types.Project, name string, resource *types.Resource) error{
     for i, res := range project.Resources {
-        if res.Name == resource.Name {
-            reflect.ValueOf(&project.Resources[i]).Elem().FieldByName(field).SetString(new_value)
+        if res.Name == name {
+            project.Resources[i] = *resource
             return WriteManifest(project, "manifest.yaml")
         }
     }

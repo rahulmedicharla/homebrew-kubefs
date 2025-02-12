@@ -91,7 +91,15 @@ example:
 				names := strings.Split(input, ",")
 				var validAttachedResourceNames []string
 				for _,n := range names{
-					_, err := utils.GetResourceFromName(n)
+					resource, err := utils.GetResourceFromName(n)
+					if err != nil {
+						utils.PrintError(err.Error())
+						errors = append(errors, name)
+						continue
+					}
+
+					resource.Dependents = append(resource.Dependents, name)
+					err = utils.UpdateResource(&utils.ManifestData, n, resource)
 					if err != nil {
 						utils.PrintError(err.Error())
 						errors = append(errors, name)
@@ -164,7 +172,7 @@ example:
 
 		for _, name := range addonList {
 
-			_, err := utils.GetAddonFromName(name)
+			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -184,6 +192,30 @@ example:
 				errors = append(errors, name)
 				continue
 			}
+
+			for _, dependent := range addon.Dependencies {
+				resource, err := utils.GetResourceFromName(dependent)
+				if err != nil {
+					utils.PrintError(err.Error())
+					errors = append(errors, name)
+					continue
+				}
+
+				var newDependents []string
+				for _, dep := range resource.Dependents {
+					if dep != name {
+						newDependents = append(newDependents, dep)
+					}
+				}
+				resource.Dependents = newDependents
+				err = utils.UpdateResource(&utils.ManifestData, dependent, resource)
+				if err != nil {
+					utils.PrintError(err.Error())
+					errors = append(errors, name)
+					continue
+				}
+			}
+
 			successes = append(successes, name)
 		}
 

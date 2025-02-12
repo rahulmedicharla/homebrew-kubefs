@@ -5,7 +5,7 @@ type Project struct {
 	Version string `yaml:"version"`
 	Description string `yaml:"description"`
 	Resources []Resource `yaml:"resources"`
-  Addons []Addon `yaml:"addons"`
+  	Addons []Addon `yaml:"addons"`
 }
 
 type Resource struct {
@@ -20,6 +20,7 @@ type Resource struct {
 	ClusterHost string `yaml:"cluster_host,omitempty"`
 	DbPassword string `yaml:"db_password,omitempty"`
 	UrlHost string `yaml:"url_host,omitempty"`
+	Dependents []string `yaml:"dependents,omitempty"`
 }
 
 type Addon struct {
@@ -29,7 +30,6 @@ type Addon struct {
   LocalHost string `yaml:"local_host"`
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
-  Opts map[string][]string `yaml:"opts,omitempty"`
   Dependencies []string `yaml:"dependencies,omitempty"`
 }
 

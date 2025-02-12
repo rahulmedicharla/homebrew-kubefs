@@ -37,7 +37,7 @@ var rawCompose = map[string]interface{}{
 }
 
 func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
-	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), true, true)
+	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), false, true)
 	if err != nil {
 		return err
 	}
@@ -109,8 +109,10 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 		for _, r := range utils.ManifestData.Resources {
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
 		}
-		for _, a := range utils.ManifestData.Addons {
-			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a.Name, a.DockerHost))
+		
+		for _, a := range resource.Dependents{
+			addon, _ := utils.GetAddonFromName(a)
+			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a, addon.DockerHost))
 		}
 
 	 	envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
@@ -186,6 +188,8 @@ example:
 			return
 		}
 
+		utils.PrintWarning("Wrote docker-compose.yaml file")
+
 		var onlyWrite bool
 		var persist bool
 		onlyWrite, _ = cmd.Flags().GetBool("only-write")
@@ -242,7 +246,7 @@ example:
 
 		var errors []string
 		var successes []string
-
+		
 		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", names))
 
 		for _, name := range names {
@@ -284,6 +288,8 @@ example:
 			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
 			return
 		}
+
+		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		var onlyWrite bool
 		var persist bool
