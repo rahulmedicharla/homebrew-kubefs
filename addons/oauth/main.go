@@ -10,13 +10,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"io/ioutil"
-	"github.com/dgraph-io/badger/v4"
-	"encoding/json"
 	"time"
 	"strings"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/gin-contrib/cors"
 	"log"
+	"context"
 )
 
 type Account struct {
@@ -37,17 +36,26 @@ type AuthRequest struct {
 	SecurityAnswer string `json:"security_answer,omitempty"`
 }
 
-const SUCCESS = 1
-const ERROR = 0
-
 var (
 	// RSA private key
 	privateKey *rsa.PrivateKey
 	publicKey *rsa.PublicKey
-	db *badger.DB
+	GIN_MODE string
+	db DB
 )
 
-func issueAccessToken(uid string) (int, string) {
+type Statement struct {
+	Query string
+	Args []interface{}
+}
+
+type DB interface {
+	QueryRow(ctx context.Context, stmt Statement, dest ...any) error
+	Close()
+	Exec(ctx context.Context, stmt Statement) (err error)
+}
+
+func issueAccessToken(uid string) (error, *string) {
 	// Create a new token
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		"sub": uid,
@@ -57,13 +65,13 @@ func issueAccessToken(uid string) (int, string) {
 	// Sign the token & return
 	accessToken, err := token.SignedString(privateKey)
 	if err != nil {
-		return ERROR, err.Error()
+		return err, nil
 	}
 
-	return SUCCESS, accessToken
+	return nil, &accessToken
 }
 
-func verifyToken(token string) (int, string) {
+func verifyToken(token string) error {
 	// Parse the token
 	var claims jwt.MapClaims
 	tkn, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
@@ -73,31 +81,31 @@ func verifyToken(token string) (int, string) {
 		return publicKey, nil
 	})
 	if err != nil {
-		return ERROR, err.Error()
+		return err
 	}
 
 	if !tkn.Valid {
-		return ERROR, "Invalid token"
+		return errors.New("Invalid token")
 	}
 
-	return SUCCESS, "Token is valid"
+	return nil
 }
 
-func create_account(data *AuthRequest) (int, string, string) {
+func create_account(data *AuthRequest) (error, *string, *string, *uuid.UUID) {
 	// verify length of password
 	if len(data.Password) < 8 {
-		return ERROR, "Password must be at least 8 characters", ""
+		return errors.New("Password must be at least 8 characters"), nil, nil, nil
 	}
 
 	// verify if passwords match
 	if data.Password != data.ConfirmPassword {
-		return ERROR, "Passwords do not match", ""
+		return errors.New("Passwords do not match"), nil, nil, nil
 	}
 
 	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return ERROR, err.Error(), ""
+		return err, nil, nil, nil
 	}
 
 	// Create a new account
@@ -109,246 +117,211 @@ func create_account(data *AuthRequest) (int, string, string) {
 		SecurityAnswer: data.SecurityAnswer,
 	}
 
+	var refreshToken string
+	var response *string
+	var email string
+
 	// Check if account already exists
-	dbErr := db.View(func(txn *badger.Txn) error {
-		item, _ := txn.Get([]byte(account.Email))
-		if item != nil {
-			return errors.New("Account already exists")
-		}
-
-		return nil
-	})
-	if dbErr != nil {
-		return ERROR, dbErr.Error(), ""
+	stmt := Statement{
+		Query: "SELECT email from accounts WHERE email = $1",
+		Args: []interface{}{account.Email},
+	}
+	err = db.QueryRow(context.Background(), stmt, &email)
+	if err == nil {
+		return errors.New("Account already exists"), nil, nil, nil
 	}
 
-	refreshToken := uuid.New().String()
-
-	// Save account to database
-	dbErr = db.Update(func(txn *badger.Txn) error {
-		accountBytes, err := json.Marshal(account)
-		if err != nil {
-			return err
-		}
-
-		err = txn.Set([]byte(account.Email), accountBytes)
-		if err != nil {
-			return err
-		}
-
-		err = txn.Set([]byte("refreshToken/"+account.Uid.String()), []byte(refreshToken))
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	if dbErr != nil {
-		return ERROR, dbErr.Error(), ""
+	// Save account to accounts table
+	stmt = Statement{
+		Query: "INSERT INTO accounts (uid, email, password, securityQuestion, securityAnswer) VALUES ($1, $2, $3, $4, $5)",
+		Args: []interface{}{account.Uid, account.Email, account.Password, account.SecurityQuestion, account.SecurityAnswer},
+	}
+	err = db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err, nil, nil, nil
 	}
 
-	// Create a new token
-	status, response := issueAccessToken(account.Uid.String())
-	if status == ERROR {
-		return ERROR, response, ""
+	err, response = issueAccessToken(account.Uid.String())
+	if err != nil {
+		return err, nil, nil, nil
 	}
 
-	return SUCCESS, response, refreshToken
+	refreshToken = uuid.New().String()
+
+	// save refresh token to refreshTokens table
+	stmt = Statement{
+		Query: "INSERT INTO refreshTokens (uid, token) VALUES ($1, $2)",
+		Args: []interface{}{account.Uid, refreshToken},
+	}
+	err = db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err, nil, nil, nil
+	}
+
+	return nil, response, &refreshToken, &account.Uid
 }
 
-func login(data *AuthRequest) (int, string, string) {
+func login(data *AuthRequest) (error, *string, *string) {
 	// Find account
 	var account Account
 	var refreshToken string
-	dbErr := db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(data.Email))
 
-		if err != nil {
-			return errors.New("Account not found")
-		}
-
-		err = item.Value(func(val []byte) error {
-			err := json.Unmarshal(val, &account)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		item, err = txn.Get([]byte("refreshToken/" + account.Uid.String()))
-		if err != nil {
-			return err 
-		}
-
-		err = item.Value(func(val []byte) error {
-			refreshToken = string(val)
-			return nil
-		})
-
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if dbErr != nil {
-		return ERROR, dbErr.Error(), ""
+	// get account
+	stmt := Statement{
+		Query: "SELECT uid, email, password, securityQuestion, securityAnswer from accounts WHERE email = $1",
+		Args: []interface{}{data.Email},
+	}
+	err := db.QueryRow(context.Background(), stmt, &account.Uid, &account.Email, &account.Password, &account.SecurityQuestion, &account.SecurityAnswer)
+	
+	if err != nil {
+		return err, nil, nil
 	}
 
-	// Check password
-	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(data.Password))
+	// get refresh token
+	stmt = Statement{
+		Query: "SELECT token from refreshTokens WHERE uid = $1",
+		Args: []interface{}{account.Uid},
+	}
+	err = db.QueryRow(context.Background(), stmt, &refreshToken)
+	
 	if err != nil {
-		return ERROR, "Invalid password", ""
+		return err, nil, nil
 	}
 
 	// Create a new token
-	status, response := issueAccessToken(account.Uid.String())
-	if status == ERROR {
-		return ERROR, response, ""
+	err, response := issueAccessToken(account.Uid.String())
+	if err != nil {
+		return err, nil, nil
 	}
 	
-	return SUCCESS, response, refreshToken 
+	return nil, response, &refreshToken 
 }
 
-func delete(email string) (int, string) {
-	// Find account
-	dbErr := db.Update(func(txn *badger.Txn) error {
-		err := txn.Delete([]byte(email))
-		if err != nil {
-			return err
-		}
-
-		err = txn.Delete([]byte("refreshToken/" + email))
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if dbErr != nil {
-		return ERROR, dbErr.Error()
+func delete(uid string) error {
+	// delete account
+	stmt := Statement{
+		Query: "DELETE FROM accounts WHERE uid = $1",
+		Args: []interface{}{uid},
+	}
+	err := db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err
 	}
 
-	return SUCCESS, "Account deleted"
+	// delete refresh token
+	stmt = Statement{
+		Query: "DELETE FROM refreshTokens WHERE uid = $1",
+		Args: []interface{}{uid},
+	}
+	err = db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func refresh(refreshToken string, uid string) (int, string){
+func refresh(refreshToken string, uid string) (error, *string){
 	// verify refresh token
-	var response string
-	dbErr := db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte("refreshToken/"+uid))
-		if err != nil {
-			return err
-		}
+	var response *string
+	var currentToken string
 
-		err = item.Value(func(val []byte) error {
-			currentToken := string(val)
-			if currentToken != refreshToken {
-				return errors.New("Invalid refresh token")
-			}
-
-			// Create a new token
-			var status int
-			status, response = issueAccessToken(uid)
-			if status == ERROR {
-				return errors.New(response)
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if dbErr != nil {
-		return ERROR, dbErr.Error()
+	// verify refresh token & issue new access token
+	stmt := Statement{
+		Query: "SELECT token from refreshTokens WHERE uid = $1",
+		Args: []interface{}{uid},
+	}
+	err := db.QueryRow(context.Background(), stmt, &currentToken)
+	if err != nil {
+		return err, nil
 	}
 
-	return SUCCESS, response
+	if currentToken != refreshToken {
+		return errors.New("Invalid refresh token"), nil
+	}
+
+	// Create a new token
+	err, response = issueAccessToken(uid)
+	if err != nil {
+		return err, nil
+	}
+
+	return nil, response
 
 }
 
-func resetPassword(data *AuthRequest) (int, string) {
+func resetPassword(data *AuthRequest) error {
 	// verify if passwords match
 	if data.NewPassword != data.ConfirmNewPassword {
-		return ERROR, "Passwords do not match"
+		return errors.New("Passwords do not match")
 	}
 
-	// Find account
 	var account Account
-	dbErr := db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(data.Email))
-
-		if err != nil {
-			return err
-		}
-
-		err = item.Value(func(val []byte) error {
-			err := json.Unmarshal(val, &account)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if dbErr != nil {
-		return ERROR, dbErr.Error()
+	// Find account
+	stmt := Statement{
+		Query: "SELECT uid, email, password, securityQuestion, securityAnswer from accounts WHERE email = $1",
+		Args: []interface{}{data.Email},
+	}
+	err := db.QueryRow(context.Background(), stmt, &account.Uid, &account.Email, &account.Password, &account.SecurityQuestion, &account.SecurityAnswer)
+	if err != nil {
+		return err
 	}
 
 	// Check security question
 	if account.SecurityAnswer != data.SecurityAnswer || account.SecurityQuestion != data.SecurityQuestion {
-		return ERROR, "Invalid security question/answer"
+		return errors.New("Invalid security question or answer")
 	}
 
 	// verify length of password && not same as old password
 	if len(data.NewPassword) < 8 {
-		return ERROR, "Password must be at least 8 characters"
+		return errors.New("Password must be at least 8 characters")
 	}
 
 	if data.NewPassword == account.Password {
-		return ERROR, "New password cannot be the same as old password"
+		return errors.New("New password cannot be the same as old password")
 	}
 	
 
 	// Save new password
-	dbErr = db.Update(func(txn *badger.Txn) error {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.NewPassword), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
-		
-		account.Password = string(hashedPassword)
-
-		accountBytes, err := json.Marshal(account)
-		if err != nil {
-			return err
-		}
-
-		err = txn.Set([]byte(account.Email), accountBytes)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if dbErr != nil {
-		return ERROR, dbErr.Error()
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
 	}
 
-	return SUCCESS, "Password reset successful"
+	stmt = Statement{
+		Query: "UPDATE accounts SET password = $1 WHERE email = $2",
+		Args: []interface{}{string(hashedPassword), account.Email},
+	}
+	err = db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func initTables() error {
+	// create accounts table
+	stmt := Statement{
+		Query: "CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY, email STRING, password STRING, securityQuestion STRING, securityAnswer STRING)",
+		Args: []interface{}{},
+	}
+	err := db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err
+	}
+
+	// create refreshTokens table
+	stmt = Statement{
+		Query: "CREATE TABLE IF NOT EXISTS refreshTokens (uid UUID PRIMARY KEY, token STRING)",
+		Args: []interface{}{},
+	}
+	err = db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
 
 func main() {
@@ -365,9 +338,20 @@ func main() {
 		panic("allowed orgins not set")
 	}
 
-	if os.Getenv("GIN_MODE") == "debug"{
-		log.Println("PORT = %v", PORT)
-		log.Println("ALLOWED_ORIGINS = %v", ALLOWED_ORIGINS)
+	var connectionString string
+
+	GIN_MODE = os.Getenv("GIN_MODE")
+	if GIN_MODE == "release" {
+		log.Println(fmt.Sprintf("GIN_MODE = %v", GIN_MODE))
+		log.Println(fmt.Sprintf("PORT = %v", PORT))
+		log.Println(fmt.Sprintf("ALLOWED_ORIGINS = %v", ALLOWED_ORIGINS))
+		
+		gin.SetMode(gin.ReleaseMode)
+		
+		connectionString = os.Getenv("CONNECTION_STRING")
+		if connectionString == "" {
+			panic("connection string not set")
+		}
 	}
 
 	// cors
@@ -401,15 +385,42 @@ func main() {
 		panic(err)
 	}
 
-	// Create a new badger database
-	opts := badger.DefaultOptions("/app/store")
-	db, err = badger.Open(opts)
-	if err != nil {
-		panic(err)
-	}
+	if GIN_MODE == "release" {
+		// connect to cockroach db instance
+		err, db = NewPostgres(context.Background(), connectionString)
+		if err != nil {
+			panic(err)
+		}
 
-	// Close the database
-	defer db.Close()
+		// Close the database
+		defer db.Close()
+
+		// init tables
+		if os.Getenv("INIT_CONTAINER") == "true" {
+			log.Println("Initializing tables")
+			err = initTables()
+			if err != nil {
+				panic(err)
+			}
+			return 
+		}
+	}else{
+		// connect to sqlite db
+		err, db = NewSQLite()
+		if err != nil {
+			panic(err)
+		}
+
+		// Close the database
+		defer db.Close()
+
+		// init tables
+		log.Println("Initializing tables")
+		err = initTables()
+		if err != nil {
+			panic(err)
+		}
+	}
 	
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -422,25 +433,23 @@ func main() {
 		err := c.BindJSON(&data)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": err.Error(),
+				"error": err.Error(),
 			})
 			return
 		}
 		
-		status, response, refreshToken := create_account(&data)
-		if status == ERROR {
+		err, response, refreshToken, uid := create_account(&data)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": response,
+				"error": err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
 			"access_token": response,
 			"refresh_token": refreshToken,
+			"uid": uid.String(),
 		})
 		return
 	})
@@ -450,68 +459,66 @@ func main() {
 		err := c.BindJSON(&data)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": err.Error(),
+				"error": err.Error(),
 			})
 			return
 		}
 
-		status, response, refreshToken := login(&data)
-		if status == ERROR {
+		err, response, refreshToken := login(&data)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": response,
+				"error": err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
 			"access_token": response,
 			"refresh_token": refreshToken,
 		})
 		return
 	})
 
-	r.POST("/forgotpassword", func(c *gin.Context) {
+	r.POST("/resetpassword", func(c *gin.Context) {
 		var data AuthRequest
 		err := c.BindJSON(&data)
 		if err != nil {
-			c.Redirect(http.StatusFound, "/forgotpassword?error=" + err.Error())
-			return
-		}
-
-		status, response := resetPassword(&data)
-		if status == ERROR {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": response,
+				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
-			"message": response,
-		})
+		err = resetPassword(&data)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{})
 		return
 	})
 
-	r.DELETE("/delete/:email", func(c *gin.Context) {
-		email := c.Param("email")
-		status, response := delete(email)
-
-		if status == ERROR {
+	r.DELETE("/delete/:uid", func(c *gin.Context) {
+		uid := c.Param("uid")
+		if uid == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": response,
+				"error": "No uid provided",
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
-		})
+		err = delete(uid)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{})
 	})
 
 	r.GET("/refresh/:uid", func(c *gin.Context) {
@@ -519,26 +526,23 @@ func main() {
 		refreshToken := c.GetHeader("Authorization")
 		if refreshToken == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": "No refresh token provided",
+				"error": "No refresh token provided",
 			})
 			return
 		}
 
 		parsedRefreshToken := strings.Split(refreshToken, "Bearer ")[1]
 
-		status, response := refresh(parsedRefreshToken, uid)
+		err, response := refresh(parsedRefreshToken, uid)
 
-		if status == ERROR {
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": response,
+				"error": err.Error(),
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
 			"access_token": response,
 		})
 	})
@@ -546,19 +550,15 @@ func main() {
 	r.GET("/verify/:token", func(c *gin.Context) {
 		// verify token
 		token := c.Param("token")
-		status, response := verifyToken(token)
-		if status == ERROR {
+		err := verifyToken(token)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": "error",
-				"message": response,
+				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
-			"message": response,
-		})
+		c.JSON(http.StatusOK, gin.H{})
 	})
 	
 	http.ListenAndServe(fmt.Sprintf(":%s", PORT), r)

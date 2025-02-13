@@ -1,16 +1,31 @@
 services:
   auth:
+    command: >
+      sh -c "sleep 5; ./main"
     image: rmedicharla/auth
     ports:
       - "4000:4000"
     environment:
       - PORT=4000
       - ALLOWED_ORIGINS=*
+      # - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
+      # - GIN_MODE=release
+      # - INIT_CONTAINER=true
     volumes:
       - ./private_key.pem:/etc/ssl/private/private_key.pem
       - ./public_key.pem:/etc/ssl/public/public_key.pem
       - store:/app/store
-
+  #   depends_on:
+  #     - cockroachstore
+  # cockroachstore:
+  #   image: cockroachdb/cockroach
+  #   ports:
+  #     - "26257:26257"
+  #   environment:
+  #     - COCKROACH_DATABASE=auth
+  #     - COCKROACH_USER=root
+  #     - COCKROACH_PASSWORD=password
+  #   command: start-single-node --insecure
 volumes:
   store:
     driver: local

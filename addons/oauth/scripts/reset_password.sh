@@ -1,0 +1,1 @@
+curl -X POST http://localhost:4000/resetpassword -H "Content-Type: application/json" -d '{"email": "temp@gmail.com", "new_password": "test123456", "confirm_new_password": "test123456", "security_question": "What is your favorite color", "security_answer": "blue"}'

@@ -1,0 +1,1 @@
+curl -X DELETE http://localhost:4000/delete/${uid}
