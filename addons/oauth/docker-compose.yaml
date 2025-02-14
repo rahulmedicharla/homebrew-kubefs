@@ -1,4 +1,13 @@
 services:
+  init:
+    command: >
+      sh -c "sleep 3; ./main"
+    image: rmedicharla/auth
+    environment:
+      - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
+      - MODE=init
+      # - TWO_FACTOR_AUTH=true
+    
   auth:
     command: >
       sh -c "sleep 5; ./main"
@@ -8,24 +17,25 @@ services:
     environment:
       - PORT=4000
       - ALLOWED_ORIGINS=*
-      # - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
-      # - GIN_MODE=release
-      # - INIT_CONTAINER=true
+      - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
+      # - TWO_FACTOR_AUTH=true
+      - NAME=kubefs
+      - MODE=release
     volumes:
       - ./private_key.pem:/etc/ssl/private/private_key.pem
       - ./public_key.pem:/etc/ssl/public/public_key.pem
-      - store:/app/store
-  #   depends_on:
-  #     - cockroachstore
-  # cockroachstore:
-  #   image: cockroachdb/cockroach
-  #   ports:
-  #     - "26257:26257"
-  #   environment:
-  #     - COCKROACH_DATABASE=auth
-  #     - COCKROACH_USER=root
-  #     - COCKROACH_PASSWORD=password
-  #   command: start-single-node --insecure
-volumes:
-  store:
-    driver: local
+      # - store:/app/store
+    depends_on:
+      - cockroachstore
+  cockroachstore:
+    image: cockroachdb/cockroach
+    ports:
+      - "26257:26257"
+    environment:
+      - COCKROACH_DATABASE=auth
+      - COCKROACH_USER=root
+      - COCKROACH_PASSWORD=password
+    command: start-single-node --insecure
+# volumes:
+#   store:
+#     driver: local

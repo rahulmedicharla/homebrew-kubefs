@@ -1,1 +1,0 @@
-curl http://localhost:4000/refresh/${uid} -H "Authorization: Bearer ${token}"

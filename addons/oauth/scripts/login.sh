@@ -1,1 +1,0 @@
-curl -X POST http://localhost:4000/login -H "Content-Type: application/json" -d '{"email": "temp@gmail.com", "password": "temp123456"}'

@@ -16,14 +16,14 @@ import (
 	"github.com/gin-contrib/cors"
 	"log"
 	"context"
+	"github.com/pquerna/otp/totp"
 )
 
 type Account struct {
 	Uid uuid.UUID
 	Email string
 	Password string
-	SecurityQuestion string
-	SecurityAnswer string
+	Secret string
 }
 
 type AuthRequest struct {
@@ -32,15 +32,14 @@ type AuthRequest struct {
 	NewPassword string `json:"new_password,omitempty"`
 	ConfirmPassword string `json:"confirm_password,omitempty"`
 	ConfirmNewPassword string `json:"confirm_new_password,omitempty"`
-	SecurityQuestion string `json:"security_question,omitempty"`
-	SecurityAnswer string `json:"security_answer,omitempty"`
 }
 
 var (
 	// RSA private key
+	NAME string
+	TWO_FACTOR_AUTH bool
 	privateKey *rsa.PrivateKey
 	publicKey *rsa.PublicKey
-	GIN_MODE string
 	db DB
 )
 
@@ -71,41 +70,82 @@ func issueAccessToken(uid string) (error, *string) {
 	return nil, &accessToken
 }
 
-func verifyToken(token string) error {
+func verifyToken(token string) (error, int) {
 	// Parse the token
 	var claims jwt.MapClaims
 	tkn, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, errors.New("Invalid signing method")
 		}
+
 		return publicKey, nil
 	})
 	if err != nil {
-		return err
+		return err, http.StatusBadRequest
 	}
 
-	if !tkn.Valid {
-		return errors.New("Invalid token")
+	if tkn == nil || !tkn.Valid {
+		return errors.New("Invalid token"), http.StatusUnauthorized
 	}
 
-	return nil
+	return nil, http.StatusOK
 }
 
-func create_account(data *AuthRequest) (error, *string, *string, *uuid.UUID) {
+func create_account(data *AuthRequest, tfa_code string) (error, int, *string, *string, *uuid.UUID) {
 	// verify length of password
 	if len(data.Password) < 8 {
-		return errors.New("Password must be at least 8 characters"), nil, nil, nil
+		return errors.New("Password must be at least 8 characters"), http.StatusBadRequest, nil, nil, nil
 	}
 
 	// verify if passwords match
 	if data.Password != data.ConfirmPassword {
-		return errors.New("Passwords do not match"), nil, nil, nil
+		return errors.New("Passwords do not match"), http.StatusBadRequest, nil, nil, nil
 	}
 
 	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return err, nil, nil, nil
+		return err, http.StatusBadRequest, nil, nil, nil
+	}
+
+	// check if account already exists
+	var email string
+	stmt := Statement{
+		Query: "SELECT email from accounts WHERE email = $1",
+		Args: []interface{}{data.Email},
+	}
+	err = db.QueryRow(context.Background(), stmt, &email)
+	if err == nil {
+		return errors.New("Account already exists"), http.StatusConflict, nil, nil, nil
+	}
+
+	// verify tfa code
+	var totpSecret string 
+	if TWO_FACTOR_AUTH{
+		// get TOTP secret for user
+		stmt := Statement{
+			Query: "SELECT secret from twoFactorAuth WHERE email = $1",
+			Args: []interface{}{data.Email},
+		}
+		err := db.QueryRow(context.Background(), stmt, &totpSecret)
+		if err != nil {
+			return err, http.StatusInternalServerError, nil, nil, nil
+		}
+
+		validTotp := totp.Validate(tfa_code, totpSecret)
+		if !validTotp {
+			return errors.New("Invalid 2FA code"), http.StatusBadRequest, nil, nil, nil
+		}
+
+		// delete secret from twoFactorAuth table
+		stmt = Statement{
+			Query: "DELETE FROM twoFactorAuth WHERE email = $1",
+			Args: []interface{}{data.Email},
+		}
+		err = db.Exec(context.Background(), stmt)
+		if err != nil {
+			return err, http.StatusInternalServerError, nil, nil, nil
+		}
 	}
 
 	// Create a new account
@@ -113,37 +153,25 @@ func create_account(data *AuthRequest) (error, *string, *string, *uuid.UUID) {
 		Uid: uuid.New(),
 		Email: data.Email,
 		Password: string(hashedPassword),
-		SecurityQuestion: data.SecurityQuestion,
-		SecurityAnswer: data.SecurityAnswer,
+		Secret: totpSecret,
 	}
 
 	var refreshToken string
 	var response *string
-	var email string
-
-	// Check if account already exists
-	stmt := Statement{
-		Query: "SELECT email from accounts WHERE email = $1",
-		Args: []interface{}{account.Email},
-	}
-	err = db.QueryRow(context.Background(), stmt, &email)
-	if err == nil {
-		return errors.New("Account already exists"), nil, nil, nil
-	}
 
 	// Save account to accounts table
 	stmt = Statement{
-		Query: "INSERT INTO accounts (uid, email, password, securityQuestion, securityAnswer) VALUES ($1, $2, $3, $4, $5)",
-		Args: []interface{}{account.Uid, account.Email, account.Password, account.SecurityQuestion, account.SecurityAnswer},
+		Query: "INSERT INTO accounts (uid, email, password, secret) VALUES ($1, $2, $3, $4)",
+		Args: []interface{}{account.Uid, account.Email, account.Password, account.Secret},
 	}
 	err = db.Exec(context.Background(), stmt)
 	if err != nil {
-		return err, nil, nil, nil
+		return err, http.StatusInternalServerError, nil, nil, nil
 	}
 
 	err, response = issueAccessToken(account.Uid.String())
 	if err != nil {
-		return err, nil, nil, nil
+		return err, http.StatusInternalServerError, nil, nil, nil
 	}
 
 	refreshToken = uuid.New().String()
@@ -155,26 +183,53 @@ func create_account(data *AuthRequest) (error, *string, *string, *uuid.UUID) {
 	}
 	err = db.Exec(context.Background(), stmt)
 	if err != nil {
-		return err, nil, nil, nil
+		return err, http.StatusInternalServerError, nil, nil, nil
 	}
 
-	return nil, response, &refreshToken, &account.Uid
+	return nil, http.StatusOK, response, &refreshToken, &account.Uid
 }
 
-func login(data *AuthRequest) (error, *string, *string) {
+func login(data *AuthRequest, tfa_code string) (error, int, *string, *string, *uuid.UUID) {
 	// Find account
 	var account Account
 	var refreshToken string
 
+	// verify tfa code
+	if TWO_FACTOR_AUTH{
+		// get TOTP secret for user
+		stmt := Statement{
+			Query: "SELECT secret FROM accounts WHERE email = $1",
+			Args: []interface{}{data.Email},
+		}
+		var secret string
+		err := db.QueryRow(context.Background(), stmt, &secret)
+		if err != nil {
+			return err, http.StatusInternalServerError, nil, nil, nil
+		}
+
+		log.Println("secret: ", secret)
+		log.Println("tfa_code: ", tfa_code)
+		validTotp := totp.Validate(tfa_code, secret)
+		if !validTotp {
+			return errors.New("Invalid 2FA code"), http.StatusBadRequest, nil, nil, nil
+		}
+	}
+
 	// get account
 	stmt := Statement{
-		Query: "SELECT uid, email, password, securityQuestion, securityAnswer from accounts WHERE email = $1",
+		Query: "SELECT uid, email, password, secret from accounts WHERE email = $1",
 		Args: []interface{}{data.Email},
 	}
-	err := db.QueryRow(context.Background(), stmt, &account.Uid, &account.Email, &account.Password, &account.SecurityQuestion, &account.SecurityAnswer)
+	err := db.QueryRow(context.Background(), stmt, &account.Uid, &account.Email, &account.Password, &account.Secret)
 	
 	if err != nil {
-		return err, nil, nil
+		return err, http.StatusInternalServerError, nil, nil, nil
+	}
+
+	// verify password
+	err = bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(data.Password))
+	if err != nil {
+		return errors.New("Invalid password"), http.StatusBadRequest, nil, nil, nil
 	}
 
 	// get refresh token
@@ -185,19 +240,38 @@ func login(data *AuthRequest) (error, *string, *string) {
 	err = db.QueryRow(context.Background(), stmt, &refreshToken)
 	
 	if err != nil {
-		return err, nil, nil
+		return err, http.StatusInternalServerError, nil, nil, nil
 	}
 
 	// Create a new token
 	err, response := issueAccessToken(account.Uid.String())
 	if err != nil {
-		return err, nil, nil
+		return err, http.StatusInternalServerError, nil, nil, nil
 	}
 	
-	return nil, response, &refreshToken 
+	return nil, http.StatusOK, response, &refreshToken, &account.Uid 
 }
 
-func delete(uid string) error {
+func delete(uid string, tfa_code string) (error, int) {
+	// verify tfa code
+	if TWO_FACTOR_AUTH{
+		// get TOTP secret for user
+		stmt := Statement{
+			Query: "SELECT secret FROM accounts WHERE uid = $1",
+			Args: []interface{}{uid},
+		}
+		var secret string
+		err := db.QueryRow(context.Background(), stmt, &secret)
+		if err != nil {
+			return err, http.StatusInternalServerError
+		}
+
+		validTotp := totp.Validate(tfa_code, secret)
+		if !validTotp {
+			return errors.New("Invalid 2FA code"), http.StatusBadRequest
+		}
+	}
+	
 	// delete account
 	stmt := Statement{
 		Query: "DELETE FROM accounts WHERE uid = $1",
@@ -205,7 +279,7 @@ func delete(uid string) error {
 	}
 	err := db.Exec(context.Background(), stmt)
 	if err != nil {
-		return err
+		return err, http.StatusInternalServerError
 	}
 
 	// delete refresh token
@@ -215,13 +289,13 @@ func delete(uid string) error {
 	}
 	err = db.Exec(context.Background(), stmt)
 	if err != nil {
-		return err
+		return err, http.StatusInternalServerError
 	}
 
-	return nil
+	return nil, http.StatusOK
 }
 
-func refresh(refreshToken string, uid string) (error, *string){
+func refresh(refreshToken string, uid string) (error, int, *string){
 	// verify refresh token
 	var response *string
 	var currentToken string
@@ -233,59 +307,72 @@ func refresh(refreshToken string, uid string) (error, *string){
 	}
 	err := db.QueryRow(context.Background(), stmt, &currentToken)
 	if err != nil {
-		return err, nil
+		return err, http.StatusInternalServerError, nil
 	}
 
 	if currentToken != refreshToken {
-		return errors.New("Invalid refresh token"), nil
+		return errors.New("Invalid refresh token"), http.StatusUnauthorized, nil
 	}
 
 	// Create a new token
 	err, response = issueAccessToken(uid)
 	if err != nil {
-		return err, nil
+		return err, http.StatusInternalServerError, nil
 	}
 
-	return nil, response
+	return nil, http.StatusOK, response
 
 }
 
-func resetPassword(data *AuthRequest) error {
+func resetPassword(data *AuthRequest, tfa_code string) (error, int) {
+	// verify tfa code
+	if TWO_FACTOR_AUTH{
+		// get TOTP secret for user
+		stmt := Statement{
+			Query: "SELECT secret FROM accounts WHERE email = $1",
+			Args: []interface{}{data.Email},
+		}
+		var secret string
+		err := db.QueryRow(context.Background(), stmt, &secret)
+		if err != nil {
+			return err, http.StatusInternalServerError
+		}
+
+		validTotp := totp.Validate(tfa_code, secret)
+		if !validTotp {
+			return errors.New("Invalid 2FA code"), http.StatusBadRequest
+		}
+	}
+	
 	// verify if passwords match
 	if data.NewPassword != data.ConfirmNewPassword {
-		return errors.New("Passwords do not match")
+		return errors.New("Passwords do not match"), http.StatusBadRequest
 	}
 
 	var account Account
 	// Find account
 	stmt := Statement{
-		Query: "SELECT uid, email, password, securityQuestion, securityAnswer from accounts WHERE email = $1",
+		Query: "SELECT uid, email, password, secret from accounts WHERE email = $1",
 		Args: []interface{}{data.Email},
 	}
-	err := db.QueryRow(context.Background(), stmt, &account.Uid, &account.Email, &account.Password, &account.SecurityQuestion, &account.SecurityAnswer)
+	err := db.QueryRow(context.Background(), stmt, &account.Uid, &account.Email, &account.Password, &account.Secret)
 	if err != nil {
-		return err
-	}
-
-	// Check security question
-	if account.SecurityAnswer != data.SecurityAnswer || account.SecurityQuestion != data.SecurityQuestion {
-		return errors.New("Invalid security question or answer")
+		return err, http.StatusInternalServerError
 	}
 
 	// verify length of password && not same as old password
 	if len(data.NewPassword) < 8 {
-		return errors.New("Password must be at least 8 characters")
+		return errors.New("Password must be at least 8 characters"), http.StatusBadRequest
 	}
 
 	if data.NewPassword == account.Password {
-		return errors.New("New password cannot be the same as old password")
+		return errors.New("New password cannot be the same as old password"), http.StatusBadRequest
 	}
-	
 
 	// Save new password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(data.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return err, http.StatusInternalServerError
 	}
 
 	stmt = Statement{
@@ -294,16 +381,16 @@ func resetPassword(data *AuthRequest) error {
 	}
 	err = db.Exec(context.Background(), stmt)
 	if err != nil {
-		return err
+		return err, http.StatusInternalServerError
 	}
 
-	return nil
+	return nil, http.StatusOK
 }
 
-func initTables() error {
+func initTables() (error) {
 	// create accounts table
 	stmt := Statement{
-		Query: "CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY, email STRING, password STRING, securityQuestion STRING, securityAnswer STRING)",
+		Query: "CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY, email STRING, password STRING, secret String)",
 		Args: []interface{}{},
 	}
 	err := db.Exec(context.Background(), stmt)
@@ -320,12 +407,132 @@ func initTables() error {
 	if err != nil {
 		return err
 	}
+
+	if TWO_FACTOR_AUTH{
+		stmt = Statement{
+			Query: "CREATE TABLE IF NOT EXISTS twoFactorAuth (email STRING PRIMARY KEY, secret STRING)",
+			Args: []interface{}{},
+		}
+		err = db.Exec(context.Background(), stmt)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
+
+}
+
+func create2FAAccount(email string) (error, int, *string){
+	if !TWO_FACTOR_AUTH {
+		return errors.New("2FA is not enabled"), http.StatusBadRequest, nil
+	}
+
+	// Create a new key
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer: NAME + "2FA",
+		AccountName: email,
+	})
+
+	if err != nil {
+		return err, http.StatusInternalServerError, nil
+	}
+
+	url := key.URL()
+	// see if key already exists
+	var secret string
+	stmt := Statement{
+		Query: "SELECT secret from twoFactorAuth WHERE email = $1",
+		Args: []interface{}{email},
+	}
+	err = db.QueryRow(context.Background(), stmt, &secret)
+	if err == nil {
+		stmt = Statement{
+			Query: "DELETE FROM twoFactorAuth WHERE email = $1",
+			Args: []interface{}{email},
+		}
+		err = db.Exec(context.Background(), stmt)
+		if err != nil {
+			return err, http.StatusInternalServerError, nil
+		}
+	}
+
+	// save key to twoFactorAuth table
+	stmt = Statement{
+		Query: "INSERT INTO twoFactorAuth (email, secret) VALUES ($1, $2)",
+		Args: []interface{}{email, key.Secret()},
+	}
+	err = db.Exec(context.Background(), stmt)
+	if err != nil {
+		return err, http.StatusInternalServerError, nil
+	}
+
+	return nil, http.StatusOK, &url
 
 }
 
 func main() {
 	r := gin.Default()
+
+	var connectionString string
+	var err error
+
+	// read if 2FA is enabled
+	TWO_FACTOR_AUTH = false
+	if os.Getenv("TWO_FACTOR_AUTH") == "true" {
+		log.Println("2FA enabled")
+		TWO_FACTOR_AUTH = true
+	}
+
+	// set mode & establish connection
+	MODE := os.Getenv("MODE")
+	if MODE == "release" || MODE == "init"{
+		gin.SetMode(gin.ReleaseMode)
+		
+		connectionString = os.Getenv("CONNECTION_STRING")
+		if connectionString == "" {
+			panic("connection string not set")
+		}
+
+		// connect to cockroach db instance
+		err, db = NewPostgres(context.Background(), connectionString)
+		if err != nil {
+			panic(err)
+		}
+
+		// Close the database
+		defer db.Close()
+
+		if MODE == "init" {
+			log.Println("MODE = init")
+			
+			log.Println("Initializing tables")
+			err = initTables()
+			if err != nil {
+				panic(err)
+			}
+			return 
+		}
+	}else{
+		log.Println("MODE = dev")
+		MODE = "dev"
+
+		// connect to sqlite db
+		err, db = NewSQLite()
+		if err != nil {
+			panic(err)
+		}
+
+		// Close the database
+		defer db.Close()
+
+		// init tables
+		log.Println("Initializing tables")
+		err = initTables()
+		if err != nil {
+			panic(err)
+		}
+	}
 	
 	// set port
 	PORT := os.Getenv("PORT")
@@ -333,25 +540,15 @@ func main() {
 		PORT = "3000"
 	}
 
+	NAME = os.Getenv("NAME")
+	if NAME == "" {
+		panic("requesting resource not set")
+	}
+
+	// set allowed origins
 	ALLOWED_ORIGINS := os.Getenv("ALLOWED_ORIGINS")
 	if ALLOWED_ORIGINS == "" {
 		panic("allowed orgins not set")
-	}
-
-	var connectionString string
-
-	GIN_MODE = os.Getenv("GIN_MODE")
-	if GIN_MODE == "release" {
-		log.Println(fmt.Sprintf("GIN_MODE = %v", GIN_MODE))
-		log.Println(fmt.Sprintf("PORT = %v", PORT))
-		log.Println(fmt.Sprintf("ALLOWED_ORIGINS = %v", ALLOWED_ORIGINS))
-		
-		gin.SetMode(gin.ReleaseMode)
-		
-		connectionString = os.Getenv("CONNECTION_STRING")
-		if connectionString == "" {
-			panic("connection string not set")
-		}
 	}
 
 	// cors
@@ -385,46 +582,48 @@ func main() {
 		panic(err)
 	}
 
-	if GIN_MODE == "release" {
-		// connect to cockroach db instance
-		err, db = NewPostgres(context.Background(), connectionString)
-		if err != nil {
-			panic(err)
-		}
+	// if MODE == "dev"{
+	// 	// serve docs/index.html as static file at /docs
+		
+	// }
 
-		// Close the database
-		defer db.Close()
-
-		// init tables
-		if os.Getenv("INIT_CONTAINER") == "true" {
-			log.Println("Initializing tables")
-			err = initTables()
-			if err != nil {
-				panic(err)
-			}
-			return 
-		}
-	}else{
-		// connect to sqlite db
-		err, db = NewSQLite()
-		if err != nil {
-			panic(err)
-		}
-
-		// Close the database
-		defer db.Close()
-
-		// init tables
-		log.Println("Initializing tables")
-		err = initTables()
-		if err != nil {
-			panic(err)
-		}
-	}
+	r.LoadHTMLFiles("docs/index.html")
+	r.GET("/docs", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"TWO_FACTOR_AUTH": TWO_FACTOR_AUTH,
+			"MODE": MODE,
+			"NAME": NAME,
+			"CONNECTION_STRING": connectionString,
+			"PORT": PORT,
+			"ALLOWED_ORIGINS": ALLOWED_ORIGINS,
+		})
+	})
 	
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "success",
+		})
+	})
+
+	r.GET("/generateTOTPAccount/:email", func(c *gin.Context) {
+		email := c.Param("email")
+		if email == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "No email provided",
+			})
+			return 
+		}
+
+		err, code, key := create2FAAccount(email)
+		if err != nil {
+			c.JSON(code, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(code, gin.H{
+			"url": key,
 		})
 	})
 
@@ -437,16 +636,28 @@ func main() {
 			})
 			return
 		}
-		
-		err, response, refreshToken, uid := create_account(&data)
+
+		var tfa_code string
+		if TWO_FACTOR_AUTH{
+			tfa_code = c.GetHeader("Authorization")
+			if tfa_code == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "No 2FA code provided",
+				})
+				return
+			}
+			tfa_code = strings.Split(tfa_code, "Bearer ")[1]
+		}
+
+		err, code, response, refreshToken, uid := create_account(&data, tfa_code)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(code, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(code, gin.H{
 			"access_token": response,
 			"refresh_token": refreshToken,
 			"uid": uid.String(),
@@ -464,17 +675,30 @@ func main() {
 			return
 		}
 
-		err, response, refreshToken := login(&data)
+		var tfa_code string
+		if TWO_FACTOR_AUTH{
+			tfa_code = c.GetHeader("Authorization")
+			if tfa_code == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "No 2FA code provided",
+				})
+				return
+			}
+			tfa_code = strings.Split(tfa_code, "Bearer ")[1]
+		}
+
+		err, code, response, refreshToken, uid := login(&data, tfa_code)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(code, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(code, gin.H{
 			"access_token": response,
 			"refresh_token": refreshToken,
+			"uid": uid.String(),
 		})
 		return
 	})
@@ -489,15 +713,27 @@ func main() {
 			return
 		}
 
-		err = resetPassword(&data)
+		var tfa_code string
+		if TWO_FACTOR_AUTH{
+			tfa_code = c.GetHeader("Authorization")
+			if tfa_code == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "No 2FA code provided",
+				})
+				return
+			}
+			tfa_code = strings.Split(tfa_code, "Bearer ")[1]
+		}
+
+		err, code := resetPassword(&data, tfa_code)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(code, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{})
+		c.JSON(code, gin.H{})
 		return
 	})
 
@@ -510,15 +746,27 @@ func main() {
 			return
 		}
 
-		err = delete(uid)
+		var tfa_code string
+		if TWO_FACTOR_AUTH{
+			tfa_code = c.GetHeader("Authorization")
+			if tfa_code == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "No 2FA code provided",
+				})
+				return
+			}
+			tfa_code = strings.Split(tfa_code, "Bearer ")[1]
+		}
+
+		err, code := delete(uid, tfa_code)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(code, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{})
+		c.JSON(code, gin.H{})
 	})
 
 	r.GET("/refresh/:uid", func(c *gin.Context) {
@@ -533,16 +781,16 @@ func main() {
 
 		parsedRefreshToken := strings.Split(refreshToken, "Bearer ")[1]
 
-		err, response := refresh(parsedRefreshToken, uid)
+		err, code, response := refresh(parsedRefreshToken, uid)
 
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(code, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(code, gin.H{
 			"access_token": response,
 		})
 	})
@@ -550,15 +798,15 @@ func main() {
 	r.GET("/verify/:token", func(c *gin.Context) {
 		// verify token
 		token := c.Param("token")
-		err := verifyToken(token)
+		err, code := verifyToken(token)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
+			c.JSON(code, gin.H{
 				"error": err.Error(),
 			})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{})
+		c.JSON(code, gin.H{})
 	})
 	
 	http.ListenAndServe(fmt.Sprintf(":%s", PORT), r)

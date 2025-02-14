@@ -5,3 +5,6 @@ compile:
 build:
 	go build -o oauth2 .
 	rm ./oauth2
+
+clean:
+	go mod tidy -v
