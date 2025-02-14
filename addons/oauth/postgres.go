@@ -7,20 +7,27 @@ import (
 )
 
 type Postgres struct {
-	pool *pgxpool.Pool
+	wpool *pgxpool.Pool
+	rpool *pgxpool.Pool
 }
 
-func NewPostgres(ctx context.Context, connectionString string) (error, *Postgres) {
-	pool, err := pgxpool.New(ctx, connectionString)
+func NewPostgres(ctx context.Context, writeConnectionString string, readConnectionString string) (error, *Postgres) {
+	wpool, err := pgxpool.New(ctx, writeConnectionString)
 	if err != nil {
 		return err, nil
 	}
+
+	rpool, err := pgxpool.New(ctx, readConnectionString)
+	if err != nil {
+		return err, nil
+	}
+
 	log.Println("Postgres connected")
-	return nil, &Postgres{pool}
+	return nil, &Postgres{wpool: wpool, rpool: rpool}
 }
 
 func(p *Postgres) QueryRow(ctx context.Context, stmt Statement, dest ...any) error {
-	row := p.pool.QueryRow(ctx, stmt.Query, stmt.Args...)
+	row := p.rpool.QueryRow(ctx, stmt.Query, stmt.Args...)
 	err := row.Scan(dest...)
 	if err != nil {
 		return err
@@ -29,7 +36,7 @@ func(p *Postgres) QueryRow(ctx context.Context, stmt Statement, dest ...any) err
 }
 
 func(p *Postgres) Exec(ctx context.Context, stmt Statement) error {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.wpool.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -49,5 +56,6 @@ func(p *Postgres) Exec(ctx context.Context, stmt Statement) error {
 }
 
 func (p *Postgres) Close() {
-	p.pool.Close()
+	p.wpool.Close()
+	p.rpool.Close()
 }

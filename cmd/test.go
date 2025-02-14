@@ -204,7 +204,7 @@ example:
 		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
-			err := utils.RunCommand("docker compose up", true, true)
+			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
 				return
@@ -305,7 +305,7 @@ example:
 		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
-			err := utils.RunCommand("docker compose up", true, true)
+			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
 				return
@@ -383,7 +383,7 @@ example:
 		persist, _ = cmd.Flags().GetBool("persist-data")
 
 		if !onlyWrite {
-			err := utils.RunCommand("docker compose up", true, true)
+			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
 				return

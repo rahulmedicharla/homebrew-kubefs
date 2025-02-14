@@ -111,7 +111,7 @@ func create_account(data *AuthRequest, tfa_code string) (error, int, *string, *s
 	// check if account already exists
 	var email string
 	stmt := Statement{
-		Query: "SELECT email from accounts WHERE email = $1",
+		Query: "SELECT email FROM accounts WHERE email = $1",
 		Args: []interface{}{data.Email},
 	}
 	err = db.QueryRow(context.Background(), stmt, &email)
@@ -124,7 +124,7 @@ func create_account(data *AuthRequest, tfa_code string) (error, int, *string, *s
 	if TWO_FACTOR_AUTH{
 		// get TOTP secret for user
 		stmt := Statement{
-			Query: "SELECT secret from twoFactorAuth WHERE email = $1",
+			Query: "SELECT secret FROM twoFactorAuth WHERE email = $1",
 			Args: []interface{}{data.Email},
 		}
 		err := db.QueryRow(context.Background(), stmt, &totpSecret)
@@ -302,7 +302,7 @@ func refresh(refreshToken string, uid string) (error, int, *string){
 
 	// verify refresh token & issue new access token
 	stmt := Statement{
-		Query: "SELECT token from refreshTokens WHERE uid = $1",
+		Query: "SELECT token FROM refreshTokens WHERE uid = $1",
 		Args: []interface{}{uid},
 	}
 	err := db.QueryRow(context.Background(), stmt, &currentToken)
@@ -390,7 +390,7 @@ func resetPassword(data *AuthRequest, tfa_code string) (error, int) {
 func initTables() (error) {
 	// create accounts table
 	stmt := Statement{
-		Query: "CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY, email STRING, password STRING, secret String)",
+		Query: "CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY, email TEXT, password TEXT, secret TEXT)",
 		Args: []interface{}{},
 	}
 	err := db.Exec(context.Background(), stmt)
@@ -400,7 +400,7 @@ func initTables() (error) {
 
 	// create refreshTokens table
 	stmt = Statement{
-		Query: "CREATE TABLE IF NOT EXISTS refreshTokens (uid UUID PRIMARY KEY, token STRING)",
+		Query: "CREATE TABLE IF NOT EXISTS refreshTokens (uid UUID PRIMARY KEY, token TEXT)",
 		Args: []interface{}{},
 	}
 	err = db.Exec(context.Background(), stmt)
@@ -410,7 +410,7 @@ func initTables() (error) {
 
 	if TWO_FACTOR_AUTH{
 		stmt = Statement{
-			Query: "CREATE TABLE IF NOT EXISTS twoFactorAuth (email STRING PRIMARY KEY, secret STRING)",
+			Query: "CREATE TABLE IF NOT EXISTS twoFactorAuth (email STRING PRIMARY KEY, secret TEXT)",
 			Args: []interface{}{},
 		}
 		err = db.Exec(context.Background(), stmt)
@@ -474,7 +474,8 @@ func create2FAAccount(email string) (error, int, *string){
 func main() {
 	r := gin.Default()
 
-	var connectionString string
+	var writeConnectionString string
+	var readConnectionString string
 	var err error
 
 	// read if 2FA is enabled
@@ -489,13 +490,18 @@ func main() {
 	if MODE == "release" || MODE == "init"{
 		gin.SetMode(gin.ReleaseMode)
 		
-		connectionString = os.Getenv("CONNECTION_STRING")
-		if connectionString == "" {
-			panic("connection string not set")
+		writeConnectionString = os.Getenv("WRITE_CONNECTION_STRING")
+		if writeConnectionString == "" {
+			panic("write connection string not set")
 		}
 
-		// connect to cockroach db instance
-		err, db = NewPostgres(context.Background(), connectionString)
+		readConnectionString = os.Getenv("READ_CONNECTION_STRING")
+		if readConnectionString == "" {
+			panic("read connection string not set")
+		}
+
+		// connect to postgresql db instance
+		err, db = NewPostgres(context.Background(), writeConnectionString, readConnectionString)
 		if err != nil {
 			panic(err)
 		}
@@ -513,6 +519,7 @@ func main() {
 			}
 			return 
 		}
+
 	}else{
 		log.Println("MODE = dev")
 		MODE = "dev"
@@ -582,21 +589,24 @@ func main() {
 		panic(err)
 	}
 
-	if MODE == "dev"{
-		// serve docs/index.html as static file at /docs
-		r.LoadHTMLFiles("docs/index.html")
-		r.GET("/docs", func(c *gin.Context) {
-			c.HTML(http.StatusOK, "index.html", gin.H{
-				"TWO_FACTOR_AUTH": TWO_FACTOR_AUTH,
-				"MODE": MODE,
-				"NAME": NAME,
-				"CONNECTION_STRING": connectionString,
-				"PORT": PORT,
-				"ALLOWED_ORIGINS": ALLOWED_ORIGINS,
-			})
-		})
+	// if MODE == "dev"{
+	// 	// serve docs/index.html as static file at /docs
 		
-	}
+		
+	// }
+
+	r.LoadHTMLFiles("docs/index.html")
+	r.GET("/docs", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"TWO_FACTOR_AUTH": TWO_FACTOR_AUTH,
+			"MODE": MODE,
+			"NAME": NAME,
+			"WRITE CONNECTION_STRING": writeConnectionString,
+			"READ CONNECTION_STRING": readConnectionString,
+			"PORT": PORT,
+			"ALLOWED_ORIGINS": ALLOWED_ORIGINS,
+		})
+	})
 	
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

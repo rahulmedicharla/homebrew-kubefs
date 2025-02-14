@@ -4,7 +4,8 @@ services:
       sh -c "sleep 3; ./main"
     image: rmedicharla/auth
     environment:
-      - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
+      - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+      - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
       - MODE=init
       # - TWO_FACTOR_AUTH=true
     
@@ -17,8 +18,9 @@ services:
     environment:
       - PORT=4000
       - ALLOWED_ORIGINS=*
-      # - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
-      - TWO_FACTOR_AUTH=true
+      - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+      - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+      # - TWO_FACTOR_AUTH=true
       - NAME=kubefs
       - MODE=release
     volumes:
@@ -26,16 +28,15 @@ services:
       - ./public_key.pem:/etc/ssl/public/public_key.pem
       # - store:/app/store
     depends_on:
-      - cockroachstore
-  cockroachstore:
-    image: cockroachdb/cockroach
+      - dbstore
+  dbstore:
+    image: bitnami/postgresql:latest
     ports:
-      - "26257:26257"
+      - "5432:5432"
     environment:
-      - COCKROACH_DATABASE=auth
-      - COCKROACH_USER=root
-      - COCKROACH_PASSWORD=password
-    command: start-single-node --insecure
+      - POSTGRESQL_USERNAME=root
+      - POSTGRESQL_PASSWORD=password
+      - POSTGRESQL_DATABASE=auth
 # volumes:
 #   store:
 #     driver: local
