@@ -1,13 +1,13 @@
 services:
-  init:
-    command: >
-      sh -c "sleep 3; ./main"
-    image: rmedicharla/auth
-    environment:
-      - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
-      - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
-      - MODE=init
-      # - TWO_FACTOR_AUTH=true
+  # init:
+  #   command: >
+  #     sh -c "sleep 3; ./main"
+  #   image: rmedicharla/auth
+  #   environment:
+  #     - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+  #     - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+  #     - MODE=init
+  #     # - TWO_FACTOR_AUTH=true
     
   auth:
     command: >

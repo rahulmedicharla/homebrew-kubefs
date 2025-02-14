@@ -20,16 +20,29 @@ var undeployCmd = &cobra.Command{
 example:
 	kubefs undeploy all --flags,
 	kubefs undeploy resource <frontend>,<api>,<database> --flags,
-	kubefs undeploy resource <frontend> --flags`,
+	kubefs undeploy addons <addon-name>,<addon-name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
 }
 
-func undeployAddon(addon *types.Addon) error {
-	err := utils.RunCommand(fmt.Sprintf("helm uninstall %s", addon.Name), true, true)
-	if err != nil {
-		return err
+func undeployUniqueAddon(addon *types.Addon) error {
+	if addon.Name == "oauth2"{
+		commands := []string{
+			"helm uninstall auth-data",
+			"kubectl delete pvc -n oauth2 data-auth-data-postgresql-primary-0",
+			"kubectl delete pvc -n oauth2 data-auth-data-postgresql-read-0 data-auth-data-postgresql-read-1 data-auth-data-postgresql-read-2 ",
+		}
+
+		err := utils.RunMultipleCommands(commands, true, true)
+		if err != nil {
+			return err
+		}
+
+		err = utils.RunCommand(fmt.Sprintf("helm uninstall %s", addon.Name), true, true)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -84,7 +97,7 @@ example:
         }
 
 		for _, addon := range utils.ManifestData.Addons {
-			err := undeployAddon(&addon)
+			err := undeployUniqueAddon(&addon)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", addon.Name, err.Error()))
 				errors = append(errors, addon.Name)
@@ -183,7 +196,82 @@ example:
 				continue
 			}
 
-			err = undeployAddon(addon)
+			err = undeployUniqueAddon(addon)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
+				errors = append(errors, name)
+				continue
+			}
+			successes = append(successes, name)
+		}
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
+		}
+
+		if pauseCluster {
+			utils.PrintWarning("Pausing the cluster")
+			err := utils.RunCommand("minikube pause", true, true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error pausing the cluster: %v", err))
+				return
+			}
+		}
+
+		if closeCluster {
+			utils.PrintWarning("Closing the cluster")
+			err := utils.RunCommand("minikube stop", true, true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error closing the cluster: %v", err))
+				return
+			}
+		}
+	},
+}
+
+var undeployAddon = &cobra.Command{
+	Use:   "addons [name, ...]",
+	Short: "kubefs undeploy addon - undeploy listed addons from the clusters",
+	Long: `kubefs undeploy addon - undeploy listed addons from the clusters
+example:
+	kubefs undeploy addon <frontend>,<api>,<database> --flags,
+	kubefs undeploy addon <frontend> --flags
+	`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
+
+		var closeCluster, pauseCluster bool
+		closeCluster, _ = cmd.Flags().GetBool("close")
+		pauseCluster, _ = cmd.Flags().GetBool("pause")
+
+		names := strings.Split(args[0], ",")
+
+		var errors []string
+		var successes []string
+
+		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v", names))
+
+		for _, name := range names {
+			addon, err := utils.GetAddonFromName(name)
+			if err != nil {
+				utils.PrintError(err.Error())
+				errors = append(errors, name)
+				continue
+			}
+
+			err = undeployUniqueAddon(addon)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
 				errors = append(errors, name)
@@ -225,6 +313,7 @@ func init() {
 	rootCmd.AddCommand(undeployCmd)
 	undeployCmd.AddCommand(undeployAllCmd)
 	undeployCmd.AddCommand(undeployResourceCmd)
+	undeployCmd.AddCommand(undeployAddon)
 
 	undeployCmd.PersistentFlags().BoolP("close", "c", false, "Stop the cluster after undeploying the resources")
 	undeployCmd.PersistentFlags().BoolP("pause", "p", false, "Pause the cluster after undeploying the resources")

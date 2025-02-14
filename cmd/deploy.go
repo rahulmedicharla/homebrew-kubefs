@@ -20,13 +20,13 @@ var deployCmd = &cobra.Command{
 example:
 	kubefs deploy all --flags,
 	kubefs deploy resource <frontend>,<api>,<database> --flags,
-	kubefs deploy resource <frontend> --flags,`,
+	kubefs deploy addons <addon-name>,<addon-name> --flags,`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
 }
 
-func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
+func delpoyUniqueAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 				return err
 			}
 
-			valuesYaml = *utils.GetHelmChart(addon.DockerRepo, addon.Name, "ClusterIP", addon.Port, false, "", "/health", 1)
+			valuesYaml = *utils.GetHelmChart(addon.DockerRepo, addon.Name, "ClusterIP", addon.Port, false, "", "/health", 3)
 
 			env := valuesYaml["env"].([]interface{})
 			var allowedOrigins []string
@@ -60,8 +60,17 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 				"name": "PORT",
 				"value": fmt.Sprintf("%v", addon.Port),
 			}, map[string]interface{}{
-				"name": "GIN_MODE",
+				"name": "MODE",
 				"value": "release",
+			}, map[string]interface{}{
+				"name": "NAME",
+				"value": utils.ManifestData.KubefsName,
+			}, map[string]interface{}{
+				"name": "WRITE_CONNECTION_STRING",
+				"value": "postgresql://postgres:kubefs1X8932M@auth-data-postgresql-primary:5432/auth?sslmode=disable",
+			}, map[string]interface{}{
+				"name": "READ_CONNECTION_STRING",
+				"value": "postgresql://postgres:kubefs1X8932M@auth-data-postgresql-read:5432/auth?sslmode=disable",
 			})
 			valuesYaml["env"] = env
 
@@ -83,10 +92,6 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 
 			valuesYaml["volumes"] = []interface{}{
 				map[string]interface{}{
-					"name": "store",
-					"emptyDir": map[string]interface{}{},
-				},
-				map[string]interface{}{
 					"name": "keys",
 					"secret": map[string]string{
 						"secretName": "oauth2-deploy-secret",
@@ -95,10 +100,6 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 			}
 
 			valuesYaml["volumeMounts"] = []interface{}{
-				map[string]string{
-					"name": "store",
-					"mountPath": "/app/store",
-				},
 				map[string]string{
 					"name": "keys",
 					"mountPath": "/etc/ssl/private/private_key.pem",
@@ -120,7 +121,30 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 	if !onlyHelmify {
 		// deploy
 		if addon.Name == "oauth2"{
-			err = utils.RunCommand(fmt.Sprintf("helm upgrade --install oauth2 addons/oauth2/deploy"), true, true)
+			configs := []string{
+				"--set namespaceOverride=oauth2",
+				"--set auth.postgresPassword=kubefs1X8932M",
+				"--set architecture=replication",
+				"--set auth.database=auth",
+				"--set readReplicas.replicaCount=3",
+				"--set primary.persistence.size=1Gi",
+				"--set readReplicas.persistence.size=1Gi",
+				"--set primary.initdb.scripts.\"init-user\\.sql\"=\"CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY\\, email TEXT\\, password TEXT\\, secret TEXT);CREATE TABLE IF NOT EXISTS refreshTokens (uid UUID PRIMARY KEY\\, token TEXT);CREATE TABLE IF NOT EXISTS twoFactorAuth (email TEXT PRIMARY KEY\\, secret TEXT);\"",
+			}
+
+			commandBuilder := strings.Builder{}
+			commandBuilder.WriteString("helm upgrade --install auth-data")
+			for _, c := range configs {
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
+			}
+			commandBuilder.WriteString(" oci://registry-1.docker.io/bitnamicharts/postgresql")
+
+			commands := []string{
+				"helm upgrade --install oauth2 addons/oauth2/deploy",
+				commandBuilder.String(),
+			}
+
+			err = utils.RunMultipleCommands(commands, true, true)
 			if err != nil {
 				return err
 			}
@@ -265,7 +289,7 @@ example:
         }
 
 		for _, addon := range utils.ManifestData.Addons {
-			err := deployAddon(&addon, onlyHelmify, onlyDeploy)
+			err := delpoyUniqueAddon(&addon, onlyHelmify, onlyDeploy)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon.Name, err.Error()))
 				errors = append(errors, addon.Name)
@@ -363,7 +387,7 @@ example:
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy)
+			err = delpoyUniqueAddon(addonResource, onlyHelmify, onlyDeploy)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
 				errors = append(errors, addon)
@@ -387,10 +411,72 @@ example:
 	},
 }
 
+var deployAddon = &cobra.Command{
+	Use:   "addons [name, ...]",
+	Short: "kubefs deploy addon [name, ...] - create helm charts & deploy the build targets onto the cluster for listed addon",
+	Long: `kubefs deploy addon [name, ...] - create helm charts & deploy the build targets onto the cluster for listed addon
+example:
+	kubefs deploy addon <oauth2> --flags,
+	`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
+
+		names := strings.Split(args[0], ",")
+
+		var onlyHelmify, onlyDeploy bool
+		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
+		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
+
+		var successes []string
+		var errors []string
+
+		utils.PrintWarning(fmt.Sprintf("Deploying addons %v", names))
+
+		for _, addon := range names {
+			if addon == ""{
+				continue
+			}
+			var addonResource *types.Addon
+			addonResource, err := utils.GetAddonFromName(addon)
+			if err != nil {
+				utils.PrintError(err.Error())
+				errors = append(errors, addon)
+				continue
+			}
+
+			err = delpoyUniqueAddon(addonResource, onlyHelmify, onlyDeploy)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
+				errors = append(errors, addon)
+				continue
+			}
+
+			successes = append(successes, addon)
+		}
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(deployCmd)
 	deployCmd.AddCommand(deployAllCmd)
 	deployCmd.AddCommand(deployResourceCmd)
+	deployCmd.AddCommand(deployAddon)
 
 	deployCmd.PersistentFlags().BoolP("only-helmify", "w", false, "only helmify the resources")
 	deployCmd.PersistentFlags().BoolP("only-deploy", "d", false, "only deploy the resources")

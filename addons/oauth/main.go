@@ -410,7 +410,7 @@ func initTables() (error) {
 
 	if TWO_FACTOR_AUTH{
 		stmt = Statement{
-			Query: "CREATE TABLE IF NOT EXISTS twoFactorAuth (email STRING PRIMARY KEY, secret TEXT)",
+			Query: "CREATE TABLE IF NOT EXISTS twoFactorAuth (email TEXT PRIMARY KEY, secret TEXT)",
 			Args: []interface{}{},
 		}
 		err = db.Exec(context.Background(), stmt)
