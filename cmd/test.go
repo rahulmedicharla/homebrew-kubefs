@@ -72,10 +72,18 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 			allowedHosts = append(allowedHosts, resource.DockerHost)
 		}
 
-		service["environment"] = append(service["environment"].([]string), 
+		env := service["environment"].([]string)
+		env = append(env, 
 			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")), 
 			fmt.Sprintf("PORT=%v", addon.Port),
+			fmt.Sprintf("NAME=%s", utils.ManifestData.KubefsName),
 		)
+
+		for _,line := range addon.Environment {
+			env = append(env, line)
+		}
+
+		service["environment"] = env
 		
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",

@@ -17,8 +17,8 @@ services:
     environment:
       - PORT=4000
       - ALLOWED_ORIGINS=*
-      - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
-      # - TWO_FACTOR_AUTH=true
+      # - CONNECTION_STRING=postgresql://root@cockroachstore:26257/auth?sslmode=disable
+      - TWO_FACTOR_AUTH=true
       - NAME=kubefs
       - MODE=release
     volumes:

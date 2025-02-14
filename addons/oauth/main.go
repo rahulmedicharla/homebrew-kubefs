@@ -582,22 +582,21 @@ func main() {
 		panic(err)
 	}
 
-	// if MODE == "dev"{
-	// 	// serve docs/index.html as static file at /docs
-		
-	// }
-
-	r.LoadHTMLFiles("docs/index.html")
-	r.GET("/docs", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", gin.H{
-			"TWO_FACTOR_AUTH": TWO_FACTOR_AUTH,
-			"MODE": MODE,
-			"NAME": NAME,
-			"CONNECTION_STRING": connectionString,
-			"PORT": PORT,
-			"ALLOWED_ORIGINS": ALLOWED_ORIGINS,
+	if MODE == "dev"{
+		// serve docs/index.html as static file at /docs
+		r.LoadHTMLFiles("docs/index.html")
+		r.GET("/docs", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "index.html", gin.H{
+				"TWO_FACTOR_AUTH": TWO_FACTOR_AUTH,
+				"MODE": MODE,
+				"NAME": NAME,
+				"CONNECTION_STRING": connectionString,
+				"PORT": PORT,
+				"ALLOWED_ORIGINS": ALLOWED_ORIGINS,
+			})
 		})
-	})
+		
+	}
 	
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

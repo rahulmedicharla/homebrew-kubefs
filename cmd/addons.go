@@ -81,14 +81,29 @@ example:
 
 			var newAddon types.Addon
 			if name == "oauth2" {
-				input, err := utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()))
+				resources, err := utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()))
 				if err != nil {
 					utils.PrintError(err.Error())
 					errors = append(errors, name)
 					continue
 				}
 
-				names := strings.Split(input, ",")
+				input, err := utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ")
+				if err != nil {
+					utils.PrintError(err.Error())
+					errors = append(errors, name)
+					continue
+				}
+
+				for input != "y" && input != "n" {
+					utils.PrintError("Invalid input. Please enter y/n")
+					input, err = utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ")
+					if err != nil {
+						utils.PrintError(err.Error())
+					}
+				}	
+
+				names := strings.Split(resources, ",")
 				var validAttachedResourceNames []string
 				for _,n := range names{
 					resource, err := utils.GetResourceFromName(n)
@@ -129,6 +144,7 @@ example:
 					DockerHost: fmt.Sprintf("http://oauth2:%s", addonPort),
 					ClusterHost: fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local"),
 					Dependencies: validAttachedResourceNames,
+					Environment: []string{"TWO_FACTOR_AUTH=" + input},
 				}
 
 				utils.ManifestData.Addons = append(utils.ManifestData.Addons, newAddon)

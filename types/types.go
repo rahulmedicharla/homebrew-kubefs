@@ -31,6 +31,7 @@ type Addon struct {
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
   Dependencies []string `yaml:"dependencies,omitempty"`
+  Environment []string `yaml:"environment,omitempty"`
 }
 
 type ApiResponse struct {
