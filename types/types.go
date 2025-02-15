@@ -18,6 +18,7 @@ type Resource struct {
 	DockerHost string `yaml:"docker_host,omitempty"`
 	DockerRepo string `yaml:"docker_repo,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
+	ClusterHostRead string `yaml:"cluster_host_read,omitempty"`
 	DbPassword string `yaml:"db_password,omitempty"`
 	UrlHost string `yaml:"url_host,omitempty"`
 	Dependents []string `yaml:"dependents,omitempty"`
@@ -57,6 +58,6 @@ const (
 var FRAMEWORKS = map[string][]string{
 	"api": {"nest", "fast", "go"},
 	"frontend": {"next", "sveltekit", "remix"},
-	"database": {"cassandra", "redis"},
+	"database": {"postgresql", "redis"},
   "addons": {"oauth2"},
 }

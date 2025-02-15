@@ -304,10 +304,13 @@ example:
 		dockerRepo := fmt.Sprintf("bitnami/%s", resourceFramework)
 		
 		var clusterHost string
-		if resourceFramework == "cassandra" {
-			clusterHost = fmt.Sprintf("http://%s-%s.%s.svc.cluster.local", resourceName, resourceFramework, resourceName)		
+		var clusterHostRead string
+		if resourceFramework == "postgresql" {
+			clusterHost = fmt.Sprintf("http://%s-postgresql-primary.%s.svc.cluster.local", resourceName, resourceName)
+			clusterHostRead = fmt.Sprintf("http://%s-postgresql-read.%s.svc.cluster.local", resourceName, resourceName)		
 		}else{
-			clusterHost = fmt.Sprintf("http://%s-redis-master.%s.svc.cluster.local", resourceName, resourceName)	
+			clusterHost = fmt.Sprintf("http://%s-redis-master.%s.svc.cluster.local", resourceName, resourceName)
+			clusterHostRead = fmt.Sprintf("http://%s-redis-replicas.%s.svc.cluster.local", resourceName, resourceName)
 		}
 
 		err := utils.RunCommand(fmt.Sprintf("mkdir %s", resourceName), true, true)
@@ -325,6 +328,7 @@ example:
 			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
 			DockerRepo: dockerRepo, 
 			ClusterHost: clusterHost, 
+			ClusterHostRead: clusterHostRead,
 			DbPassword: password,
 		})
 
@@ -346,7 +350,7 @@ func init() {
 	createCmd.AddCommand(createDbCmd)
 	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | nest | go]")
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
-	createDbCmd.Flags().StringP("framework", "f", "cassandra", "Type of database to use [cassandra | redis]")
+	createDbCmd.Flags().StringP("framework", "f", "postgresql", "Type of database to use [postgresql | redis]")
 
 	createDbCmd.Flags().StringP("auth-password", "a", "password", "Password for the database")
 	createFrontendCmd.Flags().StringP("host-url", "u", "", "host url for the resource")

@@ -17,7 +17,7 @@ var runCmd = &cobra.Command{
 	Short: "kubefs run - run a resource locally (dev)",
 	Long: `kubefs run - run a resource locally (dev)
 example:
-	kubefs run my-api --flags`,
+	kubefs run <resource-name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
 			utils.PrintError(utils.ManifestStatus.Error())

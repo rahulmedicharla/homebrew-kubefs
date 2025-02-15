@@ -20,7 +20,7 @@ var removeCmd = &cobra.Command{
 	Long: `kubefs remove - delete listed resource locally and from docker hub
 example:
 	kubefs remove all --flags,
-	kubefs remove resource <frontend>,<api>,<database> --flags,
+	kubefs remove resource <frontend> <api> <database> --flags,
 	kubefs remove resource <frontend> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -132,36 +132,34 @@ example:
 }
 
 var removeResourceCmd = &cobra.Command{
-    Use:   "resource [name, ...]",
-    Short: "kubefs remove resource [name, ...] - remove listed resource locally and from docker hub",
-    Long:  `kubefs remove resource [name, ...] - remove listed resource locally and from docker hub
+    Use:   "resource [name ...]",
+    Short: "kubefs remove resource [name ...] - remove listed resource locally and from docker hub",
+    Long:  `kubefs remove resource [name ...] - remove listed resource locally and from docker hub
 example:
-	kubefs remove resource <frontend>,<api>,<database> --flags,
+	kubefs remove resource <frontend> <api> <database> --flags,
 	kubefs remove resource <frontend> --flags
 `,
     Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
-			return
-		}
-	
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
 
-		names := strings.Split(args[0], ",")
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+			return
+		}
 
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
 		onlyRemote, _ = cmd.Flags().GetBool("only-remote")		
 
-        utils.PrintWarning(fmt.Sprintf("Removing resource %v", names))
+        utils.PrintWarning(fmt.Sprintf("Removing resource %v", args))
 
 		var errors []string
 		var successes []string
 
-		for _, name := range names {
+		for _, name := range args {
 			var resource *types.Resource
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {

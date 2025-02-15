@@ -18,25 +18,25 @@ services:
     environment:
       - PORT=4000
       - ALLOWED_ORIGINS=*
-      - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
-      - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
-      # - TWO_FACTOR_AUTH=true
+      # - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+      # - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
+      - TWO_FACTOR_AUTH=true
       - NAME=kubefs
-      - MODE=release
+      # - MODE=release
     volumes:
       - ./private_key.pem:/etc/ssl/private/private_key.pem
       - ./public_key.pem:/etc/ssl/public/public_key.pem
-      # - store:/app/store
-    depends_on:
-      - dbstore
-  dbstore:
-    image: bitnami/postgresql:latest
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRESQL_USERNAME=root
-      - POSTGRESQL_PASSWORD=password
-      - POSTGRESQL_DATABASE=auth
-# volumes:
-#   store:
-#     driver: local
+      - store:/app/store
+    # depends_on:
+    #   - dbstore
+  # dbstore:
+  #   image: bitnami/postgresql:latest
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     - POSTGRESQL_USERNAME=root
+  #     - POSTGRESQL_PASSWORD=password
+  #     - POSTGRESQL_DATABASE=auth
+volumes:
+  store:
+    driver: local

@@ -19,7 +19,7 @@ var testCmd = &cobra.Command{
 	Long: `kubefs test - test your build environment in docker locally before deploying
 example:
 	kubefs test all --flags,
-	kubefs test resource <frontend>,<api>,<database> --flags,
+	kubefs test resource <frontend> <api> <database> --flags,
 	kubefs test resource <frontend> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -115,6 +115,9 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 		}
 
 		for _, r := range utils.ManifestData.Resources {
+			if r.Type == "database" {
+				service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST_READ=%s", r.Name, r.DockerHost))	
+			}
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
 		}
 		
@@ -139,10 +142,10 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 				"driver": "local",
 			}
 		}else{
-			service["environment"] = []string{fmt.Sprintf("CASSANDRA_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("CASSANDRA_PASSWORD_SEEDER=yes"), fmt.Sprintf("CASSANDRA_CQL_PORT_NUMBER=%v", resource.Port)}
+			service["environment"] = []string{fmt.Sprintf("POSTGRESQL_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("POSTGRESQL_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("POSTGRESQL_DATABASE=default")}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
-			service["volumes"] = []string{"cassandra_data:/bitnami"}
-			(*rawCompose)["volumes"].(map[string]interface{})["cassandra_data"] = map[string]string{
+			service["volumes"] = []string{"postgresql_data:/bitnami/postgresql"}
+			(*rawCompose)["volumes"].(map[string]interface{})["postgresql_data"] = map[string]string{
 				"driver": "local",
 			}
 		}
@@ -227,11 +230,11 @@ example:
 }
 
 var testResourceCmd = &cobra.Command{
-	Use:   "resource [name, ...]",
-	Short: "kubefs test resource [name, ...] - test listed resources & addons in docker locally before deploying",
+	Use:   "resource [name ...]",
+	Short: "kubefs test resource [name ...] - test listed resources & addons in docker locally before deploying",
 	Long: `kubefs test resource [name ...] - test listed resource & addons in docker locally before deploying
 example:
-	kubefs test resource <frontend>,<api>,<database> --flags,
+	kubefs test resource <frontend> <api> <database> --flags,
 	kubefs test resource <frontend> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
@@ -243,8 +246,6 @@ example:
 			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
-
-		var names = strings.Split(args[0], ",")
 		
 		addonNames, _ := cmd.Flags().GetString("with-addons")
 		var addonsList []string
@@ -255,9 +256,9 @@ example:
 		var errors []string
 		var successes []string
 		
-		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", names))
+		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", args))
 
-		for _, name := range names {
+		for _, name := range args {
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error getting resource %s", name))
@@ -328,11 +329,11 @@ example:
 }
 
 var testAddonCmd = &cobra.Command{
-	Use:   "addons [name, ...]",
-	Short: "kubefs test addons [name, ...] - test listed addons in docker locally before deploying",
+	Use:   "addons [name ...]",
+	Short: "kubefs test addons [name ...] - test listed addons in docker locally before deploying",
 	Long: `kubefs test addons [name ...] - test listed addons in docker locally before deploying
 example:
-	kubefs test addons <addon_name>,<addon_name> --flags,
+	kubefs test addons <addon_name> <addon_name> --flags,
 	kubefs test addons <addon_name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
@@ -345,14 +346,12 @@ example:
 			return
 		}
 
-		var names = strings.Split(args[0], ",")
-
 		var errors []string
 		var successes []string
 		
-		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", names))
+		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", args))
 
-		for _, name := range names {
+		for _, name := range args {
 			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error getting addon %s", name))

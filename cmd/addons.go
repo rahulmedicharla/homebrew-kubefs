@@ -31,26 +31,28 @@ example:
 var addonsEnableCmd = &cobra.Command{
 	Use:   "enable",
 	Short: "kubefs addons enable - enable addons in project",
-	Long: `kubefs addons enable - enable listed (comma seperated) addons in project
+	Long: `kubefs addons enable - enable listed addons in project
 example:
-	kubefs addons enable -a <addon-name:port>
-	kubefs addons enable -a <addon-name:port>,<addon-name:port>
+	kubefs addons enable <addon-name:port>
+	kubefs addons enable <addon-name:port> <addon-name:port>
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return 
+		}
+
 		if utils.ManifestStatus != nil{
 			utils.PrintError(utils.ManifestStatus.Error())
 			return 
 		}
 
-		addons, _ := cmd.Flags().GetString("addon")
-		addonList := strings.Split(addons, ",")
-
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Enabling addons %v", addonList))
+		utils.PrintWarning(fmt.Sprintf("Enabling addons %v", args))
 
-		for _, addon := range addonList {
+		for _, addon := range args {
 			name := strings.Split(addon, ":")[0]
 			addonPort := strings.Split(addon, ":")[1]
 
@@ -167,26 +169,28 @@ example:
 var addonsDisableCmd = &cobra.Command{
 	Use:   "disable",
 	Short: "kubefs addons disable - disable addons in project",
-	Long: `kubefs addons disable - disable listed (comma seperated) addons in project
+	Long: `kubefs addons disable - disable listed addons in project
 example:
-	kubefs addons disable -a <addon-name>
-	kubefs addons disable -a <addon-name>,<addon-name>
+	kubefs addons disable <addon-name>
+	kubefs addons disable <addon-name> <addon-name>
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return 
+		}
+
 		if utils.ManifestStatus != nil{
 			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
 
-		addons, _ := cmd.Flags().GetString("addon")
-		addonList := strings.Split(addons, ",")
-
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Disabling addons %v", addonList))
+		utils.PrintWarning(fmt.Sprintf("Disabling addons %v", args))
 
-		for _, name := range addonList {
+		for _, name := range args {
 
 			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
@@ -279,9 +283,4 @@ func init() {
 	addonsCmd.AddCommand(addonsDisableCmd)
 	addonsCmd.AddCommand(addonsListCmd)
 
-	addonsEnableCmd.Flags().StringP("addon", "a", "", "addon name and port. Format <addon-name:port>. Supported addons: [oauth2]")
-	addonsDisableCmd.Flags().StringP("addon", "a", "", "addon name. Supported addons: [oauth2]")
-
-	addonsEnableCmd.MarkFlagRequired("addon")
-	addonsDisableCmd.MarkFlagRequired("addon")
 }
