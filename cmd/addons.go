@@ -83,14 +83,14 @@ example:
 
 			var newAddon types.Addon
 			if name == "oauth2" {
-				resources, err := utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()))
+				resources, err := utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()), true)
 				if err != nil {
 					utils.PrintError(err.Error())
 					errors = append(errors, name)
 					continue
 				}
 
-				input, err := utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ")
+				input, err := utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ", true)
 				if err != nil {
 					utils.PrintError(err.Error())
 					errors = append(errors, name)
@@ -99,7 +99,7 @@ example:
 
 				for input != "y" && input != "n" {
 					utils.PrintError("Invalid input. Please enter y/n")
-					input, err = utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ")
+					input, err = utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ", true)
 					if err != nil {
 						utils.PrintError(err.Error())
 					}

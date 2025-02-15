@@ -19,9 +19,8 @@ type Resource struct {
 	DockerRepo string `yaml:"docker_repo,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
 	ClusterHostRead string `yaml:"cluster_host_read,omitempty"`
-	DbPassword string `yaml:"db_password,omitempty"`
-	UrlHost string `yaml:"url_host,omitempty"`
 	Dependents []string `yaml:"dependents,omitempty"`
+	Opts map[string]string `yaml:"opts,omitempty"`
 }
 
 type Addon struct {

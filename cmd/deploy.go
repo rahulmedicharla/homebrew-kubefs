@@ -186,12 +186,12 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			if resource.Framework == "postgresql"{
 				cmds = append(cmds, 
 					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", resource.Name),
-					fmt.Sprintf("echo 'connect to postgresql by exec into it and PG_PASSWORD=[password] psql -U postgres -d default -h [host] -p [port]' > %s/deploy/templates/NOTES.txt", resource.Name),
+					fmt.Sprintf("echo 'connect to postgresql by exec into it and PG_PASSWORD=%s psql -U postgres -d %s -h [host] -p [port]' > %s/deploy/templates/NOTES.txt", resource.Name, resource.Opts["password"], resource.Opts["default-database"]),
 				)
 			}else{
 				cmds = append(cmds, 
 					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", resource.Name),
-					fmt.Sprintf("echo 'connect to redis by exec into it and redis-cli -h [host] -p [port] -a [password]' > %s/deploy/templates/NOTES.txt", resource.Name),
+					fmt.Sprintf("echo 'connect to redis by exec into it and redis-cli -h [host] -p [port] -a %s' > %s/deploy/templates/NOTES.txt", resource.Name, resource.Opts["password"]),
 				)
 			}
 
@@ -212,7 +212,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 				valuesYaml = *utils.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, false, "", "/health", 3)
 			}else{
 				// frontend
-				valuesYaml = *utils.GetHelmChart(resource.DockerRepo, resource.Name, "NodePort", resource.Port, true, resource.UrlHost, "/", 3)
+				valuesYaml = *utils.GetHelmChart(resource.DockerRepo, resource.Name, "NodePort", resource.Port, true, resource.Opts["host-domain"], "/", 3)
 			}
 
 			env := valuesYaml["env"].([]interface{})
@@ -250,9 +250,9 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 		var cmd string
 		if resource.Type == "database"{
 			if resource.Framework == "postgresql"{
-				cmd = fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set primary.persistence.size=1Gi --set readReplicas.persistence.size=1Gi --set primary.service.ports.postgresql=80 --set readReplicas.service.ports.postgresql=80 --set architecture=replication --set auth.database=default --set readReplicas.replicaCount=3 --set auth.postgresPassword=%s --set namespaceOverride=%s", resource.Name, resource.Name, resource.Name, resource.DbPassword, resource.Name)
+				cmd = fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set primary.persistence.size=1Gi --set readReplicas.persistence.size=1Gi --set primary.service.ports.postgresql=80 --set readReplicas.service.ports.postgresql=80 --set architecture=replication --set auth.database=%s --set readReplicas.replicaCount=3 --set auth.postgresPassword=%s --set namespaceOverride=%s", resource.Name, resource.Name, resource.Name, resource.Opts["default-database"], resource.Opts["password"], resource.Name)
 			}else{
-				cmd = fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set master.persistence.size=1Gi --set replica.persistence.size=1Gi --set master.service.ports.redis=80 --set replica.service.ports.redis=80 --set auth.password=%s --namespace %s", resource.Name, resource.Name, resource.Name, resource.DbPassword, resource.Name)
+				cmd = fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set master.persistence.size=1Gi --set replica.persistence.size=1Gi --set master.service.ports.redis=80 --set replica.service.ports.redis=80 --set auth.password=%s --namespace %s", resource.Name, resource.Name, resource.Name, resource.Opts["password"], resource.Name)
 			}
 		}else{
 			cmd = fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name)
@@ -301,11 +301,7 @@ example:
 
 			successes = append(successes, resource.Name)
 			if resource.Type == "frontend" {
-				if resource.UrlHost == "" {
-					hosts = append(hosts, "*")
-				}else{
-					hosts = append(hosts, resource.UrlHost)
-				}
+				hosts = append(hosts, resource.Opts["host-domain"])
 			}
         }
 
@@ -388,11 +384,7 @@ example:
 
 			successes = append(successes, name)
 			if resource.Type == "frontend" {
-				if resource.UrlHost == "" {
-					hosts = append(hosts, "*")
-				}else{
-					hosts = append(hosts, resource.UrlHost)
-				}
+				hosts = append(hosts, resource.Opts["host-domain"])
 			}
 
 		}

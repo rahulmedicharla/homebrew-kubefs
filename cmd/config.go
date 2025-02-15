@@ -52,12 +52,12 @@ example:
 			}
 			utils.PrintSuccess("Docker credentials removed successfully")
 		} else {
-			username, err := utils.ReadInput("Enter Docker username: ")
+			username, err := utils.ReadInput("Enter Docker username: ", true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error reading Docker username: %v", err.Error()))
 			}
 
-			pat, err := utils.ReadInput("Enter Docker PAT (https://docs.docker.com/security/for-developers/access-tokens/): ")
+			pat, err := utils.ReadInput("Enter Docker PAT (https://docs.docker.com/security/for-developers/access-tokens/): ", true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error reading Docker PAT: %v", err.Error()))
 			}

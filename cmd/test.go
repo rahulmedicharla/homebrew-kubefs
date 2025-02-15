@@ -135,14 +135,14 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 
 	}else{
 		if resource.Framework == "redis" {
-			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("REDIS_PORT_NUMBER=%v", resource.Port)}
+			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.Opts["password"]), fmt.Sprintf("REDIS_PORT_NUMBER=%v", resource.Port)}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
 			service["volumes"] = []string{"redis_data:/bitnami/redis/data"}
 			(*rawCompose)["volumes"].(map[string]interface{})["redis_data"] = map[string]string{
 				"driver": "local",
 			}
 		}else{
-			service["environment"] = []string{fmt.Sprintf("POSTGRESQL_PASSWORD=%s", resource.DbPassword), fmt.Sprintf("POSTGRESQL_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("POSTGRESQL_DATABASE=default")}
+			service["environment"] = []string{fmt.Sprintf("POSTGRESQL_PASSWORD=%s", resource.Opts["password"]), fmt.Sprintf("POSTGRESQL_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("POSTGRESQL_DATABASE=%s", resource.Opts["default-database"])}
 			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
 			service["volumes"] = []string{"postgresql_data:/bitnami/postgresql"}
 			(*rawCompose)["volumes"].(map[string]interface{})["postgresql_data"] = map[string]string{

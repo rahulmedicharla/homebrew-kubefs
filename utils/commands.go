@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"strings"
 	"fmt"
+	"bufio"
 )
 
 func RunCommand(command string, withOutput bool, withError bool) error{
@@ -32,14 +33,27 @@ func RunMultipleCommands(commands []string, withOutput bool, withError bool) err
 	return nil
 }
 
-func ReadInput(msg string) (string, error){
-	var input string
+func ReadInput(msg string, notNull bool) (string, error){
 	fmt.Print(msg)
-	_, err := fmt.Scanln(&input)
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
-	input = strings.TrimSpace(input)
+
+	input = strings.TrimSuffix(input, "\n")
+
+	for notNull && input == "" {
+		fmt.Println("Input cannot be empty.")
+		fmt.Print(msg)
+		input, err = reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+	}
+
+	input = strings.TrimSuffix(input, "\n")
+
 	return input, nil
 
 }

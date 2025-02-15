@@ -64,7 +64,7 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) error {
 
 func createDockerRepo(name string) (string, error) {
 	utils.PrintWarning(fmt.Sprintf("Creating Docker Repository for %s", name))
-	desc, err := utils.ReadInput("Enter resource description: ")
+	desc, err := utils.ReadInput("Enter resource description: ", true)
 	if err != nil {
 		return "", err
 	}
@@ -175,7 +175,6 @@ example:
 			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
 			DockerRepo: dockerRepo, 
 			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
-			Dependents: []string{},
 		})
 		
 		if err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml"); err != nil {
@@ -204,8 +203,6 @@ example:
 			utils.PrintError(err.Error())
 			return
 		}
-
-		urlHost, _ := cmd.Flags().GetString("host-url")
 
 		var commands []string
 		var startCommand string
@@ -257,18 +254,25 @@ example:
 			return
 		}
 
+		hostDomain, err := utils.ReadInput("Enter the host domain the ingresss should accept: (*) for all : ", true)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			return
+		}
+
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
 			Name: resourceName, 
 			Port: resourcePort, 
 			Type: "frontend", 
 			Framework:resourceFramework, 
 			UpLocal: "npm run dev", 
-			UrlHost: urlHost, 
 			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
 			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
 			DockerRepo: dockerRepo, 
 			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
-			Dependents: []string{},
+			Opts: map[string]string{
+				"host-domain": hostDomain,
+			},
 		})
 		
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
@@ -299,8 +303,6 @@ example:
 			return
 		}
 
-		password, _ := cmd.Flags().GetString("auth-password")
-
 		dockerRepo := fmt.Sprintf("bitnami/%s", resourceFramework)
 		
 		var clusterHost string
@@ -318,6 +320,12 @@ example:
 			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
 			return
 		}
+
+		password, err := utils.ReadInput("Enter a password for the database: ", true)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			return
+		}
 		
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
 			Name: resourceName, 
@@ -329,7 +337,10 @@ example:
 			DockerRepo: dockerRepo, 
 			ClusterHost: clusterHost, 
 			ClusterHostRead: clusterHostRead,
-			DbPassword: password,
+			Opts: map[string]string{
+				"password": password,
+				"default-database": "default",
+			},
 		})
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
@@ -352,7 +363,5 @@ func init() {
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
 	createDbCmd.Flags().StringP("framework", "f", "postgresql", "Type of database to use [postgresql | redis]")
 
-	createDbCmd.Flags().StringP("auth-password", "a", "password", "Password for the database")
-	createFrontendCmd.Flags().StringP("host-url", "u", "", "host url for the resource")
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
 }

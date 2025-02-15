@@ -17,29 +17,28 @@ var initCmd = &cobra.Command{
 	Short: "kubefs init - initialize a new kubefs project",
 	Long: `kubefs init - initialize a new kubefs project
 example:
-	kubefs init my-project -d "My project description"
+	kubefs init my-project
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
-			cmd.Help()
-			return
-		}
-
 		if len(args) < 1 {
-			utils.PrintError("Please provide a name & description for the project")
 			cmd.Help()
 			return
 		}
 
 		projectName := args[0]
-		description, _ := cmd.Flags().GetString("description")
+
+		description, err := utils.ReadInput("Enter project description: ", true)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error reading project description: %v", err.Error()))
+			return
+		}
 
 		commands := []string{
 			fmt.Sprintf("mkdir %s", projectName),
 			fmt.Sprintf("mkdir %s/addons", projectName),
 		}
 
-		err := utils.RunMultipleCommands(commands, false, true)
+		err = utils.RunMultipleCommands(commands, false, true)
 		if err != nil{
 			utils.PrintError(fmt.Sprintf("Couldn't initialize project: %v", err.Error()))
 		}
@@ -64,6 +63,4 @@ example:
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().StringP("description", "d", "", "Description of the project")
-	initCmd.MarkFlagRequired("description")
 }
