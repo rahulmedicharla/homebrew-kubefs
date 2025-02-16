@@ -252,8 +252,8 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			var configs []string
 			if resource.Framework == "postgresql"{
 				configs = []string{
-					"--set primary.persistence.size=" + resource.Opts["persistence"] + "Gi",
-					"--set readReplicas.persistence.size=" + resource.Opts["persistence"] + "Gi",
+					"--set primary.persistence.size=" + resource.Opts["persistence"],
+					"--set readReplicas.persistence.size=" + resource.Opts["persistence"],
 					"--set primary.service.ports.postgresql=80",
 					"--set readReplicas.service.ports.postgresql=80",
 					"--set architecture=replication",
@@ -264,8 +264,8 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 				}
 			}else{
 				configs = []string{
-					"--set master.persistence.size=" + resource.Opts["persistence"] + "Gi",
-					"--set replica.persistence.size=" + resource.Opts["persistence"] + "Gi",
+					"--set master.persistence.size=" + resource.Opts["persistence"],
+					"--set replica.persistence.size=" + resource.Opts["persistence"],
 					"--set master.service.ports.redis=80",
 					"--set replica.service.ports.redis=80",
 					"--set auth.password=" + resource.Opts["password"],
@@ -277,8 +277,8 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			for _, c := range configs {
 				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
-
 		}else{
+			// api or frontend
 			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
 		}
 

@@ -64,7 +64,8 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) error {
 
 func createDockerRepo(name string) (string, error) {
 	utils.PrintWarning(fmt.Sprintf("Creating Docker Repository for %s", name))
-	desc, err := utils.ReadInput("Enter resource description: ", true)
+	var desc string
+	err := utils.ReadInput("Enter resource description: ", &desc)
 	if err != nil {
 		return "", err
 	}
@@ -204,7 +205,9 @@ example:
 			return
 		}
 
-		hostDomain, err := utils.ReadInput("Enter the host domain the ingresss should accept: (*) for all : ", true)
+		var hostDomain string
+
+		err := utils.ReadInput("Enter the host domain the ingresss should accept: (*) for all : ", &hostDomain)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 			return
@@ -303,13 +306,16 @@ example:
 			return
 		}
 
-		password, err := utils.ReadInput("Enter a password for the database: ", true)
+		var password string
+		var persistence int
+
+		err := utils.ReadInput("Enter a password for the database: ", &password)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 			return
 		}
 
-		persistence, err := utils.ReadInput("How many Gigabytes of persistence on each pod: (ex 1): ", true)
+		err = utils.ReadInput("How many Gigabytes of persistence on each pod: (ex 1): ", &persistence)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 			return
@@ -324,13 +330,13 @@ example:
 		var defaultDatabase string = "0"
 		var user string = "default"
 		if resourceFramework == "postgresql" {
-			defaultDatabase, err = utils.ReadInput("Enter the database to be initialized on init: ", true)
+			err = utils.ReadInput("Enter the database to be initialized on init: ", &defaultDatabase)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 				return 
 			}
 		
-			user, err = utils.ReadInput("Enter a username for the database: ", true)
+			err = utils.ReadInput("Enter a username for the database: ", &user)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 				return
@@ -367,7 +373,7 @@ example:
 				"user": user,
 				"password": password,
 				"default-database": defaultDatabase,
-				"persistence": persistence,
+				"persistence": fmt.Sprintf("%vGi", persistence),
 			},
 		})
 

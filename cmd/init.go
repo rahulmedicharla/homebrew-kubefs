@@ -26,8 +26,9 @@ example:
 		}
 
 		projectName := args[0]
+		var description string
 
-		description, err := utils.ReadInput("Enter project description: ", true)
+		err := utils.ReadInput("Enter project description: ", &description)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Error reading project description: %v", err.Error()))
 			return

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"fmt"
 	"bufio"
+	"strconv"
+	"errors"
 )
 
 func RunCommand(command string, withOutput bool, withError bool) error{
@@ -33,27 +35,38 @@ func RunMultipleCommands(commands []string, withOutput bool, withError bool) err
 	return nil
 }
 
-func ReadInput(msg string, notNull bool) (string, error){
+func ReadInput(msg string, data interface{}) error{
 	fmt.Print(msg)
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	input = strings.TrimSuffix(input, "\n")
 
-	for notNull && input == "" {
+	for input == "" {
 		PrintError("Input cannot be empty.")
 		fmt.Print(msg)
 		input, err = reader.ReadString('\n')
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
 	input = strings.TrimSuffix(input, "\n")
 
-	return input, nil
-
+	switch v := data.(type) {
+	case *string:
+		*v = input
+	case *bool:
+		*v = input == "y"
+	case *int:
+		*v, err = strconv.Atoi(input)
+		return err
+	default:
+		return errors.New("Invalid data type")
+	}
+	
+	return nil
 }
