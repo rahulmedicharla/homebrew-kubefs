@@ -27,45 +27,28 @@ example:
 }
 
 func undeployAddon(addon *types.Addon) error {
+	commands := []string{}
 	if addon.Name == "oauth2"{
-		commands := []string{
-			"helm uninstall auth-data",
-			"kubectl delete pvc -n oauth2 data-auth-data-postgresql-primary-0",
-			"kubectl delete pvc -n oauth2 data-auth-data-postgresql-read-0 data-auth-data-postgresql-read-1 data-auth-data-postgresql-read-2 ",
-		}
-
-		err := utils.RunMultipleCommands(commands, true, true)
-		if err != nil {
-			return err
-		}
-
-		err = utils.RunCommand(fmt.Sprintf("helm uninstall %s", addon.Name), true, true)
-		if err != nil {
-			return err
-		}
+		commands = append(commands, "helm uninstall auth-data")
 	}
 
-	return nil
+	commands = append(commands, fmt.Sprintf("helm uninstall %s", addon.Name))
+	err := utils.RunMultipleCommands(commands, true, true)
+	
+	return err
 }
 
 func undeployUnique(resource *types.Resource) error {
 	commandBuilder := strings.Builder{}
 	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", resource.Name))
+	
 	if resource.Type == "database"{
-		if resource.Framework == "postgresql"{
-			commandBuilder.WriteString(fmt.Sprintf("kubectl delete pvc -n %s data-%s-postgresql-primary-0;", resource.Name, resource.Name))
-			commandBuilder.WriteString(fmt.Sprintf("kubectl delete pvc -n %s data-%s-postgresql-read-0 data-%s-postgresql-read-1 data-%s-postgresql-read-2;", resource.Name, resource.Name, resource.Name, resource.Name))
-		}
-
 		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", resource.Name))
 	}
 	
 	err := utils.RunCommand(commandBuilder.String(), true, true)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	
+	return err
 }
 
 var undeployAllCmd = &cobra.Command{

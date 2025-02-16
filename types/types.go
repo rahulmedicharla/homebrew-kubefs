@@ -55,7 +55,7 @@ const (
 )
 
 var FRAMEWORKS = map[string][]string{
-	"api": {"nest", "fast", "go"},
+	"api": {"nest", "fast", "gin"},
 	"frontend": {"next", "sveltekit", "remix"},
 	"database": {"postgresql", "redis"},
   "addons": {"oauth2"},

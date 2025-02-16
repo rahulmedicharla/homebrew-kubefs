@@ -146,8 +146,8 @@ example:
 		}else{
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
-				fmt.Sprintf("cd %s && go mod init %s && go get -u github.com/gorilla/mux", resourceName, resourceName),
-				fmt.Sprintf("cd %s && echo 'package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"github.com/gorilla/mux\"\n)\n\nfunc main() {\n\tr := mux.NewRouter()\n\t//KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n\tr.HandleFunc(\"/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tfmt.Fprintf(w, \"ok\")\n\t})\n\tfmt.Println(\"Listening on Port %v\")\n\thttp.ListenAndServe(\":%v\", r)\n}' > main.go", resourceName, resourcePort, resourcePort),
+				fmt.Sprintf("cd %s && go mod init %s && go get -u github.com/gin-gonic/gin", resourceName, resourceName),
+				fmt.Sprintf("cd %s && echo 'package main\n\nimport (\n\t\"log\"\n\t\"net/http\"\n\t\"github.com/gin-gonic/gin\"\n)\n\nfunc main() {\n\tr := gin.Default()\n\t//KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n\tr.GET(\"/health\", func(c *gin.Context) {\n\t\tc.JSON(http.StatusOK, gin.H{\n\t\t\t\"status\": \"ok\",\n\t\t})\n\t})\n\tlog.Println(\"Listening on Port %v\")\n\thttp.ListenAndServe(\":%v\", r)\n}' > main.go", resourceName, resourcePort, resourcePort),
 			}
 
 			upLocal = fmt.Sprintf("go run main.go")
@@ -204,6 +204,12 @@ example:
 			return
 		}
 
+		hostDomain, err := utils.ReadInput("Enter the host domain the ingresss should accept: (*) for all : ", true)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			return
+		}
+
 		var commands []string
 		var startCommand string
 
@@ -228,7 +234,7 @@ example:
 			startCommand = fmt.Sprintf("vite dev --port %v", resourcePort)
 		}
 
-		err := utils.RunMultipleCommands(commands, true, true)
+		err = utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
 			return
@@ -251,12 +257,6 @@ example:
 		dockerRepo, err := createDockerRepo(resourceName)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error creating docker repo. %v", err.Error()))
-			return
-		}
-
-		hostDomain, err := utils.ReadInput("Enter the host domain the ingresss should accept: (*) for all : ", true)
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 			return
 		}
 
@@ -303,27 +303,53 @@ example:
 			return
 		}
 
+		password, err := utils.ReadInput("Enter a password for the database: ", true)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			return
+		}
+
+		persistence, err := utils.ReadInput("How many Gigabytes of persistence on each pod: (ex 1): ", true)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			return
+		}
+
 		dockerRepo := fmt.Sprintf("bitnami/%s", resourceFramework)
 		
 		var clusterHost string
 		var clusterHostRead string
+		var dockerHost string
+		var localHost string
+		var defaultDatabase string = "0"
+		var user string = "default"
 		if resourceFramework == "postgresql" {
-			clusterHost = fmt.Sprintf("http://%s-postgresql-primary.%s.svc.cluster.local", resourceName, resourceName)
-			clusterHostRead = fmt.Sprintf("http://%s-postgresql-read.%s.svc.cluster.local", resourceName, resourceName)		
+			defaultDatabase, err = utils.ReadInput("Enter the database to be initialized on init: ", true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+				return 
+			}
+		
+			user, err = utils.ReadInput("Enter a username for the database: ", true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+				return
+			}
+			
+			localHost = fmt.Sprintf("postgresql://%s:%s@localhost:%v/%s?sslmode=disable", user, password, resourcePort, defaultDatabase)
+			dockerHost = fmt.Sprintf("postgresql://%s:%s@%s:%v/%s?sslmode=disable", user, password, resourceName, resourcePort, defaultDatabase)
+			clusterHost = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-primary:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)
+			clusterHostRead = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-read:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)		
 		}else{
-			clusterHost = fmt.Sprintf("http://%s-redis-master.%s.svc.cluster.local", resourceName, resourceName)
-			clusterHostRead = fmt.Sprintf("http://%s-redis-replicas.%s.svc.cluster.local", resourceName, resourceName)
+			localHost = fmt.Sprintf("redis://default:%s@localhost:%v", password, resourcePort)
+			dockerHost = fmt.Sprintf("redis://default:%s@%s:%v", password, resourceName, resourcePort)
+			clusterHost = fmt.Sprintf("redis://default:%s@%s-redis-master.svc.cluster.local:80", password, resourceName)
+			clusterHostRead = fmt.Sprintf("redis://default:%s@%s-redis-replicas.svc.cluster.local:80", password, resourceName)
 		}
 
-		err := utils.RunCommand(fmt.Sprintf("mkdir %s", resourceName), true, true)
+		err = utils.RunCommand(fmt.Sprintf("mkdir %s", resourceName), true, true)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
-			return
-		}
-
-		password, err := utils.ReadInput("Enter a password for the database: ", true)
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
 			return
 		}
 		
@@ -332,14 +358,16 @@ example:
 			Port: resourcePort, 
 			Type: "database", 
 			Framework:resourceFramework, 
-			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
-			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
+			LocalHost: localHost, 
+			DockerHost: dockerHost,
 			DockerRepo: dockerRepo, 
 			ClusterHost: clusterHost, 
 			ClusterHostRead: clusterHostRead,
 			Opts: map[string]string{
+				"user": user,
 				"password": password,
-				"default-database": "default",
+				"default-database": defaultDatabase,
+				"persistence": persistence,
 			},
 		})
 
@@ -359,7 +387,7 @@ func init() {
 	createCmd.AddCommand(createApiCmd)
 	createCmd.AddCommand(createFrontendCmd)
 	createCmd.AddCommand(createDbCmd)
-	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | nest | go]")
+	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | nest | gin]")
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
 	createDbCmd.Flags().StringP("framework", "f", "postgresql", "Type of database to use [postgresql | redis]")
 

@@ -186,12 +186,12 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			if resource.Framework == "postgresql"{
 				cmds = append(cmds, 
 					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", resource.Name),
-					fmt.Sprintf("echo 'connect to postgresql by exec into it and PG_PASSWORD=%s psql -U postgres -d %s -h [host] -p [port]' > %s/deploy/templates/NOTES.txt", resource.Name, resource.Opts["password"], resource.Opts["default-database"]),
+					fmt.Sprintf("echo 'connect to postgresql by exec into it and PG_PASSWORD=%s psql -U postgres -d %s -h [host] -p [port]' > %s/deploy/templates/NOTES.txt", resource.Opts["password"], resource.Opts["default-database"], resource.Name),
 				)
 			}else{
 				cmds = append(cmds, 
 					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", resource.Name),
-					fmt.Sprintf("echo 'connect to redis by exec into it and redis-cli -h [host] -p [port] -a %s' > %s/deploy/templates/NOTES.txt", resource.Name, resource.Opts["password"]),
+					fmt.Sprintf("echo 'connect to redis by exec into it and redis-cli -h [host] -p [port] -a %s' > %s/deploy/templates/NOTES.txt", resource.Opts["password"], resource.Name),
 				)
 			}
 
@@ -247,18 +247,42 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 
 	if !onlyHelmify {
 		// deploy
-		var cmd string
+		commandBuilder := strings.Builder{}
 		if resource.Type == "database"{
+			var configs []string
 			if resource.Framework == "postgresql"{
-				cmd = fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set primary.persistence.size=1Gi --set readReplicas.persistence.size=1Gi --set primary.service.ports.postgresql=80 --set readReplicas.service.ports.postgresql=80 --set architecture=replication --set auth.database=%s --set readReplicas.replicaCount=3 --set auth.postgresPassword=%s --set namespaceOverride=%s", resource.Name, resource.Name, resource.Name, resource.Opts["default-database"], resource.Opts["password"], resource.Name)
+				configs = []string{
+					"--set primary.persistence.size=" + resource.Opts["persistence"] + "Gi",
+					"--set readReplicas.persistence.size=" + resource.Opts["persistence"] + "Gi",
+					"--set primary.service.ports.postgresql=80",
+					"--set readReplicas.service.ports.postgresql=80",
+					"--set architecture=replication",
+					"--set auth.database=" + resource.Opts["default-database"],
+					"--set readReplicas.replicaCount=3",
+					"--set auth.postgresPassword=" + resource.Opts["password"],
+					"--set namespaceOverride=" + resource.Name,
+				}
 			}else{
-				cmd = fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy --set master.persistence.size=1Gi --set replica.persistence.size=1Gi --set master.service.ports.redis=80 --set replica.service.ports.redis=80 --set auth.password=%s --namespace %s", resource.Name, resource.Name, resource.Name, resource.Opts["password"], resource.Name)
+				configs = []string{
+					"--set master.persistence.size=" + resource.Opts["persistence"] + "Gi",
+					"--set replica.persistence.size=" + resource.Opts["persistence"] + "Gi",
+					"--set master.service.ports.redis=80",
+					"--set replica.service.ports.redis=80",
+					"--set auth.password=" + resource.Opts["password"],
+					"--set namespaceOverride=" + resource.Name,
+				}
 			}
+
+			commandBuilder.WriteString(fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy", resource.Name, resource.Name, resource.Name))
+			for _, c := range configs {
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
+			}
+
 		}else{
-			cmd = fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name)
+			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
 		}
 
-		err = utils.RunCommand(cmd, true, true)
+		err = utils.RunCommand(commandBuilder.String(), true, true)
 		if err != nil {
 			return err
 		}
@@ -299,7 +323,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, resource.Name)
+			successes = append(successes, resource.Name + " in namespace " + resource.Name)
 			if resource.Type == "frontend" {
 				hosts = append(hosts, resource.Opts["host-domain"])
 			}
@@ -312,7 +336,7 @@ example:
 				errors = append(errors, addon.Name)
 				continue
 			}
-			successes = append(successes, addon.Name)
+			successes = append(successes, addon.Name + " in namespace " + addon.Name)
 		}
 
 		if len(errors) > 0 {
@@ -382,7 +406,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, name)
+			successes = append(successes, name + " in namespace " + name)
 			if resource.Type == "frontend" {
 				hosts = append(hosts, resource.Opts["host-domain"])
 			}
@@ -408,7 +432,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, addon)
+			successes = append(successes, addon + " in namespace " + addon)
 		}
 
 		if len(errors) > 0 {
@@ -469,7 +493,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, addon)
+			successes = append(successes, addon + " in namespace " + addon)
 		}
 
 		if len(errors) > 0 {

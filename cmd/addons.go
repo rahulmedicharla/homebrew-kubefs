@@ -240,11 +240,11 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error enabling addons %v", errors))
+			utils.PrintError(fmt.Sprintf("Error disabled addons %v", errors))
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Addon %v enabled successfully", successes))
+			utils.PrintSuccess(fmt.Sprintf("Addon %v disabled successfully", successes))
 		}
 	},
 }
