@@ -53,6 +53,7 @@ const (
 const (
   HELMCHART = "https://www.dropbox.com/scl/fi/ysju5bkpup02eiy7b3qde/helm-template.zip?rlkey=9gzobe08xdugaymr7kz1kyt4o&st=eskuno42&dl=1"
   OAUTH2CHART = "https://www.dropbox.com/scl/fi/0jgd41yu5az584gd9me5i/kubefs-oauth-helm.zip?rlkey=a0y3mllr431dl8xedaz7q3x3z&st=uqka20an&dl=1"
+  BASECHART = "https://www.dropbox.com/scl/fi/tk5ustvesyw7zgdeyzjq5/base-chart.zip?rlkey=jy4e3yxt4lu763c6i5pnxccyz&st=nk8gpc4r&dl=1"
 )
 
 var FRAMEWORKS = map[string][]string{

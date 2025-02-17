@@ -27,4 +27,7 @@ refresh:
 	echo 'alias kubefs=${pwd}/bin/kubefs' >> ~/.zprofile
 	echo "restart the terminal to reflect the changes"
 
+push-chart:
+	helm package base-chart/deploy
+	helm push base-chart/deploy-0.1.0.tgz oci://registry-1.docker.io/rmedicharla
 

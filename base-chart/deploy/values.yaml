@@ -1,0 +1,53 @@
+affinity: {}
+autoscaling:
+  enabled: false
+  maxReplicas: 100
+  minReplicas: 1
+  targetCPUUtilizationPercentage: 80
+env: []
+image:
+  pullPolicy: Always
+  # NEED TO CHANGE THIS
+  repository: 
+  tag: latest
+imagePullSecrets: []
+ingress:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  className: nginx
+  # NEED TO CHANGE THIS
+  enabled: 
+  # NEED TO CHANGE THIS
+  host: ""
+  # NEED TO CHANGE THIS
+  tls: []
+livenessProbe:
+  httpGet:
+    # NEED TO CHANGE THIS
+    path:
+    port: http
+# NEED TO CHANGE THIS
+namespace:
+nodeSelector: {}
+readinessProbe:
+  httpGet:
+    # NEED TO CHANGE THIS
+    path: 
+    port: http
+replicaCount: 3
+resources: {}
+secrets: []
+service:
+  # NEED TO CHANGE THIS
+  port: 
+  # NEED TO CHANGE THIS
+  type: 
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ""
+tolerations: []
+volumeMounts: []
+volumes: []
