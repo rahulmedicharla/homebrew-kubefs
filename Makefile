@@ -5,6 +5,7 @@ publish:
 	git tag -a v$(VERSION) -m "kubefs-cli Release version $(VERSION)"
 	git push https://github.com/rahulmedicharla/homebrew-kubefs.git v$(VERSION)
 	GITHUB_TOKEN=${GITHUB_TOKEN} goreleaser release --clean
+	rm -rf dist
 
 test-publish:
 	goreleaser check
