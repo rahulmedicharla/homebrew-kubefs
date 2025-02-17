@@ -9,6 +9,7 @@ publish:
 test-publish:
 	goreleaser check
 	goreleaser release --snapshot --clean
+	rm -rf dist
 
 #Allows to re initialize the project from sleeping state
 refresh:
