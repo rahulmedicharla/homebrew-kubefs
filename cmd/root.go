@@ -27,11 +27,7 @@ func Execute() {
 }
 
 func init() {
-	err := utils.ReadManifest()
-	if err != nil {
-		utils.PrintError(err.Error())
-		os.Exit(1)
-	}
+	utils.ReadManifest()
 	utils.GetHttpClient()
 }
 
