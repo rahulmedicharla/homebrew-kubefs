@@ -186,14 +186,14 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			if resource.Framework == "postgresql"{
 				cmds = append(cmds, 
 					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", resource.Name),
-					fmt.Sprintf("echo 'connect to postgresql by exec into it and PG_PASSWORD=%s psql -U postgres -d %s -h [host] -p [port]' > %s/deploy/templates/NOTES.txt", resource.Opts["password"], resource.Opts["default-database"], resource.Name),
 				)
 			}else{
 				cmds = append(cmds, 
 					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", resource.Name),
-					fmt.Sprintf("echo 'connect to redis by exec into it and redis-cli -h [host] -p [port] -a %s' > %s/deploy/templates/NOTES.txt", resource.Opts["password"], resource.Name),
 				)
 			}
+
+			cmds = append(cmds,fmt.Sprintf("echo 'connect using kubefs attach' > %s/deploy/templates/NOTES.txt", resource.Name))
 
 			err = utils.RunMultipleCommands(cmds, true, true)
 			if err != nil {
@@ -252,20 +252,21 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			var configs []string
 			if resource.Framework == "postgresql"{
 				configs = []string{
-					"--set primary.persistence.size=" + resource.Opts["persistence"],
-					"--set readReplicas.persistence.size=" + resource.Opts["persistence"],
+					"--set primary.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
+					"--set readReplicas.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
 					"--set primary.service.ports.postgresql=80",
 					"--set readReplicas.service.ports.postgresql=80",
 					"--set architecture=replication",
-					"--set auth.database=" + resource.Opts["default-database"],
 					"--set readReplicas.replicaCount=3",
-					"--set auth.postgresPassword=" + resource.Opts["password"],
+					"--set auth.database=" + resource.Opts["default-database"],
+					"--set auth.username=" + resource.Opts["user"],
+					"--set auth.password=" + resource.Opts["password"],
 					"--set namespaceOverride=" + resource.Name,
 				}
 			}else{
 				configs = []string{
-					"--set master.persistence.size=" + resource.Opts["persistence"],
-					"--set replica.persistence.size=" + resource.Opts["persistence"],
+					"--set master.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
+					"--set replica.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
 					"--set master.service.ports.redis=80",
 					"--set replica.service.ports.redis=80",
 					"--set auth.password=" + resource.Opts["password"],
@@ -281,6 +282,8 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			// api or frontend
 			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
 		}
+
+		fmt.Println(commandBuilder.String())
 
 		err = utils.RunCommand(commandBuilder.String(), true, true)
 		if err != nil {
@@ -323,7 +326,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, resource.Name + " in namespace " + resource.Name)
+			successes = append(successes, resource.Name)
 			if resource.Type == "frontend" {
 				hosts = append(hosts, resource.Opts["host-domain"])
 			}
@@ -336,7 +339,7 @@ example:
 				errors = append(errors, addon.Name)
 				continue
 			}
-			successes = append(successes, addon.Name + " in namespace " + addon.Name)
+			successes = append(successes, addon.Name)
 		}
 
 		if len(errors) > 0 {
@@ -406,7 +409,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, name + " in namespace " + name)
+			successes = append(successes, name)
 			if resource.Type == "frontend" {
 				hosts = append(hosts, resource.Opts["host-domain"])
 			}
@@ -432,7 +435,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, addon + " in namespace " + addon)
+			successes = append(successes, addon)
 		}
 
 		if len(errors) > 0 {
@@ -493,7 +496,7 @@ example:
 				continue
 			}
 
-			successes = append(successes, addon + " in namespace " + addon)
+			successes = append(successes, addon)
 		}
 
 		if len(errors) > 0 {

@@ -18,6 +18,7 @@ func RunCommand(command string, withOutput bool, withError bool) error{
 	if withError {
 		cmd.Stderr = os.Stderr
 	}
+	cmd.Stdin = os.Stdin
 	cmdErr := cmd.Run()
 	if cmdErr != nil {
 		return cmdErr

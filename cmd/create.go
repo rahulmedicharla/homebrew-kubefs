@@ -171,6 +171,10 @@ example:
 			Port: resourcePort, 
 			Type: "api", 
 			Framework:resourceFramework, 
+			AttachCommand : map[string]string{
+				"docker": fmt.Sprintf("docker exec -it %s-%s-1 sh", utils.ManifestData.KubefsName, resourceName),
+				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-deploy -n %s -- sh", resourceName, resourceName),
+			},
 			UpLocal: upLocal, 
 			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
 			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
@@ -268,6 +272,10 @@ example:
 			Port: resourcePort, 
 			Type: "frontend", 
 			Framework:resourceFramework, 
+			AttachCommand : map[string]string{
+				"docker": fmt.Sprintf("docker exec -it %s-%s-1 sh", utils.ManifestData.KubefsName, resourceName),
+				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-deploy -n %s -- sh", resourceName, resourceName),
+			},
 			UpLocal: "npm run dev", 
 			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
 			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
@@ -329,6 +337,7 @@ example:
 		var localHost string
 		var defaultDatabase string = "0"
 		var user string = "default"
+		var attachCommand map[string]string
 		if resourceFramework == "postgresql" {
 			err = utils.ReadInput("Enter the database to be initialized on init: ", &defaultDatabase)
 			if err != nil {
@@ -344,13 +353,24 @@ example:
 			
 			localHost = fmt.Sprintf("postgresql://%s:%s@localhost:%v/%s?sslmode=disable", user, password, resourcePort, defaultDatabase)
 			dockerHost = fmt.Sprintf("postgresql://%s:%s@%s:%v/%s?sslmode=disable", user, password, resourceName, resourcePort, defaultDatabase)
-			clusterHost = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-primary:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)
-			clusterHostRead = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-read:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)		
+			clusterHost = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-primary.svc.cluster.local:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)
+			clusterHostRead = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-read.svc.cluster.local:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)		
+
+			attachCommand = map[string]string{
+				"docker": fmt.Sprintf("docker exec -it %s-%s-1 sh -c 'PGPASSWORD=%s psql -U %s -p %v -d %s'", utils.ManifestData.KubefsName, resourceName, password, user, resourcePort, defaultDatabase),
+				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-postgresql-primary -n %s -- env PGPASSWORD=%s psql -U %s -d %s", resourceName, resourceName, password, user, defaultDatabase),
+			}
+
 		}else{
 			localHost = fmt.Sprintf("redis://default:%s@localhost:%v", password, resourcePort)
 			dockerHost = fmt.Sprintf("redis://default:%s@%s:%v", password, resourceName, resourcePort)
 			clusterHost = fmt.Sprintf("redis://default:%s@%s-redis-master.svc.cluster.local:80", password, resourceName)
 			clusterHostRead = fmt.Sprintf("redis://default:%s@%s-redis-replicas.svc.cluster.local:80", password, resourceName)
+
+			attachCommand = map[string]string{
+				"docker": fmt.Sprintf("docker exec -it %s-%s-1 redis-cli -p %v -a %s", utils.ManifestData.KubefsName, resourceName, resourcePort, password),
+				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-redis-master -n %s -- redis-cli -a %s", resourceName, resourceName, password),
+			}
 		}
 
 		err = utils.RunCommand(fmt.Sprintf("mkdir %s", resourceName), true, true)
@@ -364,6 +384,7 @@ example:
 			Port: resourcePort, 
 			Type: "database", 
 			Framework:resourceFramework, 
+			AttachCommand: attachCommand,
 			LocalHost: localHost, 
 			DockerHost: dockerHost,
 			DockerRepo: dockerRepo, 

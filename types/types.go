@@ -13,6 +13,7 @@ type Resource struct {
 	Port int `yaml:"port"`
 	Type string `yaml:"type"`
 	Framework string `yaml:"framework"`
+	AttachCommand map[string]string `yaml:"attach_command"`
 	UpLocal string `yaml:"up_local,omitempty"`
 	LocalHost string `yaml:"local_host,omitempty"`
 	DockerHost string `yaml:"docker_host,omitempty"`
@@ -58,5 +59,5 @@ var FRAMEWORKS = map[string][]string{
 	"api": {"nest", "fast", "gin"},
 	"frontend": {"next", "sveltekit", "remix"},
 	"database": {"postgresql", "redis"},
-  "addons": {"oauth2"},
+	"addons": {"oauth2"},
 }
