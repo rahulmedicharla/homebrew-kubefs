@@ -13,14 +13,15 @@ type Resource struct {
 	Port int `yaml:"port"`
 	Type string `yaml:"type"`
 	Framework string `yaml:"framework"`
+	AttachCommand map[string]string `yaml:"attach_command"`
 	UpLocal string `yaml:"up_local,omitempty"`
 	LocalHost string `yaml:"local_host,omitempty"`
 	DockerHost string `yaml:"docker_host,omitempty"`
 	DockerRepo string `yaml:"docker_repo,omitempty"`
 	ClusterHost string `yaml:"cluster_host,omitempty"`
-	DbPassword string `yaml:"db_password,omitempty"`
-	UrlHost string `yaml:"url_host,omitempty"`
+	ClusterHostRead string `yaml:"cluster_host_read,omitempty"`
 	Dependents []string `yaml:"dependents,omitempty"`
+	Opts map[string]string `yaml:"opts,omitempty"`
 }
 
 type Addon struct {
@@ -31,6 +32,7 @@ type Addon struct {
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
   Dependencies []string `yaml:"dependencies,omitempty"`
+  Environment []string `yaml:"environment,omitempty"`
 }
 
 type ApiResponse struct {
@@ -54,8 +56,8 @@ const (
 )
 
 var FRAMEWORKS = map[string][]string{
-	"api": {"nest", "fast", "go"},
+	"api": {"nest", "fast", "gin"},
 	"frontend": {"next", "sveltekit", "remix"},
-	"database": {"cassandra", "redis"},
-  "addons": {"oauth2"},
+	"database": {"postgresql", "redis"},
+	"addons": {"oauth2"},
 }

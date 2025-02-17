@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"reflect"
-	"strings"
 )
 
 // describeCmd represents the describe command
@@ -19,7 +18,7 @@ var describeCmd = &cobra.Command{
 	Long: `kubefs describe - describe a resource 
 example: 
 	kubefs describe all,
-	kubefs describe resource <frontend>,<api>,<database>
+	kubefs describe resource <frontend> <api> <database>
 	kubefs describe resource <frontend>
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -56,11 +55,11 @@ example:
 }
 
 var describeResourceCmd = &cobra.Command{
-    Use:   "resource [name, ...]",
-    Short: "kubefs describe resource [name, ...] - describe listed resource",
-    Long:  `kubefs describe resource [name, ...] - describe a specific resource
+    Use:   "resource [name ...]",
+    Short: "kubefs describe resource [name ...] - describe listed resource",
+    Long:  `kubefs describe resource [name ...] - describe a specific resource
 example: 
-	kubefs describe resource <frontend>,<api>,<database>
+	kubefs describe resource <frontend> <api> <database>
 	kubefs describe resource <frontend>
 	`,
     Run: func(cmd *cobra.Command, args []string) {
@@ -74,11 +73,9 @@ example:
 			return
 		}
 
-		names := strings.Split(args[0], ",")
+		utils.PrintWarning(fmt.Sprintf("Describing resource %v\n", args))
 
-		utils.PrintWarning(fmt.Sprintf("Describing resource %v\n", names))
-
-		for _ , name := range names {
+		for _ , name := range args {
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())

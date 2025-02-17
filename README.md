@@ -43,5 +43,5 @@
 
 <h2>Additional Information</h2>
 
-<p>connect to cassandra by exec into it and <code>cqlsh [host] [port] -u cassandra -p [password]</code></p>
+<p>connect to postgresql by exec into it and <code>PG_PASSWORD=[password] psql -U postgres -d default -h [host] -p [port]</code></p>
 <p>connect to redis by exec into it and <code>redis-cli -h [host] -p [port] -a [password]</code></p>

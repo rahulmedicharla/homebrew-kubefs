@@ -5,6 +5,9 @@ import (
 	"os/exec"
 	"strings"
 	"fmt"
+	"bufio"
+	"strconv"
+	"errors"
 )
 
 func RunCommand(command string, withOutput bool, withError bool) error{
@@ -15,6 +18,7 @@ func RunCommand(command string, withOutput bool, withError bool) error{
 	if withError {
 		cmd.Stderr = os.Stderr
 	}
+	cmd.Stdin = os.Stdin
 	cmdErr := cmd.Run()
 	if cmdErr != nil {
 		return cmdErr
@@ -32,14 +36,38 @@ func RunMultipleCommands(commands []string, withOutput bool, withError bool) err
 	return nil
 }
 
-func ReadInput(msg string) (string, error){
-	var input string
+func ReadInput(msg string, data interface{}) error{
 	fmt.Print(msg)
-	_, err := fmt.Scanln(&input)
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
 	if err != nil {
-		return "", err
+		return err
 	}
-	input = strings.TrimSpace(input)
-	return input, nil
 
+	input = strings.TrimSuffix(input, "\n")
+
+	for input == "" {
+		PrintError("Input cannot be empty.")
+		fmt.Print(msg)
+		input, err = reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+	}
+
+	input = strings.TrimSuffix(input, "\n")
+
+	switch v := data.(type) {
+	case *string:
+		*v = input
+	case *bool:
+		*v = input == "y"
+	case *int:
+		*v, err = strconv.Atoi(input)
+		return err
+	default:
+		return errors.New("Invalid data type")
+	}
+	
+	return nil
 }

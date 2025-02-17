@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"strings"
 	"errors"
 )
 
@@ -20,7 +19,7 @@ var compileCmd = &cobra.Command{
 	Long: `kubefs compile - build and push docker images for resources
 example: 
 	kubefs compile all --flags,
-	kubefs compile resource <frontend>,<api>,<database> --flags,
+	kubefs compile resource <frontend> <api> <database> --flags,
 	kubefs compile resource <frontend> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -50,7 +49,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) erro
 					fmt.Sprintf("cd %s && echo 'venv' >> .dockerignore && echo 'FROM python:slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE %v\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"%v\"]' > Dockerfile", resource.Name, resource.Port, resource.Port),
 				)
 			}else{
-				// go
+				// gin
 				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\nCMD [\"./%s\"]' > Dockerfile", resource.Name, resource.Name, resource.Port, resource.Name))
 			}
 		}else{
@@ -139,11 +138,11 @@ example:
 }	
 
 var compileResourceCmd = &cobra.Command{
-	Use:   "resource [name, ...]",
-	Short: "kubefs compile resource [name, ...] - build and push docker images for listed resources",
-	Long: `kubefs compile resource [name, ...] - build and push docker images for listed resources
+	Use:   "resource [name ...]",
+	Short: "kubefs compile resource [name ...] - build and push docker images for listed resources",
+	Long: `kubefs compile resource [name ...] - build and push docker images for listed resources
 example: 
-	kubefs compile resource <frontend>,<api>,<database> --flags,
+	kubefs compile resource <frontend> <api> <database> --flags,
 	kubefs compile resource <frontend> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -157,7 +156,6 @@ example:
 			return
 		}
 
-		names := strings.Split(args[0], ",")
 		var onlyBuild, onlyPush bool
 		onlyBuild, _ = cmd.Flags().GetBool("only-build")
 		onlyPush, _ = cmd.Flags().GetBool("only-push")
@@ -165,9 +163,9 @@ example:
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", names))
+		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", args))
 
-		for _, name := range names{
+		for _, name := range args{
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())

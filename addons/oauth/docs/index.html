@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Sort of Swagger</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+</head>
+<body style="text-align: center;">
+    <h1>Env Variables</h1>
+    <h3>2fa: <span id = "TWO_FACTOR_AUTH">{{.TWO_FACTOR_AUTH}}</span></h3>  
+    <h3>mode: <span id = "MODE">{{.MODE}}</span></h3>
+    <h3>name: <span id = "NAME">{{.NAME}}</span></h3>
+    <h3>port: <span id = "PORT">{{.PORT}}</span></h3>
+    <h3>allowed origins: <span id = "ALLOWED_ORIGINS">{{.ALLOWED_ORIGINS}}</span></h3>
+    <h3>connection string: <span id = "CONNECTION_STRING">{{.CONNECTION_STRING}}</span></h3>
+
+    <br/>
+
+    <h1>State</h1>
+    <h5>errors: <span id="err"></span></h5>
+
+    <br/>
+
+    <h5>uid: <span id = "uid"></span></h5>
+    <h5>refresh-token: <span id = "refresh-token"></span></h5>
+    <h5>access-token: <span id = "access-token"></span></h5>
+
+    <h1>Endpoints</h1>
+
+    <br/>
+
+    <h2>/GET health</h2>
+    <button id="healthSubmit">Try Health</button>
+
+    <br/>
+
+    <h2>/GET generateTOTPAccount/:email</h2>
+    <input type="text" placeholder="email" id="TOTPemail"></input>
+    <button id="TOTPSubmit">Generate TOTP</button>
+    <div id="qrcode"></div>
+
+    <br/>
+
+    <h2>/POST signup</h2>
+    <input type="text" placeholder="code" id="signupCode"></input>
+    <input type="text" placeholder="email" id="signupEmail"></input>
+    <input type="text" placeholder="password" id="signupPassword"></input>
+    <button id="signupSubmit">Signup</button>
+
+    <br/>
+
+    <h2>/POST login</h2>
+    <input type="text" placeholder="code" id="loginCode"></input>
+    <input type="text" placeholder="email" id="loginEmail"></input>
+    <input type="text" placeholder="password" id="loginPassword"></input>
+    <button id="loginSubmit">Signup</button>
+
+    <br/>
+
+    <h2>/POST resetpassword</h2>
+    <input type="text" placeholder="code" id="resetCode"></input>
+    <input type="text" placeholder="email" id="resetEmail"></input>
+    <input type="text" placeholder="password" id="resetPassword"></input>
+    <button id="resetSubmit">Reset Password</button>
+
+    <br/>
+
+    <h2>/DELETE delete:uid</h2>
+    <input type="text" placeholder="code" id="deleteCode"></input>
+    <input type="text" placeholder="uid" id="deleteUid"></input>
+    <button id="deleteSubmit">Delete</button>
+
+    <br/>
+
+    <h2>/GET refresh/:uid</h2>
+    <input type="text" placeholder="uid" id="refreshUid"></input>
+    <input type="text" placeholder="refresh-token" id="refreshToken"></input>
+    <button id="refreshSubmit">Refresh</button>
+
+    <br/>
+
+    <h2>/GET verify/:token</h2>
+    <input type="text" placeholder="token" id="verifyToken"></input>
+    <button id="verifySubmit">Verify</button>
+    
+
+    <script>
+        document.getElementById('healthSubmit').addEventListener('click', async () => {
+            const response = await fetch('/health');
+            const data = await response.json();
+            console.log(data)
+        });
+
+        document.getElementById('TOTPSubmit').addEventListener('click', async () => {
+            const email = document.getElementById('TOTPemail').value;
+            const response = await fetch(`/generateTOTPAccount/${email}`);
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+
+            const qr = new QRCode(document.getElementById("qrcode"), {
+                text: data.url,
+                width: 128,
+                height: 128
+            });
+        });
+
+        document.getElementById("signupSubmit").addEventListener('click', async () => {
+            const code = document.getElementById('signupCode').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+
+            const response = await fetch('/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "Authorization": `Bearer ${code}`
+                },
+                body: JSON.stringify({
+                    "email": email, 
+                    "password": password,
+                    "confirm_password": password
+                })
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+
+            document.getElementById('uid').innerText = data.uid;
+            document.getElementById('refresh-token').innerText = data.refresh_token;
+            document.getElementById('access-token').innerText = data.access_token;
+        });
+
+        document.getElementById("loginSubmit").addEventListener('click', async () => {
+            const code = document.getElementById('loginCode').value;
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "Authorization": `Bearer ${code}`
+                },
+                body: JSON.stringify({
+                    "email": email, 
+                    "password": password
+                })
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+
+            document.getElementById('uid').innerText = data.uid;
+            document.getElementById('refresh-token').innerText = data.refresh_token;
+            document.getElementById('access-token').innerText = data.access_token;
+        });
+
+        document.getElementById("deleteSubmit").addEventListener('click', async () => {
+            const code = document.getElementById('deleteCode').value;
+            const uid = document.getElementById('deleteUid').value;
+
+            const response = await fetch(`/delete/${uid}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "Authorization": `Bearer ${code}`
+                }
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+
+            document.getElementById('uid').innerText = "";
+            document.getElementById('refresh-token').innerText = "";
+            document.getElementById('access-token').innerText = "";
+        });
+
+        document.getElementById("resetSubmit").addEventListener('click', async () => {
+            const code = document.getElementById('resetCode').value;
+            const email = document.getElementById('resetEmail').value;
+            const password = document.getElementById('resetPassword').value;
+
+            const response = await fetch('/resetpassword', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "Authorization": `Bearer ${code}`
+                },
+                body: JSON.stringify({
+                    "email": email, 
+                    "new_password": password,
+                    "confirm_new_password": password
+                })
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+        });
+
+        document.getElementById("refreshSubmit").addEventListener('click', async () => {
+            const uid = document.getElementById('refreshUid').value;
+            const refreshToken = document.getElementById('refreshToken').value;
+
+            const response = await fetch(`/refresh/${uid}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "Authorization": `Bearer ${refreshToken}`
+                }
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+
+            document.getElementById("access-token").innerText = data.access_token;
+        });
+
+        document.getElementById("verifySubmit").addEventListener('click', async () => {
+            const token = document.getElementById('verifyToken').value;
+
+            const response = await fetch(`/verify/${token}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            console.log(data);
+
+            if (data.error) {
+                document.getElementById('err').innerText = data.error;
+                return;
+            }
+        });
+
+    </script>
+
+</body>
+</html>
