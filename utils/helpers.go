@@ -9,21 +9,22 @@ import (
     "encoding/json"
     "bufio"
     "errors"
+    log "github.com/sirupsen/logrus"
 )
 
 var ManifestData types.Project
 var ManifestStatus error
 
 func PrintError(message string) {
-	fmt.Printf("\033[31mError: %s\033[0m\n", message)
+    log.Error(message)
 }
 
 func PrintSuccess(message string) {
-	fmt.Printf("\033[32mSuccess: %s\033[0m\n", message)
+    log.Info(message)
 }
 
 func PrintWarning(message string) {
-	fmt.Printf("\033[33m%s\033[0m\n", message)
+	log.Warn(message)
 }
 
 func GetResourceFromName(name string) (*types.Resource, error) {
