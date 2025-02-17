@@ -37,8 +37,13 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 	if !onlyDeploy {
 		// helmify
 		if addon.Name == "oauth2"{
-			command := fmt.Sprintf("(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)")
-			err = utils.RunCommand(command, true, true)
+			commands := []string{
+				fmt.Sprintf("(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)"),
+				fmt.Sprintf("(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)"),
+				fmt.Sprintf("echo '' > addons/oauth2/postgresql/templates/NOTES.txt"),
+			}
+
+			err = utils.RunMultipleCommands(commands, true, true)
 			if err != nil {
 				return err
 			}
@@ -123,12 +128,10 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 			}
 
 			authDataBuilder := strings.Builder{}
-			authDataBuilder.WriteString("helm upgrade --install auth-data oci://registry-1.docker.io/bitnamicharts/postgresql")
+			authDataBuilder.WriteString("helm upgrade --install auth-data addons/oauth2/postgresql")
 			for _, c := range configs {
 				authDataBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
-
-			fmt.Println(oauthBuilder.String())
 
 			commands := []string{
 				oauthBuilder.String(),
@@ -168,45 +171,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 
 		}else{
 			// api or frontend
-			if err = utils.DownloadZip(types.BASECHART, resource.Name); err != nil {
-				return err
-			}
-			// var valuesYaml map[string]interface{}
-			// if resource.Type == "api"{
-			// 	// api
-			// 	valuesYaml = *utils.GetHelmChart(resource.DockerRepo, resource.Name, "ClusterIP", resource.Port, false, "", "/health", 3)
-			// }else{
-			// 	// frontend
-			// 	valuesYaml = *utils.GetHelmChart(resource.DockerRepo, resource.Name, "NodePort", resource.Port, true, resource.Opts["host-domain"], "/", 3)
-			// }
-
-			// env := valuesYaml["env"].([]interface{})
-			// for _, r := range utils.ManifestData.Resources {
-			// 	if r.Type == "database"{
-			// 		env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST_READ", r.Name), "value": r.ClusterHostRead})
-			// 	}
-			// 	env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", r.Name), "value": r.ClusterHost})
-			// }
-
-			// for _, a := range resource.Dependents{
-			// 	addon, _ := utils.GetAddonFromName(a)
-			// 	env = append(env, map[string]interface{}{"name": fmt.Sprintf("%sHOST", a), "value": addon.ClusterHost})
-			// }
-			// valuesYaml["env"] = env
-		
-			// envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))			
-			// if err == nil {
-			// 	secrets := valuesYaml["secrets"].([]interface{})
-			// 	for _,line := range envData {
-			// 		secrets = append(secrets, map[string]interface{}{"name": strings.Split(line, "=")[0], "value": strings.Split(line, "=")[1], "secretRef": fmt.Sprintf("%s-deploy-secret", resource.Name)})
-			// 	}
-			// 	valuesYaml["secrets"] = secrets
-			// }
-
-			// err = utils.WriteYaml(&valuesYaml, fmt.Sprintf("%s/deploy/values.yaml", resource.Name))
-			// if err != nil {
-			// 	return err
-			// }
+			cmds = append(cmds, fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", resource.Name))
 		}
 
 		cmds = append(cmds,fmt.Sprintf("echo 'connect using kubefs attach' > %s/deploy/templates/NOTES.txt", resource.Name))
