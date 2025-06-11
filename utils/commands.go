@@ -10,6 +10,46 @@ import (
 	"errors"
 )
 
+func RemoveHost(ipAddress string, domain string) error{
+	PrintWarning("Removing host entry from /etc/hosts file. This requires sudo permissions.")
+	
+	bin, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	cmd := exec.Command("sudo", bin, "remove", "host-entry", ipAddress, domain)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to run command with sudo: %w", err)
+	}
+	return nil
+}
+
+func AddHost(ipAddress string, domain string) error{
+	PrintWarning("Adding host entry to /etc/hosts file. This requires sudo permissions.")
+
+	bin, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	cmd := exec.Command("sudo", bin, "create", "host-entry", ipAddress, domain)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to run command with sudo: %w", err)
+	}
+	return nil
+	
+}
+
 func RunCommand(command string, withOutput bool, withError bool) error{
 	cmd := exec.Command("sh", "-c", command)
 	if withOutput {
