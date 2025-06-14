@@ -233,7 +233,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 					"--set livenessProbe.httpGet.path=/",
 					"--set service.type=NodePort",
 					"--set ingress.enabled=true",
-					"--set ingress.hosts[0]=" + resource.Opts["host-domain"],
+					"--set ingress.host=" + resource.Opts["host-domain"],
 				)
 			}
 
@@ -335,7 +335,7 @@ example:
 		}
 
 		if len(hosts) > 0 {
-			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v", hosts))
+			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v. 'minikube tunnel' first to access. ", hosts))
 		}
 	},
 }
@@ -431,7 +431,7 @@ example:
 		}
 
 		if len(hosts) > 0 {
-			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v", hosts))
+			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v. 'minikube tunnel' first to access. ", hosts))
 		}
 	},
 }
