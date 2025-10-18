@@ -5,6 +5,7 @@ Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"github.com/spf13/cobra"
@@ -22,6 +23,71 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
+	},
+}
+
+var gcpCmd = &cobra.Command{
+	Use:   "gcp",
+	Short: "Configure GCP settings",
+	Long:  `Configure GCP settings for kubefs
+example: 
+	kubefs config gcp --flags
+	`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// authenticate via gcloud cli
+
+		remove, err := cmd.Flags().GetBool("remove")
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err.Error()))
+			return
+		}
+
+		if remove {
+			// Revoke gcloud authentication
+			err := utils.RunCommand("gcloud auth application-default revoke", true, true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error revoking GCP authentication: %v", err.Error()))
+				return
+			}
+			utils.PrintSuccess("GCP authentication revoked successfully")
+		} else {
+			// Authenticate with GCP using gcloud CLI
+			err = utils.AuthenticateGCP()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error authenticating with GCP: %v", err.Error()))
+				return
+			}
+
+			// gather configuration details
+			var projectName string
+			ctx := context.Background()
+
+			err = utils.ReadInput("Enter GCP Project Name: ", &projectName)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading GCP Project Name: %v", err.Error()))
+				return
+			}
+			
+			// Verify project Name
+			err = utils.VerifyGCPProject(ctx, projectName)
+			if err != nil {
+				utils.PrintError(err.Error())
+				return
+			}
+
+			// err = utils.ReadInput("Enter GCP Region (e.g., us-central1): ", &region)
+			// if err != nil {
+			// 	utils.PrintError(fmt.Sprintf("Error reading GCP Region: %v", err.Error()))
+			// 	return
+			// }
+
+			// err = utils.ReadInput("Enter GKE Cluster Name: ", &clusterName)
+			// if err != nil {
+			// 	utils.PrintError(fmt.Sprintf("Error reading GKE Cluster Name: %v", err.Error()))
+			// 	return
+			// }
+			
+		}
 	},
 }
 
@@ -106,7 +172,10 @@ example:
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	configCmd.AddCommand(dockerCmd)
 	configCmd.AddCommand(listCmd)
+
+	configCmd.AddCommand(dockerCmd)
+	configCmd.AddCommand(gcpCmd)
+
 	configCmd.PersistentFlags().BoolP("remove", "r", false, "remove the associated configuration")
 }
