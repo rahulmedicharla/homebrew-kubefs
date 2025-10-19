@@ -178,6 +178,18 @@ func RemoveAddon(project *types.Project, name string) error {
     return WriteManifest(project, "manifest.yaml")
 }
 
+func RemoveCloudConfig(project *types.Project, provider string) error {
+    configList := []types.CloudConfig{}
+    
+    for i, config := range project.CloudConfig {
+        if config.Provider != provider {
+            configList = append(configList, project.CloudConfig[i])            
+        }
+    }
+    project.CloudConfig = configList
+    return WriteManifest(project, "manifest.yaml")
+}
+
 func ValidateProject() error{
     _, err := os.Stat("manifest.yaml")
     if os.IsNotExist(err) {

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zalando/go-keyring"
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/rahulmedicharla/kubefs/types"
 )
 
 // configCmd represents the config command
@@ -44,14 +45,26 @@ example:
 
 		if remove {
 			// Revoke gcloud authentication
-			err := utils.RunCommand("gcloud auth application-default revoke", true, true)
+			commands := []string{
+				"gcloud auth revoke",
+				"gcloud auth application-default revoke",
+			}
+
+			err = utils.RunMultipleCommands(commands, true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error revoking GCP authentication: %v", err.Error()))
 				return
 			}
+
+			err = utils.RemoveCloudConfig(&utils.ManifestData, "gcp")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing GCP configuration from manifest: %v", err.Error()))
+				return
+			}
+
 			utils.PrintSuccess("GCP authentication revoked successfully")
 		} else {
-			// Authenticate with GCP using gcloud CLI
+			// Authenticate and enable with GCP using gcloud CLI
 			err = utils.AuthenticateGCP()
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error authenticating with GCP: %v", err.Error()))
@@ -59,34 +72,44 @@ example:
 			}
 
 			// gather configuration details
-			var projectName string
+			var projectName, clusterName string
 			ctx := context.Background()
 
-			err = utils.ReadInput("Enter GCP Project Name: ", &projectName)
+			err = utils.ReadInput("Enter GCP Project Id: ", &projectName)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error reading GCP Project Name: %v", err.Error()))
+				utils.PrintError(fmt.Sprintf("Error reading GCP Project Id: %v", err.Error()))
 				return
 			}
 			
-			// Verify project Name
-			err = utils.VerifyGCPProject(ctx, projectName)
+			// Setup GCP
+			err, projectId := utils.SetupGcp(ctx, projectName)
 			if err != nil {
 				utils.PrintError(err.Error())
 				return
 			}
 
-			// err = utils.ReadInput("Enter GCP Region (e.g., us-central1): ", &region)
-			// if err != nil {
-			// 	utils.PrintError(fmt.Sprintf("Error reading GCP Region: %v", err.Error()))
-			// 	return
-			// }
-
-			// err = utils.ReadInput("Enter GKE Cluster Name: ", &clusterName)
-			// if err != nil {
-			// 	utils.PrintError(fmt.Sprintf("Error reading GKE Cluster Name: %v", err.Error()))
-			// 	return
-			// }
+			err = utils.ReadInput("Enter GKE Cluster Name: ", &clusterName)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading GKE Cluster Name: %v", err.Error()))
+				return
+			}
 			
+			// Save GCP configuration
+			cloudConfig := types.CloudConfig{
+				Provider: "gcp",
+				ProjectId: *projectId,
+				ClusterName: clusterName,
+			}
+			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
+			
+			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error saving GCP configuration to manifest: %v", err.Error()))
+				return
+			}
+
+			utils.PrintSuccess(fmt.Sprintf("GCP Project configured successfully: %s", projectName))
+		
 		}
 	},
 }
@@ -164,6 +187,14 @@ example:
 				fmt.Println("Password/PAT:", password)
 			}
 
+			fmt.Println()
+		}
+
+		fmt.Println("Cloud Configurations:")
+		for _, config := range utils.ManifestData.CloudConfig {
+			fmt.Printf("Provider: %s\n", config.Provider)
+			fmt.Printf("Project ID: %s\n", config.ProjectId)
+			fmt.Printf("Cluster Name: %s\n", config.ClusterName)
 			fmt.Println()
 		}
 	},

@@ -50,6 +50,7 @@ example:
 			Description: description,
 			Resources: []types.Resource{},
 			Addons: []types.Addon{},
+			CloudConfig: []types.CloudConfig{},
 		}
 	
 		err = utils.WriteManifest(&project, projectName + "/manifest.yaml")
