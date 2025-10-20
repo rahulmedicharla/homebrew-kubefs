@@ -7,8 +7,42 @@ import (
 	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	serviceusage "cloud.google.com/go/serviceusage/apiv1"
 	serviceusagepb "cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
+	// container "cloud.google.com/go/container/apiv1"
+	// containerpb "cloud.google.com/go/container/apiv1/containerpb"
+	compute "cloud.google.com/go/compute/apiv1"
+	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"google.golang.org/api/iterator"
 )
+
+func VerifyGcpProject() (error, *string) {
+	//
+	// Verify if the user is authenticated with GCP using gcloud CLI
+	//
+
+	if ManifestData.CloudConfig != nil {
+		for _, config := range ManifestData.CloudConfig {
+			if config.Provider == "gcp" {
+				projectId := config.ProjectId
+				return nil, &projectId
+			}
+		}
+	}
+
+	return fmt.Errorf("not authenticated with GCP: use 'kubefs config gcp' to authenticate"), nil
+}
+
+// func GetOrCreateGCPCluster(ctx context.Context, projectName string) error {
+// 	c, err := container.NewClusterManagerClient(ctx)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to create cluster manager client: %v", err)
+// 	}
+// 	defer c.Close()
+
+// 	req := &containerpb.ListClustersRequest{
+// 		// TODO: Fill request struct fields.
+// 		// See https://pkg.go.dev/cloud.google.com/go/container/apiv1/containerpb#ListClustersRequest.
+// 	}
+// 	resp, err := c.ListClusters(ctx, req)
 
 func AuthenticateGCP() error {
 	commands:= []string{
@@ -94,7 +128,43 @@ func EnableGcpServices(ctx context.Context, projectName string, services []strin
 	return nil
 }
 
-func SetupGcp(ctx context.Context, projectName string) (error, *string) {
+func VerifyRegion(ctx context.Context, projectId *string, region string) error {
+	//
+	// Verify if the given region is valid in GCP
+	//
+
+	client, err := compute.NewRegionsRESTClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create regions client: %v", err)
+	}
+	defer client.Close()
+
+	req := &computepb.ListRegionsRequest{
+		Project: *projectId,
+	}
+
+	it := client.List(ctx, req)
+	regions := []string{}
+	for {
+		r, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to list regions: %v", err)
+		}
+
+		regions = append(regions, r.GetName())
+
+		if r.GetName() == region {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("region %s not found in GCP. Available regions: %v", region, regions)
+}
+
+func SetupGcp(ctx context.Context, projectName string) (error, *string, *string, *string) {
 	//
 	// Setup GCP project by verifying project existence or creating new project
 	//
@@ -102,7 +172,7 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string) {
 	// Verify project exists
 	err, projectId := SearchGcpProjects(ctx, projectName)
 	if err != nil {
-		return fmt.Errorf("error verifying GCP project: %v", err), nil
+		return fmt.Errorf("error verifying GCP project: %v", err), nil, nil, nil
 	}
 	PrintSuccess(fmt.Sprintf("Found GCP Project: %s", projectName))
 
@@ -116,8 +186,25 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string) {
 
 	err = EnableGcpServices(ctx, *projectId, services)
 	if err != nil {
-		return fmt.Errorf("error enabling GCP services: %v", err), nil
+		return fmt.Errorf("error enabling GCP services: %v", err), nil, nil, nil
 	}
 
-	return nil, projectId
+	var clusterName, region string
+
+	err = ReadInput("Enter GKE Cluster Name: ", &clusterName)
+	if err != nil {
+		return fmt.Errorf("error reading GKE Cluster Name: %v", err), nil, nil, nil
+	}
+
+	err = ReadInput("Enter GKE Cluster Region: ", &region)
+	if err != nil {
+		return fmt.Errorf("error reading GKE Cluster Region: %v", err), nil, nil, nil
+	}
+
+	err = VerifyRegion(ctx, projectId, region)
+	if err != nil {
+		return fmt.Errorf("error verifying GKE Cluster Region: %v", err), nil, nil, nil
+	}
+
+	return nil, projectId, &clusterName, &region
 }

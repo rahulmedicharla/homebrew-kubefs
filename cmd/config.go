@@ -72,7 +72,7 @@ example:
 			}
 
 			// gather configuration details
-			var projectName, clusterName string
+			var projectName string
 			ctx := context.Background()
 
 			err = utils.ReadInput("Enter GCP Project Id: ", &projectName)
@@ -82,15 +82,9 @@ example:
 			}
 			
 			// Setup GCP
-			err, projectId := utils.SetupGcp(ctx, projectName)
+			err, projectId, clusterName, region := utils.SetupGcp(ctx, projectName)
 			if err != nil {
 				utils.PrintError(err.Error())
-				return
-			}
-
-			err = utils.ReadInput("Enter GKE Cluster Name: ", &clusterName)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error reading GKE Cluster Name: %v", err.Error()))
 				return
 			}
 			
@@ -98,7 +92,8 @@ example:
 			cloudConfig := types.CloudConfig{
 				Provider: "gcp",
 				ProjectId: *projectId,
-				ClusterName: clusterName,
+				ClusterName: *clusterName,
+				Region: *region,
 			}
 			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
 			
