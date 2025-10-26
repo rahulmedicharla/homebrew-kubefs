@@ -23,12 +23,17 @@ func GetMinikubeContext(config *types.CloudConfig) error {
 }
 
 func GetMinikubeCluster(config *types.CloudConfig) error {
-	err := RunCommand(fmt.Sprintf("minikube start -p %s", config.ClusterName), true, true)
+	err := GetMinikubeContext(config)	
 	if err != nil {
-		return fmt.Errorf("failed to start minikube cluster %v", err.Error())
+		startErr := RunCommand(fmt.Sprintf("minikube start -p %s", config.ClusterName), true, true)
+		if startErr != nil {
+			return fmt.Errorf("failed to start minikube cluster %v", err.Error())
+		}
+		return GetMinikubeContext(config)
 	}
 
-	return GetMinikubeContext(config)
+	return nil
+
 }
 
 func DeleteMinikubeCluster(config *types.CloudConfig) error {

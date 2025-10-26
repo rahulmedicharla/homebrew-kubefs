@@ -63,14 +63,9 @@ example:
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Running command %s", upLocalCmd.String()))
-		if resource.Type == "frontend" {
-			utils.PrintSuccess(fmt.Sprintf("Resource %s is running locally", name))
-			utils.PrintSuccess(fmt.Sprintf("You can access it at http://%s:%d", resource.Opts["host-domain"], resource.Port))
-		} else {
-			utils.PrintSuccess(fmt.Sprintf("Resource %s is running locally", name))
-		}
-		_ = utils.RunCommand(upLocalCmd.String(), true, true)
+		utils.PrintSuccess(fmt.Sprintf("Resource %s is running locally", name))
 
+		utils.RunCommand(upLocalCmd.String(), true, true)
 	},
 }
 

@@ -28,18 +28,18 @@ example:
 
 var rawCompose = map[string]interface{}{
 	"services": map[string]interface{}{
-		"nginx-proxy": map[string]interface{}{
-			"image": "nginxproxy/nginx-proxy",
-			"ports": []string{
-				"80:80",
-			},
-			"volumes": []string{
-				"/var/run/docker.sock:/tmp/docker.sock:ro",
-			},
-			"networks": []string{
-				"shared_network",
-			},
-		},
+		// "nginx-proxy": map[string]interface{}{
+		// 	"image": "nginxproxy/nginx-proxy",
+		// 	"ports": []string{
+		// 		"80:80",
+		// 	},
+		// 	"volumes": []string{
+		// 		"/var/run/docker.sock:/tmp/docker.sock:ro",
+		// 	},
+		// 	"networks": []string{
+		// 		"shared_network",
+		// 	},
+		// },
 	},
 	"networks": map[string]interface{}{
 		"shared_network": map[string]string{
@@ -115,6 +115,7 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 
 	service := map[string]interface{}{
 		"image": resource.DockerRepo,
+		"ports": []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)},
 		"networks": []string{
 			"shared_network",
 		},
@@ -128,18 +129,7 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 				service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST_READ=%s", r.Name, r.DockerHost))	
 			}
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
-		}
-		
-		if resource.Type == "frontend" {
-			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("VIRTUAL_HOST=%s", resource.Opts["host-domain"]))
-			service["expose"] = []string{
-				fmt.Sprintf("%v", resource.Port),
-			}
-		}else{
-			service["ports"] = []string{
-				fmt.Sprintf("%v:%v", resource.Port, resource.Port),
-			}
-		}
+		}	
 		
 		for _, a := range resource.Dependents{
 			addon, _ := utils.GetAddonFromName(a)
@@ -156,14 +146,12 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 	}else{
 		if resource.Framework == "redis" {
 			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.Opts["password"]), fmt.Sprintf("REDIS_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("REDIS_DATABASE=%s", resource.Opts["default-database"])}
-			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
 			service["volumes"] = []string{"redis_data:/bitnami/redis/data"}
 			(*rawCompose)["volumes"].(map[string]interface{})["redis_data"] = map[string]string{
 				"driver": "local",
 			}
 		}else{
 			service["environment"] = []string{fmt.Sprintf("POSTGRESQL_PASSWORD=%s", resource.Opts["password"]), fmt.Sprintf("POSTGRESQL_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("POSTGRESQL_DATABASE=%s", resource.Opts["default-database"]), fmt.Sprintf("POSTGRESQL_USERNAME=%s", resource.Opts["user"])}
-			service["ports"] = []string{fmt.Sprintf("%v:%v", resource.Port, resource.Port)}
 			service["volumes"] = []string{"postgresql_data:/bitnami/postgresql"}
 			(*rawCompose)["volumes"].(map[string]interface{})["postgresql_data"] = map[string]string{
 				"driver": "local",

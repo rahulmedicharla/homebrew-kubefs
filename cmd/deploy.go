@@ -349,7 +349,6 @@ example:
 
 		var errors []string
 		var successes []string
-		var hosts []string
 
         utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
 
@@ -362,9 +361,6 @@ example:
 			}
 
 			successes = append(successes, resource.Name)
-			if resource.Type == "frontend" {
-				hosts = append(hosts, resource.Opts["host-domain"])
-			}
         }
 
 		for _, addon := range utils.ManifestData.Addons {
@@ -383,10 +379,6 @@ example:
 
 		if len(successes) > 0 {
 			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
-		}
-
-		if len(hosts) > 0 {
-			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v. 'minikube tunnel' first to access. ", hosts))
 		}
 	},
 }
@@ -429,7 +421,6 @@ example:
 
 		var successes []string
 		var errors []string
-		var hosts []string
 
 		utils.PrintWarning(fmt.Sprintf("Deploying resource %v to %s", args, target))
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
@@ -452,10 +443,6 @@ example:
 			}
 
 			successes = append(successes, name)
-			if resource.Type == "frontend" {
-				hosts = append(hosts, resource.Opts["host-domain"])
-			}
-
 		}
 
 		for _, addon := range addonList {
@@ -486,10 +473,6 @@ example:
 
 		if len(successes) > 0 {
 			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
-		}
-
-		if len(hosts) > 0 {
-			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v. 'minikube tunnel' first to access. ", hosts))
 		}
 	},
 }
