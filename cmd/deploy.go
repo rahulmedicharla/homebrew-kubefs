@@ -36,7 +36,7 @@ func deployToTarget(target string, commands []string) error {
 	}
 
 	if target == "minikube" {
-		// update context
+		// update context & start cluster
 		err := utils.GetMinikubeCluster(config)
 		if err != nil {
 			return err
@@ -53,7 +53,7 @@ func deployToTarget(target string, commands []string) error {
 		}
 
 		// get kubeconfig for cluster
-		err = utils.RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", config.ClusterName, config.Region), true, true)
+		err = utils.GetGCPClusterContext(config)
 		if err != nil {
 			return err
 		}

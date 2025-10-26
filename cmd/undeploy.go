@@ -61,7 +61,7 @@ func undeployFromTarget(target string, commands []string) error {
 		return utils.RunMultipleCommands(commands, true, true)
 	}else if target == "gcp" {
 		// get kubeconfig for cluster
-		err = utils.RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", config.ClusterName, config.Region), true, true)
+		err = utils.GetGCPClusterContext(config)
 		if err != nil {
 			return err
 		}

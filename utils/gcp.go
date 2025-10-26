@@ -15,6 +15,11 @@ import (
 	"google.golang.org/api/iterator"
 	"github.com/rahulmedicharla/kubefs/types"
 )
+
+func GetGCPClusterContext(gcpConfig *types.CloudConfig) error {
+	return RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", gcpConfig.ClusterName, gcpConfig.Region), true, true)
+}
+
 func DeleteGCPCluster(gcpConfig *types.CloudConfig) error {
 	ctx := context.Background()
 	client, err := container.NewClusterManagerClient(ctx)

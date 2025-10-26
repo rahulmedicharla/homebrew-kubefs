@@ -42,6 +42,24 @@ example:
 			command = resource.AttachCommand["docker"]
 		}
 
+		// get target
+		target, _ := cmd.Flags().GetString("target")
+		err, config := utils.VerifyCloudConfig(target)
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error verifying target %s configuration", target))
+		}
+
+		// update context
+		if target == "minikube" {
+			err = utils.UpdateMinikubeContext(config)
+		}else if target == "gcp" {
+			err = utils.GetGCPClusterContext(config)
+		}
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("failed to switch to %s cluster context: %v", target,  err))
+		}
+
+
 		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", resource.Name))
 		err = utils.RunCommand(command, true, true)
 		if err != nil {
@@ -54,4 +72,5 @@ example:
 func init() {
 	rootCmd.AddCommand(attachCmd)
 	attachCmd.PersistentFlags().BoolP("attach-in-kubernetes", "k", false, "Attach to a kubernetes pod")
+	attachCmd.PersistentFlags().StringP("target", "t", "minikube", "target environment to attach to ['minikube', 'gcp']")
 }
