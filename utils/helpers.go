@@ -251,12 +251,20 @@ func VerifyFramework(framework string, rType string) error {
 }
 
 func VerifyTarget(target string) error {
-	if target != "local" && target != "gcp" {
-		return fmt.Errorf("invalid target environment: %s. Supported targets are '', 'local', and 'gcp'", target)
+	if target != "minikube" && target != "gcp" {
+		return fmt.Errorf("invalid target environment: %s. Supported targets are 'minikube', and 'gcp'", target)
 	}
 	return nil
 }
 
+func VerifyCloudConfig(provider string) (error, *types.CloudConfig) {
+	for _, config := range ManifestData.CloudConfig {
+		if config.Provider == provider {
+			return nil, &config
+		}
+	}
+	return errors.New(fmt.Sprintf("Cloud configuration for provider %s not found", provider)), nil
+}
 
 func GetCurrentResourceNames() []string {
     var names []string

@@ -38,9 +38,9 @@ type Addon struct {
 
 type CloudConfig struct {
 	Provider string `yaml:"provider"`
-	ProjectId string `yaml:"project_id"`
-	ProjectName string `yaml:"project_name"`
-	Region string `yaml:"region"`
+	ProjectId string `yaml:"project_id", omitempty`
+	ProjectName string `yaml:"project_name", omitempty`
+	Region string `yaml:"region", omitempty`
 	ClusterName string `yaml:"cluster_name",omitempty`
 }
 

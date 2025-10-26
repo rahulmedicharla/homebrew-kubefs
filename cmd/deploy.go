@@ -29,31 +29,31 @@ example:
 }
 
 func deployToTarget(target string, commands []string) error {
-	if target == "local" {
+	// verify target
+	err, config := utils.VerifyCloudConfig(target)
+	if err != nil {
+		return err
+	}
+
+	if target == "minikube" {
 		// update context
-		err := utils.RunCommand("kubectl config use-context minikube", true, true)
+		err := utils.GetMinikubeCluster(config)
 		if err != nil {
-			return fmt.Errorf("failed to switch to local cluster context: %v", err)
+			return err
 		}
 
 		return utils.RunMultipleCommands(commands, true, true)
 	} else if target == "gcp" {
 		ctx := context.Background()
 
-		// Verify GCP project
-		err, gcpConfig := utils.VerifyGcpProject()
-		if err != nil {
-			return err
-		}
-
 		// get cluster or create new cluster exists in GCP
-		err = utils.GetOrCreateGCPCluster(ctx, gcpConfig)
+		err = utils.GetOrCreateGCPCluster(ctx, config)
 		if err != nil {
 			return err 
 		}
 
 		// get kubeconfig for cluster
-		err = utils.RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", gcpConfig.ClusterName, gcpConfig.Region), true, true)
+		err = utils.RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", config.ClusterName, config.Region), true, true)
 		if err != nil {
 			return err
 		}
@@ -564,7 +564,7 @@ func init() {
 	deployCmd.AddCommand(deployResourceCmd)
 	deployCmd.AddCommand(deployAddonCmd)
 
-	deployCmd.PersistentFlags().StringP("target", "t", "local", "target environment to deploy to ['local', 'gcp']")
+	deployCmd.PersistentFlags().StringP("target", "t", "minikube", "target environment to deploy to ['minikube', 'gcp']")
 	
 	deployCmd.PersistentFlags().BoolP("only-helmify", "w", false, "only helmify the resources")
 	deployCmd.PersistentFlags().BoolP("only-deploy", "d", false, "only deploy the resources")

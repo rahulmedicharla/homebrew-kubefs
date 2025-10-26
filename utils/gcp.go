@@ -15,23 +15,6 @@ import (
 	"google.golang.org/api/iterator"
 	"github.com/rahulmedicharla/kubefs/types"
 )
-
-func VerifyGcpProject() (error, *types.CloudConfig) {
-	//
-	// Verify the project is setup
-	// 
-
-	if ManifestData.CloudConfig != nil {
-		for _, config := range ManifestData.CloudConfig {
-			if config.Provider == "gcp" {
-				return nil, &config
-			}
-		}
-	}
-
-	return fmt.Errorf("GCP project not setup. Please run 'kubefs config gcp' to setup GCP project."), nil
-}
-
 func DeleteGCPCluster(gcpConfig *types.CloudConfig) error {
 	ctx := context.Background()
 	client, err := container.NewClusterManagerClient(ctx)

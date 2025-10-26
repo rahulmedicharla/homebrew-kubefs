@@ -35,7 +35,6 @@ example:
 	kubefs config gcp --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// authenticate via gcloud cli
 
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
@@ -44,6 +43,29 @@ example:
 		}
 
 		if remove {
+			var deleteCluster bool
+			err = utils.ReadInput("Would you like to delete the existing clusters? [y/n]: ", &deleteCluster)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading input %v", err.Error()))
+				return 
+			}
+
+			if deleteCluster {
+				err, config := utils.VerifyCloudConfig("gcp")
+				if err != nil {
+					utils.PrintError(err.Error())
+					return
+				}
+
+				utils.PrintWarning(fmt.Sprintf("Deleting GCP cluster %s...", config.ClusterName))
+
+				err = utils.DeleteGCPCluster(config)
+				if err != nil {
+					utils.PrintError(err.Error())
+					return
+				}
+			}
+
 			// Revoke gcloud authentication
 			err = utils.RunCommand("gcloud auth revoke", true, true)
 			if err != nil {
@@ -93,7 +115,7 @@ example:
 				Region: *region,
 			}
 
-			err, _ = utils.VerifyGcpProject()
+			err, _ = utils.VerifyCloudConfig("gcp")
 			if err == nil {
 				// Update existing config
 				err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)
@@ -116,6 +138,102 @@ example:
 
 			utils.PrintSuccess(fmt.Sprintf("GCP Project configured successfully: %s", projectName))
 		
+		}
+	},
+}
+
+var minikubeCmd = &cobra.Command{
+	Use:   "minikube",
+	Short: "Configure Minikube settings",
+	Long:  `Configure Minikube settings for kubefs
+example: 
+	kubefs config minikube --flags
+	`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+		remove, err := cmd.Flags().GetBool("remove")
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err.Error()))
+			return
+		}
+
+		if remove {
+			var deleteCluster bool
+			err = utils.ReadInput("Would you like to delete the existing clusters? [y/n]: ", &deleteCluster)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading input %v", err.Error()))
+				return 
+			}
+
+			if deleteCluster {
+				err, config := utils.VerifyCloudConfig("minikube")
+				if err != nil {
+					utils.PrintError(err.Error())
+					return
+				}
+
+				utils.PrintWarning(fmt.Sprintf("Deleting Minikube cluster %s...", config.ClusterName))
+
+				err = utils.DeleteMinikubeCluster(config)
+				if err != nil {
+					utils.PrintError(err.Error())
+					return
+				}
+			}
+
+			// remove minikube configuration
+			err = utils.RemoveCloudConfig(&utils.ManifestData, "minikube")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing Minikube configuration from manifest: %v", err.Error()))
+				return
+			}
+
+			utils.PrintSuccess("Minikube configuration removed successfully")
+		} else {
+			// gather configuration details
+			var clusterName string
+			err = utils.ReadInput("Enter Minikube ClusterName/Profile Name: ", &clusterName)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading Minikube ClusterName/Profile Name: %v", err.Error()))
+				return
+			}
+			
+			// Setup minikube
+			err := utils.SetupMinikube(clusterName)
+			if err != nil {
+				utils.PrintError(err.Error())
+				return
+			}
+			
+			// Save minikube configuration
+			cloudConfig := types.CloudConfig{
+				Provider: "minikube",
+				ClusterName: clusterName,
+			}
+
+			err, _ = utils.VerifyCloudConfig("minikube")
+			if err == nil {
+				// Update existing config
+				err = utils.UpdateCloudConfig(&utils.ManifestData, "minikube", &cloudConfig)
+				if err != nil {
+					utils.PrintError(fmt.Sprintf("Error updating Minikube configuration to manifest: %v", err.Error()))
+					return
+				}
+
+				utils.PrintSuccess(fmt.Sprintf("Minikube Cluster updated successfully: %s", clusterName))
+				return
+			}
+
+			// Add new config
+			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
+			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error saving Minikube configuration to manifest: %v", err.Error()))
+				return
+			}
+
+			utils.PrintSuccess(fmt.Sprintf("Minikube configured successfully: %s", clusterName))
+
 		}
 	},
 }
@@ -209,9 +327,10 @@ example:
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	configCmd.AddCommand(listCmd)
 
+	configCmd.AddCommand(listCmd)
 	configCmd.AddCommand(dockerCmd)
+	configCmd.AddCommand(minikubeCmd)
 	configCmd.AddCommand(gcpCmd)
 
 	configCmd.PersistentFlags().BoolP("remove", "r", false, "remove the associated configuration")
