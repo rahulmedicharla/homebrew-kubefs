@@ -12,7 +12,6 @@ import (
 	"github.com/zalando/go-keyring"
 	"strings"
 	"errors"
-	"github.com/goodhosts/hostsfile"
 )
 
 // createCmd represents the create command
@@ -107,45 +106,6 @@ func createDockerRepo(name string) (string, error) {
 	}
 
 	return fmt.Sprintf("%s/%s", username, name), nil
-}
-
-var createHostEntry = &cobra.Command{
-	Use:   "host-entry [ip-address] [host-domain]",
-	Short: "kubefs create host-entry - add new host entry to the hosts file",
-	Long: `kubefs create host-entry - add new host entry to the hosts file
-example: 
-	kubefs create host-entry <ip-address> <host-domain>,
-	`,
-	Hidden: true,
-	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil{
-			utils.PrintError(utils.ManifestStatus.Error())
-			return
-		}
-		
-		ipAddress := args[0]
-		hostDomain := args[1]
-
-		hosts, err := hostsfile.NewHosts()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating hosts file. %v", err.Error()))
-			return
-		}
-
-		err = hosts.Add(ipAddress, hostDomain)
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error adding host entry. %v", err.Error()))
-			return
-		}
-
-		err = hosts.Flush()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error flushing hosts file. %v", err.Error()))
-			return
-		}
-		utils.PrintSuccess(fmt.Sprintf("Successfully added host entry %s -> %s", hostDomain, ipAddress))
-
-	},
 }
 
 var createApiCmd = &cobra.Command{
@@ -253,13 +213,6 @@ example:
 		err := utils.ReadInput("Enter the host domain the ingresss should accept: ", &hostDomain)
 		if err != nil {
 			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
-			return
-		}
-
-		// add hostDomain to host file
-		err = utils.AddHost("127.0.0.1", hostDomain)
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error adding host to host file. %v", err.Error()))
 			return
 		}
 
@@ -462,8 +415,6 @@ func init() {
 	createApiCmd.Flags().StringP("framework", "f", "fast", "Framework to use for API [fast | nest | gin]")
 	createFrontendCmd.Flags().StringP("framework", "f", "next", "Framework to use for Frontend [next | remix | sveltekit]")
 	createDbCmd.Flags().StringP("framework", "f", "postgresql", "Type of database to use [postgresql | redis]")
-
-	createCmd.AddCommand(createHostEntry)
 
 	createCmd.PersistentFlags().IntP("port", "p", 3000, "Specific port to be used")
 }

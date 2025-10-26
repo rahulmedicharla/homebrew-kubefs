@@ -66,7 +66,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) erro
 			}
 		}
 
-		commands = append(commands, fmt.Sprintf("cd %s && docker build -t %s:latest .", resource.Name, resource.DockerRepo))
+		commands = append(commands, fmt.Sprintf("cd %s && docker buildx build --platform=linux/amd64,linux/arm64 -t %s:latest .", resource.Name, resource.DockerRepo))
 
 		err := utils.RunMultipleCommands(commands, true, true)
 		if err != nil {

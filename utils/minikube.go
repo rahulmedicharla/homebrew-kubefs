@@ -18,7 +18,7 @@ func SetupMinikube(clusterName string) error {
 	return RunMultipleCommands(commands, true, true)
 }
 
-func UpdateMinikubeContext(config *types.CloudConfig) error {
+func GetMinikubeContext(config *types.CloudConfig) error {
 	return RunCommand(fmt.Sprintf("minikube profile %s", config.ClusterName), true, true)
 }
 
@@ -28,7 +28,7 @@ func GetMinikubeCluster(config *types.CloudConfig) error {
 		return fmt.Errorf("failed to start minikube cluster %v", err.Error())
 	}
 
-	return UpdateMinikubeContext(config)
+	return GetMinikubeContext(config)
 }
 
 func DeleteMinikubeCluster(config *types.CloudConfig) error {
