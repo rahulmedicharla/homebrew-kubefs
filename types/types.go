@@ -48,12 +48,6 @@ type ApiResponse struct {
 	Token string `json:"token",omitempty`
 	Detail string `json:"detail",omitempty`
 }
-
-const (
-	ERROR = 0
-	SUCCESS = 1
-)
-
 const (
 	DOCKER_LOGIN_ENDPOINT = "https://hub.docker.com/v2/users/login/"
 	DOCKER_REPO_ENDPOINT = "https://hub.docker.com/v2/repositories/"

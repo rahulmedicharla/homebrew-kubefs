@@ -52,7 +52,7 @@ func undeployFromTarget(target string, commands []string) error {
 
 	if target == "minikube" {
 		// update context
-		err := utils.UpdateMinikubeContext(config)
+		err := utils.GetMinikubeContext(config)
 		if err != nil {
 			return fmt.Errorf("failed to switch to local cluster context: %v", err)
 		}
@@ -60,17 +60,14 @@ func undeployFromTarget(target string, commands []string) error {
 		// run commands
 		return utils.RunMultipleCommands(commands, true, true)
 	}else if target == "gcp" {
-		// get kubeconfig for cluster
+		// get context
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {
 			return err
 		}
 
 		// deploy specified commands to GCP cluster
-		err = utils.RunMultipleCommands(commands, true, true)
-		if err != nil {
-			return err
-		}
+		return utils.RunMultipleCommands(commands, true, true)
 	}
 
 	return nil

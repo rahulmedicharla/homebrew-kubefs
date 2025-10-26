@@ -51,14 +51,13 @@ example:
 
 		// update context
 		if target == "minikube" {
-			err = utils.UpdateMinikubeContext(config)
+			err = utils.GetMinikubeContext(config)
 		}else if target == "gcp" {
 			err = utils.GetGCPClusterContext(config)
 		}
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("failed to switch to %s cluster context: %v", target,  err))
+			utils.PrintError(fmt.Sprintf("failed to switch to %s cluster context: %v", target, err))
 		}
-
 
 		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", resource.Name))
 		err = utils.RunCommand(command, true, true)
