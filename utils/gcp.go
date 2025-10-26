@@ -18,8 +18,8 @@ import (
 
 func VerifyGcpProject() (error, *types.CloudConfig) {
 	//
-	// Verify if the user is authenticated with GCP using gcloud CLI
-	//
+	// Verify the project is setup
+	// 
 
 	if ManifestData.CloudConfig != nil {
 		for _, config := range ManifestData.CloudConfig {
@@ -30,6 +30,46 @@ func VerifyGcpProject() (error, *types.CloudConfig) {
 	}
 
 	return fmt.Errorf("GCP project not setup. Please run 'kubefs config gcp' to setup GCP project."), nil
+}
+
+func DeleteGCPCluster(gcpConfig *types.CloudConfig) error {
+	ctx := context.Background()
+	client, err := container.NewClusterManagerClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create cluster manager client: %v", err)
+	}
+	defer client.Close()
+
+	req := &containerpb.DeleteClusterRequest{
+		Name: fmt.Sprintf("%s/locations/%s/clusters/%s", gcpConfig.ProjectId, gcpConfig.Region, gcpConfig.ClusterName),
+	}
+
+	operation, err := client.DeleteCluster(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster: %v", err)
+	}
+
+	operationId := operation.GetName()
+
+	for operation.GetStatus() != containerpb.Operation_DONE {
+		if operation.GetStatus() == containerpb.Operation_ABORTING {
+			return fmt.Errorf("failed to delete cluster: operation aborted")
+		}
+		PrintWarning(fmt.Sprintf("Waiting for GKE cluster deletion to complete... %s", operation.GetStatus().String()))
+		time.Sleep(10 * time.Second)
+
+		getOperationReq := &containerpb.GetOperationRequest{
+			Name: fmt.Sprintf("%s/locations/%s/operations/%s", gcpConfig.ProjectId, gcpConfig.Region, operationId),
+		}
+		operation, err = client.GetOperation(ctx, getOperationReq)
+		if err != nil {
+			return fmt.Errorf("failed to get operation status: %v", err)
+		}
+	}
+
+	PrintSuccess(fmt.Sprintf("GKE Cluster %s deleted successfully from GCP", gcpConfig.ClusterName))
+
+	return nil
 }
 
 func GetOrCreateGCPCluster(ctx context.Context, gcpConfig *types.CloudConfig) error {
@@ -74,14 +114,26 @@ func GetOrCreateGCPCluster(ctx context.Context, gcpConfig *types.CloudConfig) er
 		return fmt.Errorf("failed to create cluster: %v", err)
 	}
 
-	progress := operation.GetProgress()
-	for progress.GetStatus() != containerpb.Operation_DONE {
-		if progress.GetStatus() == containerpb.Operation_ABORTING {
+	operationId := operation.GetName()
+
+	for operation.GetStatus() != containerpb.Operation_DONE {
+		// Check for aborting status
+		if operation.GetStatus() == containerpb.Operation_ABORTING {
 			return fmt.Errorf("failed to create cluster: operation aborted")
 		}
-		PrintWarning(fmt.Sprintf("Waiting for GKE cluster creation to complete... %s", progress.GetStatus().String()))
+
+		// Print progress status
+		PrintWarning(fmt.Sprintf("Waiting for GKE cluster creation to complete... %s", operation.GetStatus().String()))
 		time.Sleep(10 * time.Second)
-		progress = operation.GetProgress()
+
+		// Get updated operation status
+		getOperationReq := &containerpb.GetOperationRequest{
+			Name: fmt.Sprintf("%s/locations/%s/operations/%s", gcpConfig.ProjectId, gcpConfig.Region, operationId),
+		}
+		operation, err = c.GetOperation(ctx, getOperationReq)
+		if err != nil {
+			return fmt.Errorf("failed to get operation status: %v", err)
+		}
 	}
 
 	PrintSuccess(fmt.Sprintf("GKE Cluster %s created successfully in GCP", gcpConfig.ClusterName))

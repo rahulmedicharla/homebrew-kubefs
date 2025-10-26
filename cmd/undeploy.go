@@ -26,22 +26,39 @@ example:
 	},
 }
 
-func closeOrPauseCluster(closeCluster bool, pauseCluster bool, target string) error {
+func deleteOrPauseCluster(deleteCluster bool, pauseCluster bool, target string) error {
 	if target == "local" {
-		if closeCluster {
+		if pauseCluster {
 			err := utils.RunCommand("minikube stop", true, true)
 			if err != nil {
 				return fmt.Errorf("failed to stop local cluster: %v", err)
 			}
 		}
-		if pauseCluster {
-			err := utils.RunCommand("minikube pause", true, true)
+
+		if deleteCluster {
+			err := utils.RunCommand("minikube delete", true, true)
 			if err != nil {
-				return fmt.Errorf("failed to pause local cluster: %v", err)
+				return fmt.Errorf("failed to delete local cluster: %v", err)
 			}
 		}
+
 	} else if target == "gcp" {
-		return fmt.Errorf("close and pause operations are not supported for GCP autopilot clusters. Please manually delet the cluster")
+		if deleteCluster {
+			err, gcpConfig := utils.VerifyGcpProject()
+			if err != nil {
+				return err
+			}
+			
+			err = utils.DeleteGCPCluster(gcpConfig)
+			if err != nil {
+				return fmt.Errorf("failed to delete GCP cluster: %v", err)
+			}
+		}
+
+		if pauseCluster {
+			utils.PrintWarning(fmt.Sprintf("Pause operation is not supported for target %s", target))
+		}
+		
 	}
 	return nil
 }
@@ -127,8 +144,8 @@ example:
 			return
 		}
 		
-		var closeCluster, pauseCluster bool
-		closeCluster, _ = cmd.Flags().GetBool("close")
+		var deleteCluster, pauseCluster bool
+		deleteCluster, _ = cmd.Flags().GetBool("delete")
 		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		target, _ := cmd.Flags().GetString("target")
 
@@ -138,8 +155,7 @@ example:
 			return
 		}
 
-        utils.PrintWarning("Undeploying all resources")
-		utils.PrintWarning("Undeploying all addons")
+		utils.PrintWarning(fmt.Sprintf("Undeploying all resources & addons from %s", target))
 
 		var errors []string
 		var successes []string
@@ -172,7 +188,7 @@ example:
 			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 
-		err = closeOrPauseCluster(closeCluster, pauseCluster, target)
+		err = deleteOrPauseCluster(deleteCluster, pauseCluster, target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -199,8 +215,8 @@ example:
 			return
 		}
 
-		var closeCluster, pauseCluster bool
-		closeCluster, _ = cmd.Flags().GetBool("close")
+		var deleteCluster, pauseCluster bool
+		deleteCluster, _ = cmd.Flags().GetBool("delete")
 		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		target, _ := cmd.Flags().GetString("target")
 
@@ -219,8 +235,8 @@ example:
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning(fmt.Sprintf("Undeploying resource %v", args))
-		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v", addonList))
+        utils.PrintWarning(fmt.Sprintf("Undeploying resource %v from %s", args, target))
+		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
 			resource, err := utils.GetResourceFromName(name)
@@ -264,7 +280,7 @@ example:
 			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 
-		err = closeOrPauseCluster(closeCluster, pauseCluster, target)
+		err = deleteOrPauseCluster(deleteCluster, pauseCluster, target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -291,8 +307,8 @@ example:
 			return
 		}
 
-		var closeCluster, pauseCluster bool
-		closeCluster, _ = cmd.Flags().GetBool("close")
+		var deleteCluster, pauseCluster bool
+		deleteCluster, _ = cmd.Flags().GetBool("delete")
 		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		target, _ := cmd.Flags().GetString("target")
 
@@ -305,7 +321,7 @@ example:
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v", args))
+		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v from %s", args, target))
 
 		for _, name := range args {
 			addon, err := utils.GetAddonFromName(name)
@@ -332,7 +348,7 @@ example:
 			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 
-		err = closeOrPauseCluster(closeCluster, pauseCluster, target)
+		err = deleteOrPauseCluster(deleteCluster, pauseCluster, target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -349,7 +365,7 @@ func init() {
 
 	undeployCmd.PersistentFlags().StringP("target", "t", "local", "target cluster to undeploy the resources from ['local', 'gcp']")
 
-	undeployCmd.PersistentFlags().BoolP("close", "c", false, "Stop the cluster after undeploying the resources")
+	undeployCmd.PersistentFlags().BoolP("delete", "d", false, "Delete the cluster after undeploying the resources")
 	undeployCmd.PersistentFlags().BoolP("pause", "p", false, "Pause the cluster after undeploying the resources")
 
 	undeployResourceCmd.Flags().StringP("with-addons", "a", "", "include addons in the undeploy")

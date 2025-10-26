@@ -30,11 +30,17 @@ example:
 
 func deployToTarget(target string, commands []string) error {
 	if target == "local" {
+		// update context
+		err := utils.RunCommand("kubectl config use-context minikube", true, true)
+		if err != nil {
+			return fmt.Errorf("failed to switch to local cluster context: %v", err)
+		}
+
 		return utils.RunMultipleCommands(commands, true, true)
 	} else if target == "gcp" {
 		ctx := context.Background()
 
-		// Verify GCP authentication
+		// Verify GCP project
 		err, gcpConfig := utils.VerifyGcpProject()
 		if err != nil {
 			return err
@@ -345,7 +351,7 @@ example:
 		var successes []string
 		var hosts []string
 
-        utils.PrintWarning("Deploying all resources & addons")
+        utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
 
         for _, resource := range utils.ManifestData.Resources {
 			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
@@ -425,7 +431,7 @@ example:
 		var errors []string
 		var hosts []string
 
-		utils.PrintWarning(fmt.Sprintf("Deploying resource %v", args))
+		utils.PrintWarning(fmt.Sprintf("Deploying resource %v to %s", args, target))
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
@@ -521,7 +527,7 @@ example:
 		var successes []string
 		var errors []string
 
-		utils.PrintWarning(fmt.Sprintf("Deploying addons %v", args))
+		utils.PrintWarning(fmt.Sprintf("Deploying addons %v to %s", args, target))
 
 		for _, addon := range args {
 			var addonResource *types.Addon
