@@ -6,6 +6,7 @@ type Project struct {
 	Description string `yaml:"description"`
 	Resources []Resource `yaml:"resources"`
   	Addons []Addon `yaml:"addons"`
+	CloudConfig []CloudConfig `yaml:"cloud_config"`
 }
 
 type Resource struct {
@@ -14,14 +15,14 @@ type Resource struct {
 	Type string `yaml:"type"`
 	Framework string `yaml:"framework"`
 	AttachCommand map[string]string `yaml:"attach_command"`
-	UpLocal string `yaml:"up_local,omitempty"`
-	LocalHost string `yaml:"local_host,omitempty"`
-	DockerHost string `yaml:"docker_host,omitempty"`
-	DockerRepo string `yaml:"docker_repo,omitempty"`
-	ClusterHost string `yaml:"cluster_host,omitempty"`
-	ClusterHostRead string `yaml:"cluster_host_read,omitempty"`
-	Dependents []string `yaml:"dependents,omitempty"`
-	Opts map[string]string `yaml:"opts,omitempty"`
+	UpLocal string `yaml:"up_local",omitempty`
+	LocalHost string `yaml:"local_host",omitempty`
+	DockerHost string `yaml:"docker_host",omitempty`
+	DockerRepo string `yaml:"docker_repo",omitempty`
+	ClusterHost string `yaml:"cluster_host",omitempty`
+	ClusterHostRead string `yaml:"cluster_host_read",omitempty`
+	Dependents []string `yaml:"dependents",omitempty`
+	Opts map[string]string `yaml:"opts",omitempty`
 }
 
 type Addon struct {
@@ -31,13 +32,21 @@ type Addon struct {
   LocalHost string `yaml:"local_host"`
   DockerHost string `yaml:"docker_host"`
   ClusterHost string `yaml:"cluster_host"`
-  Dependencies []string `yaml:"dependencies,omitempty"`
-  Environment []string `yaml:"environment,omitempty"`
+  Dependencies []string `yaml:"dependencies",omitempty`
+  Environment []string `yaml:"environment",omitempty`
+}
+
+type CloudConfig struct {
+	Provider string `yaml:"provider"`
+	ProjectId string `yaml:"project_id", omitempty`
+	ProjectName string `yaml:"project_name", omitempty`
+	Region string `yaml:"region", omitempty`
+	ClusterName string `yaml:"cluster_name",omitempty`
 }
 
 type ApiResponse struct {
 	Token string `json:"token",omitempty`
-	Detail string `json:"detail,omitempty"`
+	Detail string `json:"detail",omitempty`
 }
 
 const (

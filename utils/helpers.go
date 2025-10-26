@@ -144,6 +144,16 @@ func ReadEnv(path string) ([]string, error) {
     return envData, nil
 }
 
+func UpdateCloudConfig(project *types.Project, provider string, config *types.CloudConfig) error{
+    for i, conf := range project.CloudConfig {
+        if conf.Provider == provider {
+            project.CloudConfig[i] = *config
+            return WriteManifest(project, "manifest.yaml")
+        }
+    }
+    return errors.New("CloudConfig not found")
+}
+
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error{
     for i, res := range project.Resources {
         if res.Name == name {
@@ -175,6 +185,18 @@ func RemoveAddon(project *types.Project, name string) error {
         }
     }
     project.Addons = addonList
+    return WriteManifest(project, "manifest.yaml")
+}
+
+func RemoveCloudConfig(project *types.Project, provider string) error {
+    configList := []types.CloudConfig{}
+    
+    for i, config := range project.CloudConfig {
+        if config.Provider != provider {
+            configList = append(configList, project.CloudConfig[i])            
+        }
+    }
+    project.CloudConfig = configList
     return WriteManifest(project, "manifest.yaml")
 }
 
@@ -226,6 +248,22 @@ func VerifyFramework(framework string, rType string) error {
         }
     }
     return errors.New(fmt.Sprintf("Framework %s not supported for %s", framework, rType))
+}
+
+func VerifyTarget(target string) error {
+	if target != "minikube" && target != "gcp" {
+		return fmt.Errorf("invalid target environment: %s. Supported targets are 'minikube', and 'gcp'", target)
+	}
+	return nil
+}
+
+func VerifyCloudConfig(provider string) (error, *types.CloudConfig) {
+	for _, config := range ManifestData.CloudConfig {
+		if config.Provider == provider {
+			return nil, &config
+		}
+	}
+	return errors.New(fmt.Sprintf("Cloud configuration for provider %s not found", provider)), nil
 }
 
 func GetCurrentResourceNames() []string {

@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"context"
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
@@ -27,7 +28,46 @@ example:
 	},
 }
 
-func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
+func deployToTarget(target string, commands []string) error {
+	// verify target
+	err, config := utils.VerifyCloudConfig(target)
+	if err != nil {
+		return err
+	}
+
+	if target == "minikube" {
+		// update context
+		err := utils.GetMinikubeCluster(config)
+		if err != nil {
+			return err
+		}
+
+		return utils.RunMultipleCommands(commands, true, true)
+	} else if target == "gcp" {
+		ctx := context.Background()
+
+		// get cluster or create new cluster exists in GCP
+		err = utils.GetOrCreateGCPCluster(ctx, config)
+		if err != nil {
+			return err 
+		}
+
+		// get kubeconfig for cluster
+		err = utils.RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", config.ClusterName, config.Region), true, true)
+		if err != nil {
+			return err
+		}
+
+		// deploy specified commands to GCP cluster
+		err = utils.RunMultipleCommands(commands, true, true)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target string) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -138,7 +178,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 				authDataBuilder.String(),
 			}
 
-			err = utils.RunMultipleCommands(commands, true, true)
+			err = deployToTarget(target, commands)
 			if err != nil {
 				return err
 			}
@@ -148,7 +188,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool) error {
 	return nil
 }
 
-func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) error {
+func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", resource.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -269,7 +309,11 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool) e
 			commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 		}
 
-		err = utils.RunCommand(commandBuilder.String(), true, true)
+		commands := []string{
+			commandBuilder.String(),
+		}
+
+		err := deployToTarget(target, commands)
 		if err != nil {
 			return err
 		}
@@ -295,15 +339,22 @@ example:
 		var onlyHelmify, onlyDeploy bool
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
+		target, _ := cmd.Flags().GetString("target")
+
+		err := utils.VerifyTarget(target)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
 
 		var errors []string
 		var successes []string
 		var hosts []string
 
-        utils.PrintWarning("Deploying all resources & addons")
+        utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
 
         for _, resource := range utils.ManifestData.Resources {
-			err := deployUnique(&resource, onlyHelmify, onlyDeploy)
+			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s. %v", resource.Name, err.Error()))
 				errors = append(errors, resource.Name)
@@ -317,7 +368,7 @@ example:
         }
 
 		for _, addon := range utils.ManifestData.Addons {
-			err := deployAddon(&addon, onlyHelmify, onlyDeploy)
+			err := deployAddon(&addon, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon.Name, err.Error()))
 				errors = append(errors, addon.Name)
@@ -362,7 +413,14 @@ example:
 		var onlyHelmify, onlyDeploy bool
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
-		
+		target, _ := cmd.Flags().GetString("target")
+
+		err := utils.VerifyTarget(target)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
+
 		addons, _ := cmd.Flags().GetString("with-addons")
 		var addonList []string
 		if addons != "" {
@@ -373,7 +431,7 @@ example:
 		var errors []string
 		var hosts []string
 
-		utils.PrintWarning(fmt.Sprintf("Deploying resource %v", args))
+		utils.PrintWarning(fmt.Sprintf("Deploying resource %v to %s", args, target))
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
@@ -386,7 +444,7 @@ example:
 				continue
 			}
 
-			err = deployUnique(resource, onlyHelmify, onlyDeploy)
+			err = deployUnique(resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying resource %s. %v", name, err.Error()))
 				errors = append(errors, name)
@@ -412,7 +470,7 @@ example:
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy)
+			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
 				errors = append(errors, addon)
@@ -458,11 +516,18 @@ example:
 		var onlyHelmify, onlyDeploy bool
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
 		onlyDeploy, _ = cmd.Flags().GetBool("only-deploy")
+		target, _ := cmd.Flags().GetString("target")
+
+		err := utils.VerifyTarget(target)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
 
 		var successes []string
 		var errors []string
 
-		utils.PrintWarning(fmt.Sprintf("Deploying addons %v", args))
+		utils.PrintWarning(fmt.Sprintf("Deploying addons %v to %s", args, target))
 
 		for _, addon := range args {
 			var addonResource *types.Addon
@@ -473,7 +538,7 @@ example:
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy)
+			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
 				errors = append(errors, addon)
@@ -499,9 +564,13 @@ func init() {
 	deployCmd.AddCommand(deployResourceCmd)
 	deployCmd.AddCommand(deployAddonCmd)
 
+	deployCmd.PersistentFlags().StringP("target", "t", "minikube", "target environment to deploy to ['minikube', 'gcp']")
+	
 	deployCmd.PersistentFlags().BoolP("only-helmify", "w", false, "only helmify the resources")
 	deployCmd.PersistentFlags().BoolP("only-deploy", "d", false, "only deploy the resources")
 	
 	deployResourceCmd.Flags().StringP("with-addons", "a", "", "addons to be included in deployment (comma separated)")
+
+
 
 }
