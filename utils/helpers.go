@@ -144,6 +144,16 @@ func ReadEnv(path string) ([]string, error) {
     return envData, nil
 }
 
+func UpdateCloudConfig(project *types.Project, provider string, config *types.CloudConfig) error{
+    for i, conf := range project.CloudConfig {
+        if conf.Provider == provider {
+            project.CloudConfig[i] = *config
+            return WriteManifest(project, "manifest.yaml")
+        }
+    }
+    return errors.New("CloudConfig not found")
+}
+
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error{
     for i, res := range project.Resources {
         if res.Name == name {
@@ -239,6 +249,14 @@ func VerifyFramework(framework string, rType string) error {
     }
     return errors.New(fmt.Sprintf("Framework %s not supported for %s", framework, rType))
 }
+
+func VerifyTarget(target string) error {
+	if target != "local" && target != "gcp" {
+		return fmt.Errorf("invalid target environment: %s. Supported targets are '', 'local', and 'gcp'", target)
+	}
+	return nil
+}
+
 
 func GetCurrentResourceNames() []string {
     var names []string

@@ -3,18 +3,20 @@ package utils
 import (
 	"context"
 	"fmt"
+	"time"
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	serviceusage "cloud.google.com/go/serviceusage/apiv1"
 	serviceusagepb "cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
-	// container "cloud.google.com/go/container/apiv1"
-	// containerpb "cloud.google.com/go/container/apiv1/containerpb"
+	container "cloud.google.com/go/container/apiv1"
+	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	compute "cloud.google.com/go/compute/apiv1"
 	computepb "cloud.google.com/go/compute/apiv1/computepb"
 	"google.golang.org/api/iterator"
+	"github.com/rahulmedicharla/kubefs/types"
 )
 
-func VerifyGcpProject() (error, *string) {
+func VerifyGcpProject() (error, *types.CloudConfig) {
 	//
 	// Verify if the user is authenticated with GCP using gcloud CLI
 	//
@@ -22,27 +24,69 @@ func VerifyGcpProject() (error, *string) {
 	if ManifestData.CloudConfig != nil {
 		for _, config := range ManifestData.CloudConfig {
 			if config.Provider == "gcp" {
-				projectId := config.ProjectId
-				return nil, &projectId
+				return nil, &config
 			}
 		}
 	}
 
-	return fmt.Errorf("not authenticated with GCP: use 'kubefs config gcp' to authenticate"), nil
+	return fmt.Errorf("GCP project not setup. Please run 'kubefs config gcp' to setup GCP project."), nil
 }
 
-// func GetOrCreateGCPCluster(ctx context.Context, projectName string) error {
-// 	c, err := container.NewClusterManagerClient(ctx)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to create cluster manager client: %v", err)
-// 	}
-// 	defer c.Close()
+func GetOrCreateGCPCluster(ctx context.Context, gcpConfig *types.CloudConfig) error {
+	c, err := container.NewClusterManagerClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create cluster manager client: %v", err)
+	}
+	defer c.Close()
 
-// 	req := &containerpb.ListClustersRequest{
-// 		// TODO: Fill request struct fields.
-// 		// See https://pkg.go.dev/cloud.google.com/go/container/apiv1/containerpb#ListClustersRequest.
-// 	}
-// 	resp, err := c.ListClusters(ctx, req)
+	req := &containerpb.ListClustersRequest{
+		Parent: fmt.Sprintf("%s/locations/%s", gcpConfig.ProjectId, gcpConfig.Region),
+	}
+	resp, err := c.ListClusters(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to list clusters: %v", err)
+	}
+
+	for _, cluster := range resp.GetClusters() {
+		if cluster.GetName() == gcpConfig.ClusterName {
+			PrintSuccess(fmt.Sprintf("GKE Cluster %s found in GCP", gcpConfig.ClusterName))
+			return nil
+		}
+	}
+
+	PrintWarning(fmt.Sprintf("GKE Cluster %s not found in GCP. Creating new cluster with default values...", gcpConfig.ClusterName))
+
+	// Create new cluster if not found
+	cluster := &containerpb.Cluster{
+		Name: gcpConfig.ClusterName,
+		Autopilot: &containerpb.Autopilot{
+			Enabled: true,
+		},
+	}
+
+	createClusterReq := &containerpb.CreateClusterRequest{
+		Parent: fmt.Sprintf("%s/locations/%s", gcpConfig.ProjectId, gcpConfig.Region),
+		Cluster: cluster,
+	}
+
+	operation, err := c.CreateCluster(ctx, createClusterReq)
+	if err != nil {
+		return fmt.Errorf("failed to create cluster: %v", err)
+	}
+
+	progress := operation.GetProgress()
+	for progress.GetStatus() != containerpb.Operation_DONE {
+		if progress.GetStatus() == containerpb.Operation_ABORTING {
+			return fmt.Errorf("failed to create cluster: operation aborted")
+		}
+		PrintWarning(fmt.Sprintf("Waiting for GKE cluster creation to complete... %s", progress.GetStatus().String()))
+		time.Sleep(10 * time.Second)
+		progress = operation.GetProgress()
+	}
+
+	PrintSuccess(fmt.Sprintf("GKE Cluster %s created successfully in GCP", gcpConfig.ClusterName))
+	return nil
+}
 
 func AuthenticateGCP() error {
 	commands:= []string{

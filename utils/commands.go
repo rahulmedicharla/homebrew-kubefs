@@ -66,6 +66,16 @@ func RunCommand(command string, withOutput bool, withError bool) error{
 	return nil
 }
 
+func RunCommandWithOutput(command string) (error, string){
+	cmd := exec.Command("sh", "-c", command)
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmdErr := cmd.Run()
+	return cmdErr, output.String()
+}
+
 func RunMultipleCommands(commands []string, withOutput bool, withError bool) error{
 	for _, command := range commands {
 		err := RunCommand(command, withOutput, withError)

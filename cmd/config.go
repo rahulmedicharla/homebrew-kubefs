@@ -45,12 +45,7 @@ example:
 
 		if remove {
 			// Revoke gcloud authentication
-			commands := []string{
-				"gcloud auth revoke",
-				"gcloud auth application-default revoke",
-			}
-
-			err = utils.RunMultipleCommands(commands, true, true)
+			err = utils.RunCommand("gcloud auth revoke", true, true)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error revoking GCP authentication: %v", err.Error()))
 				return
@@ -64,6 +59,7 @@ example:
 
 			utils.PrintSuccess("GCP authentication revoked successfully")
 		} else {
+
 			// Authenticate and enable with GCP using gcloud CLI
 			err = utils.AuthenticateGCP()
 			if err != nil {
@@ -92,11 +88,26 @@ example:
 			cloudConfig := types.CloudConfig{
 				Provider: "gcp",
 				ProjectId: *projectId,
+				ProjectName: projectName,
 				ClusterName: *clusterName,
 				Region: *region,
 			}
+
+			err, _ = utils.VerifyGcpProject()
+			if err == nil {
+				// Update existing config
+				err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)
+				if err != nil {
+					utils.PrintError(fmt.Sprintf("Error updating GCP configuration to manifest: %v", err.Error()))
+					return
+				}
+				
+				utils.PrintSuccess(fmt.Sprintf("GCP Project updated successfully: %s", projectName))
+				return
+			}
+
+			// Add new config
 			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
-			
 			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error saving GCP configuration to manifest: %v", err.Error()))
