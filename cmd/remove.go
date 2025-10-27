@@ -125,7 +125,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v removed successfully", successes))
 		}
 
     },
@@ -183,7 +183,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v removed successfully", successes))
 		}
 
     },

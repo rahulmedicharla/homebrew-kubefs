@@ -6,7 +6,7 @@ import (
 )
 
 func ProvisionMinikubeCluster(clusterName string) error {
-	PrintSuccess("Provisioning Minikube cluster & enabling required addons...")
+	PrintInfo("Provisioning Minikube cluster & enabling required addons...")
 	commands := []string{
 		fmt.Sprintf("minikube start -p %s", clusterName),
 		fmt.Sprintf("minikube profile %s", clusterName),

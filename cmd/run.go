@@ -63,7 +63,7 @@ example:
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Running command %s", upLocalCmd.String()))
-		utils.PrintSuccess(fmt.Sprintf("Resource %s is running locally", name))
+		utils.PrintInfo(fmt.Sprintf("Resource %s is running locally", name))
 
 		utils.RunCommand(upLocalCmd.String(), true, true)
 	},

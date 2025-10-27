@@ -56,7 +56,7 @@ example:
 				return
 			}
 
-			utils.PrintSuccess("GCP authentication revoked successfully")
+			utils.PrintInfo("GCP authentication revoked successfully")
 		} else {
 
 			// Authenticate and enable with GCP using gcloud CLI
@@ -101,7 +101,7 @@ example:
 					return
 				}
 				
-				utils.PrintSuccess(fmt.Sprintf("GCP Project updated successfully: %s", projectName))
+				utils.PrintInfo(fmt.Sprintf("GCP Project updated successfully: %s", projectName))
 				return
 			}
 
@@ -113,7 +113,7 @@ example:
 				return
 			}
 
-			utils.PrintSuccess(fmt.Sprintf("GCP Project configured successfully: %s", projectName))
+			utils.PrintInfo(fmt.Sprintf("GCP Project configured successfully: %s", projectName))
 		
 		}
 	},
@@ -144,7 +144,7 @@ example:
 				utils.PrintError(fmt.Sprintf("Error deleting Docker credentials: %v", err.Error()))
 				return
 			}
-			utils.PrintSuccess("Docker credentials removed successfully")
+			utils.PrintInfo("Docker credentials removed successfully")
 		} else {
 			var username, pat string
 			err := utils.ReadInput("Enter Docker username: ", &username)
@@ -163,7 +163,7 @@ example:
 				return
 			}
 
-			utils.PrintSuccess("Saving Docker credentials")
+			utils.PrintInfo("Saving Docker credentials")
 		}
 	},
 }

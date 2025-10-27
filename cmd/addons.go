@@ -50,7 +50,7 @@ example:
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Enabling addons %v", args))
+		utils.PrintInfo(fmt.Sprintf("Enabling addons %v", args))
 
 		for _, addon := range args {
 			name := strings.Split(addon, ":")[0]
@@ -156,7 +156,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Addon %v enabled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Addon %v enabled successfully", successes))
 		}
 	},
 }
@@ -183,7 +183,7 @@ example:
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Disabling addons %v", args))
+		utils.PrintInfo(fmt.Sprintf("Disabling addons %v", args))
 
 		for _, name := range args {
 
@@ -239,7 +239,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Addon %v disabled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Addon %v disabled successfully", successes))
 		}
 	},
 }
@@ -256,7 +256,7 @@ example:
 			utils.PrintError(utils.ManifestStatus.Error())
 		}
 
-		utils.PrintWarning("Listing addons")
+		utils.PrintInfo("Listing addons")
 
 		for _, addon := range utils.ManifestData.Addons {
 			addonValue := reflect.ValueOf(addon)

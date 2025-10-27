@@ -370,7 +370,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v deployed successfully", successes))
 		}
 	},
 }
@@ -464,7 +464,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v deployed successfully", successes))
 		}
 	},
 }
@@ -528,7 +528,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v deployed successfully", successes))
 		}
 	},
 }

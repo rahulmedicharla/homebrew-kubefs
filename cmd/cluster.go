@@ -90,12 +90,11 @@ example:
 
 		// verify cloud config cluster and param matches
 		clusterName := args[0]
-		if !utils.VerifyClusterName(config, clusterName) {
-			utils.PrintError(fmt.Sprintf("Cluster %s doesn't exist in target %s, please choose a different name or use 'kubefs cluster provision' ", clusterName, target))
+		err = utils.VerifyClusterName(config, clusterName) 
+		if err != nil {
+			utils.PrintError(err.Error())
 			return 
 		}
-
-		utils.PrintSuccess(fmt.Sprintf("Setting target %s main cluster to %s", target, clusterName))
 
 		config.MainCluster = clusterName
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
@@ -104,7 +103,7 @@ example:
 			return
 		}
 
-		utils.PrintSuccess("Main cluster configured successfully!")
+		utils.PrintInfo(fmt.Sprintf("Cluster [%s] configured as main in %s", clusterName, target))
 		
 	},
 }
@@ -140,12 +139,13 @@ example:
 
 		// verify cloud config cluster and param matches
 		clusterName := args[0]
-		if !utils.VerifyClusterName(config, clusterName) {
-			utils.PrintError(fmt.Sprintf("Cluster %s doesn't exist, please choose a different name or use 'kubefs cluster provision' ", clusterName))
+		err = utils.VerifyClusterName(config, clusterName) 
+		if err != nil {
+			utils.PrintError(err.Error())
 			return 
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Pausing cluster %s in target %s", clusterName, target))
+		utils.PrintInfo(fmt.Sprintf("Pausing cluster [%s] in target %s", clusterName, target))
 
 		if target == "minikube"{
 			// pause cluster
@@ -159,7 +159,8 @@ example:
 			utils.PrintWarning("gcp autopilot clusters don't support pausing/stopping")
 			return
 		}
-
+		
+		utils.PrintInfo(fmt.Sprintf("Paused cluster [%s] in target %s", clusterName, target))
 	},
 }
 
@@ -194,12 +195,13 @@ example:
 		clusterName := args[0]
 
 		// validate cluster exists
-		if !utils.VerifyClusterName(config, clusterName) {
-			utils.PrintError(fmt.Sprintf("Cluster %s doesn't exist, please choose a different name or use 'kubefs cluster provision' ", clusterName))
+		err = utils.VerifyClusterName(config, clusterName) 
+		if err != nil {
+			utils.PrintError(err.Error())
 			return 
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Starting cluster %s in target %s", clusterName, target))
+		utils.PrintInfo(fmt.Sprintf("Starting cluster [%s] in target %s", clusterName, target))
 
 		if target == "minikube"{
 			// start cluster
@@ -213,6 +215,8 @@ example:
 			utils.PrintWarning("gcp autopilot clusters don't support starting clusters")
 			return
 		}
+
+		utils.PrintInfo(fmt.Sprintf("Started cluster [%s] in target %s", clusterName, target))
 
 	},
 }
@@ -247,12 +251,13 @@ example:
 
 		clusterName := args[0]
 		// verify cluster exists
-		if !utils.VerifyClusterName(config, clusterName) {
-			utils.PrintError(fmt.Sprintf("Cluster %s doesn't exist, please choose a different name or use 'kubefs cluster provision' ", clusterName))
+		err = utils.VerifyClusterName(config, clusterName) 
+		if err != nil {
+			utils.PrintError(err.Error())
 			return 
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Deleting cluster %s in target %s", clusterName, target))
+		utils.PrintInfo(fmt.Sprintf("Deleting cluster [%s] in %s", clusterName, target))
 
 		if target == "minikube"{
 			// delete cluster
@@ -284,6 +289,8 @@ example:
 			utils.PrintError(err.Error())
 			return
 		}
+
+		utils.PrintInfo(fmt.Sprintf("Deleted cluster [%s] in %s", clusterName, target))
 
 	},
 }
@@ -319,10 +326,13 @@ example:
 		clusterName := args[0]
 		
 		// validate cluster doesn't already exist
-		if utils.VerifyClusterName(config, clusterName) {
-			utils.PrintError(fmt.Sprintf("Cluster %s already exists, please choose a different name", clusterName))
+		err = utils.VerifyClusterName(config, clusterName) 
+		if err == nil {
+			utils.PrintError(fmt.Sprintf("Cluster %s already exists in %s", clusterName, target))
 			return 
 		}
+
+		utils.PrintInfo(fmt.Sprintf("Provisioning cluster [%s] in %s", clusterName, target))
 		
 		if target == "minikube"{
 			// provision minikube cluster
@@ -349,6 +359,8 @@ example:
 			utils.PrintError(err.Error())
 			return
 		}
+
+		utils.PrintInfo(fmt.Sprintf("Provisioned cluster [%s] in %s", clusterName, target))
 
 	},
 }

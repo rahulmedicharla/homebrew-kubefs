@@ -184,7 +184,7 @@ example:
 			return
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Successfully created API %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
+		utils.PrintInfo(fmt.Sprintf("Successfully created API %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 
@@ -288,7 +288,7 @@ example:
 			return
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Successfully created frontend %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
+		utils.PrintInfo(fmt.Sprintf("Successfully created frontend %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 
@@ -401,7 +401,7 @@ example:
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Creating database with '%s' as password. Store this to interact with the database", password))
-		utils.PrintSuccess(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
+		utils.PrintInfo(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 

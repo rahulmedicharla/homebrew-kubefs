@@ -19,7 +19,7 @@ func PrintError(message string) {
     log.Error(message)
 }
 
-func PrintSuccess(message string) {
+func PrintInfo(message string) {
     log.Info(message)
 }
 
@@ -266,13 +266,13 @@ func VerifyCloudConfig(provider string) (error, *types.CloudConfig) {
 	return errors.New(fmt.Sprintf("Cloud configuration for provider %s not found", provider)), nil
 }
 
-func VerifyClusterName(config *types.CloudConfig, clusterName string) bool {
+func VerifyClusterName(config *types.CloudConfig, clusterName string) error {
     for _, name := range config.ClusterNames {
         if name == clusterName {
-            return true
+            return nil
         }
     }
-    return false
+    return fmt.Errorf("Cluster name [%s] not found in [%s]", clusterName, config.Provider)
 }
 
 func RemoveClusterName(config *types.CloudConfig, clusterName string) (error, []string) {

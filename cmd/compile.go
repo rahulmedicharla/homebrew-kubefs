@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"errors"
 )
 
 // compileCmd represents the compile command
@@ -29,7 +28,7 @@ example:
 
 func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) error {
 	if resource.Type == "database" {
-		return errors.New("Database resources cannot be compiled")
+		return fmt.Errorf("Database resources cannot be compiled")
 	}
 	
 	var commands []string
@@ -131,7 +130,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v compiled successfully", successes))
 		}
 
 	},
@@ -189,7 +188,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v compiled successfully", successes))
 		}
 	},
 }	

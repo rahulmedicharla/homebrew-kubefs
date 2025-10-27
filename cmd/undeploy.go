@@ -145,7 +145,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 	},
 }
@@ -228,7 +228,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 	},
 }
@@ -287,7 +287,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 	},
 }

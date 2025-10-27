@@ -55,7 +55,7 @@ func DeleteGCPCluster(gcpConfig *types.CloudConfig, clusterName string) error {
 		}
 	}
 
-	PrintSuccess(fmt.Sprintf("GKE Cluster %s deleted successfully from GCP", clusterName))
+	PrintInfo(fmt.Sprintf("GKE Cluster %s deleted successfully from GCP", clusterName))
 
 	return nil
 }
@@ -110,7 +110,7 @@ func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error
 		}
 	}
 
-	PrintSuccess(fmt.Sprintf("GKE Cluster %s created successfully in GCP; Installing dependencies...", clusterName))
+	PrintInfo(fmt.Sprintf("GKE Cluster %s created successfully in GCP; Installing dependencies...", clusterName))
 
 	commands := []string{
 		fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", clusterName, gcpConfig.Region),
@@ -127,13 +127,13 @@ func AuthenticateGCP() error {
 		"gcloud components install gke-gcloud-auth-plugin",
 	}
 
-	PrintSuccess("Starting GCP authentication process... Opening link in browser")
+	PrintInfo("Starting GCP authentication process... Opening link in browser")
 	err := RunMultipleCommands(commands, true, true)
 	if err != nil {
 		return err
 	}
 
-	PrintSuccess("Authenticated with GCP successfully")
+	PrintInfo("Authenticated with GCP successfully")
 	return nil
 }
 
@@ -165,7 +165,7 @@ func SearchGcpProjects(ctx context.Context, projectName string) (error, *string)
 		}
 
 		if project.GetProjectId() == projectName {
-			PrintSuccess(fmt.Sprintf("Project %s found in GCP", projectName))
+			PrintInfo(fmt.Sprintf("Project %s found in GCP", projectName))
 			projectName := project.GetName()
 			return nil, &projectName
 		}
@@ -201,7 +201,7 @@ func EnableGcpServices(ctx context.Context, projectName string, services []strin
 
 	}
 
-	PrintSuccess(fmt.Sprintf("Enabled GCP services %v for project: %s", services, projectName))
+	PrintInfo(fmt.Sprintf("Enabled GCP services %v for project: %s", services, projectName))
 	return nil
 }
 
@@ -251,7 +251,7 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string, *string)
 	if err != nil {
 		return fmt.Errorf("error verifying GCP project: %v", err), nil, nil
 	}
-	PrintSuccess(fmt.Sprintf("Found GCP Project: %s", projectName))
+	PrintInfo(fmt.Sprintf("Found GCP Project: %s", projectName))
 
 	// Enable required services
 	services := []string{
@@ -259,7 +259,7 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string, *string)
 		"container.googleapis.com",
 	}
 
-	PrintSuccess(fmt.Sprintf("Enabling required GCP services for project: %s", projectName))
+	PrintInfo(fmt.Sprintf("Enabling required GCP services for project: %s", projectName))
 
 	err = EnableGcpServices(ctx, *projectId, services)
 	if err != nil {

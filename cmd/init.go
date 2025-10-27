@@ -66,7 +66,7 @@ example:
 			return
 		}
 		
-		utils.PrintSuccess(fmt.Sprintf("Project %s initialized successfully", projectName))
+		utils.PrintInfo(fmt.Sprintf("Project %s initialized successfully", projectName))
 	},
 }
 
