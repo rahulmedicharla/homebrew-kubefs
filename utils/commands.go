@@ -26,14 +26,17 @@ func RunCommand(command string, withOutput bool, withError bool) error{
 	return nil
 }
 
-func RunCommandWithOutput(command string) (error, string){
+func RunCommandWithOutput(command string) (error, *string) {
 	cmd := exec.Command("sh", "-c", command)
-	var output strings.Builder
-	cmd.Stdout = &output
-	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	cmdErr := cmd.Run()
-	return cmdErr, output.String()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	output, cmdErr := cmd.Output()
+	stringOutput := string(output)
+	if cmdErr != nil {
+		return cmdErr, nil
+	}
+	return nil, &stringOutput
 }
 
 func RunMultipleCommands(commands []string, withOutput bool, withError bool) error{

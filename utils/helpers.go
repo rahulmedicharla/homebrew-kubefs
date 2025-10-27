@@ -266,6 +266,25 @@ func VerifyCloudConfig(provider string) (error, *types.CloudConfig) {
 	return errors.New(fmt.Sprintf("Cloud configuration for provider %s not found", provider)), nil
 }
 
+func VerifyClusterName(config *types.CloudConfig, clusterName string) bool {
+    for _, name := range config.ClusterNames {
+        if name == clusterName {
+            return true
+        }
+    }
+    return false
+}
+
+func RemoveClusterName(config *types.CloudConfig, clusterName string) (error, []string) {
+    newConfig := make([]string, 0)
+    for _, name := range config.ClusterNames {
+        if name != clusterName {
+            newConfig = append(newConfig, name)
+        }
+    }
+    return nil, newConfig
+}
+
 func GetCurrentResourceNames() []string {
     var names []string
     for _, resource := range ManifestData.Resources {

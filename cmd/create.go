@@ -11,7 +11,6 @@ import (
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/zalando/go-keyring"
 	"strings"
-	"errors"
 )
 
 // createCmd represents the create command
@@ -37,7 +36,6 @@ example:
 func parseInfo(cmd *cobra.Command,args []string, resource string) error {
 	if len(args) < 1 {
 		cmd.Help()
-		return errors.New("Please provide a name for the resource")
 	}
 
 	name := args[0]

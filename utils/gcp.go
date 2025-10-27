@@ -17,10 +17,10 @@ import (
 )
 
 func GetGCPClusterContext(gcpConfig *types.CloudConfig) error {
-	return RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", gcpConfig.ClusterName, gcpConfig.Region), true, true)
+	return RunCommand(fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", gcpConfig.MainCluster, gcpConfig.Region), true, true)
 }
 
-func DeleteGCPCluster(gcpConfig *types.CloudConfig) error {
+func DeleteGCPCluster(gcpConfig *types.CloudConfig, clusterName string) error {
 	ctx := context.Background()
 	client, err := container.NewClusterManagerClient(ctx)
 	if err != nil {
@@ -29,7 +29,7 @@ func DeleteGCPCluster(gcpConfig *types.CloudConfig) error {
 	defer client.Close()
 
 	req := &containerpb.DeleteClusterRequest{
-		Name: fmt.Sprintf("%s/locations/%s/clusters/%s", gcpConfig.ProjectId, gcpConfig.Region, gcpConfig.ClusterName),
+		Name: fmt.Sprintf("%s/locations/%s/clusters/%s", gcpConfig.ProjectId, gcpConfig.Region, clusterName),
 	}
 
 	operation, err := client.DeleteCluster(ctx, req)
@@ -55,38 +55,24 @@ func DeleteGCPCluster(gcpConfig *types.CloudConfig) error {
 		}
 	}
 
-	PrintSuccess(fmt.Sprintf("GKE Cluster %s deleted successfully from GCP", gcpConfig.ClusterName))
+	PrintSuccess(fmt.Sprintf("GKE Cluster %s deleted successfully from GCP", clusterName))
 
 	return nil
 }
 
-func GetOrCreateGCPCluster(ctx context.Context, gcpConfig *types.CloudConfig) error {
+func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error {
+	PrintWarning(fmt.Sprintf("Creating new cluster with default values...", clusterName))
+
+	ctx := context.Background()
 	c, err := container.NewClusterManagerClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create cluster manager client: %v", err)
 	}
 	defer c.Close()
 
-	req := &containerpb.ListClustersRequest{
-		Parent: fmt.Sprintf("%s/locations/%s", gcpConfig.ProjectId, gcpConfig.Region),
-	}
-	resp, err := c.ListClusters(ctx, req)
-	if err != nil {
-		return fmt.Errorf("failed to list clusters: %v", err)
-	}
-
-	for _, cluster := range resp.GetClusters() {
-		if cluster.GetName() == gcpConfig.ClusterName {
-			PrintSuccess(fmt.Sprintf("GKE Cluster %s found in GCP", gcpConfig.ClusterName))
-			return nil
-		}
-	}
-
-	PrintWarning(fmt.Sprintf("GKE Cluster %s not found in GCP. Creating new cluster with default values...", gcpConfig.ClusterName))
-
 	// Create new cluster if not found
 	cluster := &containerpb.Cluster{
-		Name: gcpConfig.ClusterName,
+		Name: clusterName,
 		Autopilot: &containerpb.Autopilot{
 			Enabled: true,
 		},
@@ -124,8 +110,15 @@ func GetOrCreateGCPCluster(ctx context.Context, gcpConfig *types.CloudConfig) er
 		}
 	}
 
-	PrintSuccess(fmt.Sprintf("GKE Cluster %s created successfully in GCP", gcpConfig.ClusterName))
-	return nil
+	PrintSuccess(fmt.Sprintf("GKE Cluster %s created successfully in GCP; Installing dependencies...", clusterName))
+
+	commands := []string{
+		fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", clusterName, gcpConfig.Region),
+		"kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
+		"helm install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx --set controller.service.annotations.service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path=/healthz --set controller.service.externalTrafficPolicy=Local",
+	}
+
+	return RunMultipleCommands(commands, true, true)
 }
 
 func AuthenticateGCP() error {
@@ -248,7 +241,7 @@ func VerifyRegion(ctx context.Context, projectId *string, region string) error {
 	return fmt.Errorf("region %s not found in GCP. Available regions: %v", region, regions)
 }
 
-func SetupGcp(ctx context.Context, projectName string) (error, *string, *string, *string) {
+func SetupGcp(ctx context.Context, projectName string) (error, *string, *string) {
 	//
 	// Setup GCP project by verifying project existence or creating new project
 	//
@@ -256,7 +249,7 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string, *string,
 	// Verify project exists
 	err, projectId := SearchGcpProjects(ctx, projectName)
 	if err != nil {
-		return fmt.Errorf("error verifying GCP project: %v", err), nil, nil, nil
+		return fmt.Errorf("error verifying GCP project: %v", err), nil, nil
 	}
 	PrintSuccess(fmt.Sprintf("Found GCP Project: %s", projectName))
 
@@ -270,25 +263,20 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string, *string,
 
 	err = EnableGcpServices(ctx, *projectId, services)
 	if err != nil {
-		return fmt.Errorf("error enabling GCP services: %v", err), nil, nil, nil
+		return fmt.Errorf("error enabling GCP services: %v", err), nil, nil
 	}
 
-	var clusterName, region string
-
-	err = ReadInput("Enter GKE Cluster Name: ", &clusterName)
-	if err != nil {
-		return fmt.Errorf("error reading GKE Cluster Name: %v", err), nil, nil, nil
-	}
+	var region string
 
 	err = ReadInput("Enter GKE Cluster Region: ", &region)
 	if err != nil {
-		return fmt.Errorf("error reading GKE Cluster Region: %v", err), nil, nil, nil
+		return fmt.Errorf("error reading GKE Cluster Region: %v", err), nil, nil
 	}
 
 	err = VerifyRegion(ctx, projectId, region)
 	if err != nil {
-		return fmt.Errorf("error verifying GKE Cluster Region: %v", err), nil, nil, nil
+		return fmt.Errorf("error verifying GKE Cluster Region: %v", err), nil, nil
 	}
 
-	return nil, projectId, &clusterName, &region
+	return nil, projectId, &region
 }

@@ -26,30 +26,16 @@ example:
 	},
 }
 
-func stopCluster(target string) error {
-	err, config := utils.VerifyCloudConfig(target)
-	if err != nil {
-		return err
-	}
-
-	if target == "minikube" {
-		err := utils.RunCommand(fmt.Sprintf("minikube stop -p %s", config.ClusterName), true, true)
-		if err != nil {
-			return fmt.Errorf("failed to stop local cluster: %v", err)
-		}
-
-	} else if target == "gcp" {
-		utils.PrintWarning(fmt.Sprintf("Pause operation is not supported for provider %s", target))
-	}
-	return nil
-}
-
 func undeployFromTarget(target string, commands []string) error {
 	err, config := utils.VerifyCloudConfig(target)
 	if err != nil {
 		return err
 	}
 
+	if config.MainCluster == "" {
+		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+	}
+	
 	if target == "minikube" {
 		// update context
 		err := utils.GetMinikubeContext(config)
@@ -121,8 +107,6 @@ example:
 			return
 		}
 
-		var pauseCluster bool
-		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		target, _ := cmd.Flags().GetString("target")
 
 		err := utils.VerifyTarget(target)
@@ -163,14 +147,6 @@ example:
 		if len(successes) > 0 {
 			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
-
-		if pauseCluster {
-			err = stopCluster(target)
-			if err != nil {
-				utils.PrintError(err.Error())
-				return
-			}
-		}
 	},
 }
 
@@ -193,8 +169,6 @@ example:
 			return
 		}
 
-		var pauseCluster bool
-		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		target, _ := cmd.Flags().GetString("target")
 
 		err := utils.VerifyTarget(target)
@@ -256,14 +230,6 @@ example:
 		if len(successes) > 0 {
 			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
-
-		if pauseCluster {
-			err = stopCluster(target)
-			if err != nil {
-				utils.PrintError(err.Error())
-				return
-			}
-		}
 	},
 }
 
@@ -286,8 +252,6 @@ example:
 			return
 		}
 
-		var pauseCluster bool
-		pauseCluster, _ = cmd.Flags().GetBool("pause")
 		target, _ := cmd.Flags().GetString("target")
 
 		err := utils.VerifyTarget(target)
@@ -324,14 +288,6 @@ example:
 
 		if len(successes) > 0 {
 			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
-		}
-
-		if pauseCluster {
-			err = stopCluster(target)
-			if err != nil {
-				utils.PrintError(err.Error())
-				return
-			}
 		}
 	},
 }

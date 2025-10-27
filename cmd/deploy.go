@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"fmt"
-	"context"
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
@@ -29,40 +28,32 @@ example:
 }
 
 func deployToTarget(target string, commands []string) error {
-	// verify target
+	// verify cloud config
 	err, config := utils.VerifyCloudConfig(target)
 	if err != nil {
 		return err
 	}
 
+	if config.MainCluster == "" {
+		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+	}
+	
 	if target == "minikube" {
-		// update context & start cluster
-		err := utils.GetMinikubeCluster(config)
+		// update context
+		err := utils.GetMinikubeContext(config)
 		if err != nil {
 			return err
 		}
 
 		return utils.RunMultipleCommands(commands, true, true)
 	} else if target == "gcp" {
-		ctx := context.Background()
-
-		// get cluster or create new cluster exists in GCP
-		err = utils.GetOrCreateGCPCluster(ctx, config)
-		if err != nil {
-			return err 
-		}
-
-		// get kubeconfig for cluster
+		// update context
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {
 			return err
 		}
 
-		// deploy specified commands to GCP cluster
-		err = utils.RunMultipleCommands(commands, true, true)
-		if err != nil {
-			return err
-		}
+		return utils.RunMultipleCommands(commands, true, true)
 	}
 	return nil
 }
@@ -297,6 +288,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			if err == nil {
 				count = 0
 				for _,line := range envData {
+					utils.PrintWarning(line)
 					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", count, strings.Split(line, "=")[0], count, strings.Split(line, "=")[1], count, resource.Name))
 					count++
 				}
