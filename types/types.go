@@ -59,3 +59,8 @@ var FRAMEWORKS = map[string][]string{
 	"database": {"postgresql", "redis"},
 	"addons": {"oauth2"},
 }
+
+var TARGETS = []string{
+	"minikube",
+	"gcp",
+}

@@ -190,7 +190,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -207,7 +207,7 @@ example:
 		}
 
 		for _, name := range addonList {
-			addon, err := utils.GetAddonFromName(name)
+			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -266,7 +266,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v from %s", args, target))
 
 		for _, name := range args {
-			addon, err := utils.GetAddonFromName(name)
+			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)

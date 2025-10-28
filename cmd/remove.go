@@ -161,7 +161,7 @@ example:
 
 		for _, name := range args {
 			var resource *types.Resource
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)

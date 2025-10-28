@@ -28,7 +28,7 @@ example:
 			return
 		}
 
-		resource, err := utils.GetResourceFromName(args[0])
+		err, resource := utils.GetResourceFromName(args[0])
 		if err != nil {
 			utils.PrintError(err.Error())
 			return

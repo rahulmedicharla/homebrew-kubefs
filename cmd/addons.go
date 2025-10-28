@@ -103,7 +103,7 @@ example:
 				names := strings.Split(resources, ",")
 				var validAttachedResourceNames []string
 				for _,n := range names{
-					resource, err := utils.GetResourceFromName(n)
+					err, resource := utils.GetResourceFromName(n)
 					if err != nil {
 						utils.PrintError(err.Error())
 						errors = append(errors, name)
@@ -187,7 +187,7 @@ example:
 
 		for _, name := range args {
 
-			addon, err := utils.GetAddonFromName(name)
+			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -209,7 +209,7 @@ example:
 			}
 
 			for _, dependent := range addon.Dependencies {
-				resource, err := utils.GetResourceFromName(dependent)
+				err, resource := utils.GetResourceFromName(dependent)
 				if err != nil {
 					utils.PrintError(err.Error())
 					errors = append(errors, name)

@@ -165,7 +165,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", args))
 
 		for _, name := range args{
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)

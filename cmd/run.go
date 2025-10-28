@@ -34,7 +34,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Running resource %s", name))
 
 		var resource *types.Resource
-		resource, err := utils.GetResourceFromName(name)
+		err, resource := utils.GetResourceFromName(name)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -51,7 +51,7 @@ example:
 			}
 
 			for _, name := range resource.Dependents {
-				addon, err := utils.GetAddonFromName(name)
+				err, addon := utils.GetAddonFromName(name)
 				if err != nil {
 					utils.PrintError(err.Error())
 					return

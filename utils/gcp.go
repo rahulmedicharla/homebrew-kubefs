@@ -54,15 +54,10 @@ func DeleteGCPCluster(gcpConfig *types.CloudConfig, clusterName string) error {
 			return fmt.Errorf("failed to get operation status: %v", err)
 		}
 	}
-
-	PrintInfo(fmt.Sprintf("GKE Cluster %s deleted successfully from GCP", clusterName))
-
 	return nil
 }
 
 func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error {
-	PrintWarning(fmt.Sprintf("Creating new cluster with default values...", clusterName))
-
 	ctx := context.Background()
 	c, err := container.NewClusterManagerClient(ctx)
 	if err != nil {
@@ -98,7 +93,7 @@ func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error
 
 		// Print progress status
 		PrintWarning(fmt.Sprintf("Waiting for GKE cluster creation to complete... %s", operation.GetStatus().String()))
-		time.Sleep(10 * time.Second)
+		time.Sleep(30 * time.Second)
 
 		// Get updated operation status
 		getOperationReq := &containerpb.GetOperationRequest{
@@ -110,12 +105,15 @@ func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error
 		}
 	}
 
-	PrintInfo(fmt.Sprintf("GKE Cluster %s created successfully in GCP; Installing dependencies...", clusterName))
+	PrintInfo(fmt.Sprintf("GKE Cluster [%s] created successfully; Installing dependencies...", clusterName))
 
 	commands := []string{
 		fmt.Sprintf("gcloud container clusters get-credentials %s --location %s", clusterName, gcpConfig.Region),
-		"kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
-		"helm install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx --set controller.service.annotations.service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path=/healthz --set controller.service.externalTrafficPolicy=Local",
+		// "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
+		"helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx",
+		"helm repo update",
+		"helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx --set controller.service.annotations.service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path=/healthz --set controller.service.externalTrafficPolicy=Local",
+		"kubectl wait --for=condition=available --timeout=5m deployment/ingress-nginx-controller -n ingress-nginx",
 	}
 
 	return RunMultipleCommands(commands, true, true)
@@ -127,13 +125,11 @@ func AuthenticateGCP() error {
 		"gcloud components install gke-gcloud-auth-plugin",
 	}
 
-	PrintInfo("Starting GCP authentication process... Opening link in browser")
 	err := RunMultipleCommands(commands, true, true)
 	if err != nil {
 		return err
 	}
 
-	PrintInfo("Authenticated with GCP successfully")
 	return nil
 }
 
@@ -165,13 +161,12 @@ func SearchGcpProjects(ctx context.Context, projectName string) (error, *string)
 		}
 
 		if project.GetProjectId() == projectName {
-			PrintInfo(fmt.Sprintf("Project %s found in GCP", projectName))
 			projectName := project.GetName()
 			return nil, &projectName
 		}
 	}
 
-	return fmt.Errorf("project %s not found in GCP.", projectName), nil
+	return fmt.Errorf("Project [%s] not found in GCP.", projectName), nil
 }
 
 func EnableGcpServices(ctx context.Context, projectName string, services []string) error {
@@ -201,7 +196,6 @@ func EnableGcpServices(ctx context.Context, projectName string, services []strin
 
 	}
 
-	PrintInfo(fmt.Sprintf("Enabled GCP services %v for project: %s", services, projectName))
 	return nil
 }
 
@@ -251,15 +245,12 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string, *string)
 	if err != nil {
 		return fmt.Errorf("error verifying GCP project: %v", err), nil, nil
 	}
-	PrintInfo(fmt.Sprintf("Found GCP Project: %s", projectName))
-
+	
 	// Enable required services
 	services := []string{
 		"compute.googleapis.com",
 		"container.googleapis.com",
 	}
-
-	PrintInfo(fmt.Sprintf("Enabling required GCP services for project: %s", projectName))
 
 	err = EnableGcpServices(ctx, *projectId, services)
 	if err != nil {
