@@ -11,7 +11,6 @@ import (
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/zalando/go-keyring"
 	"strings"
-	"errors"
 )
 
 // createCmd represents the create command
@@ -37,7 +36,6 @@ example:
 func parseInfo(cmd *cobra.Command,args []string, resource string) error {
 	if len(args) < 1 {
 		cmd.Help()
-		return errors.New("Please provide a name for the resource")
 	}
 
 	name := args[0]
@@ -186,7 +184,7 @@ example:
 			return
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Successfully created API %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
+		utils.PrintInfo(fmt.Sprintf("Successfully created API %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 
@@ -290,7 +288,7 @@ example:
 			return
 		}
 
-		utils.PrintSuccess(fmt.Sprintf("Successfully created frontend %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
+		utils.PrintInfo(fmt.Sprintf("Successfully created frontend %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 
@@ -403,7 +401,7 @@ example:
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Creating database with '%s' as password. Store this to interact with the database", password))
-		utils.PrintSuccess(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
+		utils.PrintInfo(fmt.Sprintf("Successfully created database %s on port %v using the %s framework", resourceName, resourcePort, resourceFramework))
 	},
 }
 

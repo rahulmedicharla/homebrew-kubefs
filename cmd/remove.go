@@ -125,7 +125,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v removed successfully", successes))
 		}
 
     },
@@ -161,7 +161,7 @@ example:
 
 		for _, name := range args {
 			var resource *types.Resource
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -183,7 +183,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v removed successfully", successes))
 		}
 
     },

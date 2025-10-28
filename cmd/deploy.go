@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"fmt"
-	"context"
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/rahulmedicharla/kubefs/types"
@@ -29,40 +28,32 @@ example:
 }
 
 func deployToTarget(target string, commands []string) error {
-	// verify target
+	// verify cloud config
 	err, config := utils.VerifyCloudConfig(target)
 	if err != nil {
 		return err
 	}
 
+	if config.MainCluster == "" {
+		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+	}
+	
 	if target == "minikube" {
-		// update context & start cluster
-		err := utils.GetMinikubeCluster(config)
+		// update context
+		err := utils.GetMinikubeContext(config)
 		if err != nil {
 			return err
 		}
 
 		return utils.RunMultipleCommands(commands, true, true)
 	} else if target == "gcp" {
-		ctx := context.Background()
-
-		// get cluster or create new cluster exists in GCP
-		err = utils.GetOrCreateGCPCluster(ctx, config)
-		if err != nil {
-			return err 
-		}
-
-		// get kubeconfig for cluster
+		// update context
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {
 			return err
 		}
 
-		// deploy specified commands to GCP cluster
-		err = utils.RunMultipleCommands(commands, true, true)
-		if err != nil {
-			return err
-		}
+		return utils.RunMultipleCommands(commands, true, true)
 	}
 	return nil
 }
@@ -105,7 +96,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 
 			var allowedOrigins []string
 			for _, n := range addon.Dependencies {
-				attachedResource, err := utils.GetResourceFromName(n)
+				err, attachedResource := utils.GetResourceFromName(n)
 				if err != nil {
 					return err
 				}
@@ -288,7 +279,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			}
 
 			for _, a := range resource.Dependents{
-				addon, _ := utils.GetAddonFromName(a)
+				_, addon := utils.GetAddonFromName(a)
 				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, a, count, addon.ClusterHost))
 				count++
 			}
@@ -297,6 +288,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			if err == nil {
 				count = 0
 				for _,line := range envData {
+					utils.PrintWarning(line)
 					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", count, strings.Split(line, "=")[0], count, strings.Split(line, "=")[1], count, resource.Name))
 					count++
 				}
@@ -349,7 +341,6 @@ example:
 
 		var errors []string
 		var successes []string
-		var hosts []string
 
         utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
 
@@ -362,9 +353,6 @@ example:
 			}
 
 			successes = append(successes, resource.Name)
-			if resource.Type == "frontend" {
-				hosts = append(hosts, resource.Opts["host-domain"])
-			}
         }
 
 		for _, addon := range utils.ManifestData.Addons {
@@ -382,11 +370,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
-		}
-
-		if len(hosts) > 0 {
-			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v. 'minikube tunnel' first to access. ", hosts))
+			utils.PrintInfo(fmt.Sprintf("Resource %v deployed successfully", successes))
 		}
 	},
 }
@@ -429,14 +413,13 @@ example:
 
 		var successes []string
 		var errors []string
-		var hosts []string
 
 		utils.PrintWarning(fmt.Sprintf("Deploying resource %v to %s", args, target))
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
 			var resource *types.Resource
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 
 			if err != nil {
 				utils.PrintError(err.Error())
@@ -452,18 +435,13 @@ example:
 			}
 
 			successes = append(successes, name)
-			if resource.Type == "frontend" {
-				hosts = append(hosts, resource.Opts["host-domain"])
-			}
-
 		}
 
 		for _, addon := range addonList {
 			if addon == ""{
 				continue
 			}
-			var addonResource *types.Addon
-			addonResource, err := utils.GetAddonFromName(addon)
+			err, addonResource := utils.GetAddonFromName(addon)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, addon)
@@ -485,11 +463,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
-		}
-
-		if len(hosts) > 0 {
-			utils.PrintWarning(fmt.Sprintf("Frontend resources are available at %v. 'minikube tunnel' first to access. ", hosts))
+			utils.PrintInfo(fmt.Sprintf("Resource %v deployed successfully", successes))
 		}
 	},
 }
@@ -530,8 +504,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Deploying addons %v to %s", args, target))
 
 		for _, addon := range args {
-			var addonResource *types.Addon
-			addonResource, err := utils.GetAddonFromName(addon)
+			err, addonResource := utils.GetAddonFromName(addon)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, addon)
@@ -553,7 +526,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v deployed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v deployed successfully", successes))
 		}
 	},
 }

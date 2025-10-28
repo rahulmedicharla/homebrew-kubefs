@@ -41,7 +41,8 @@ type CloudConfig struct {
 	ProjectId string `yaml:"project_id", omitempty`
 	ProjectName string `yaml:"project_name", omitempty`
 	Region string `yaml:"region", omitempty`
-	ClusterName string `yaml:"cluster_name",omitempty`
+	ClusterNames []string `yaml:"cluster_names",omitempty`
+	MainCluster string `yaml:"main_cluster",omitempty`
 }
 
 type ApiResponse struct {
@@ -57,4 +58,9 @@ var FRAMEWORKS = map[string][]string{
 	"frontend": {"next", "sveltekit", "remix"},
 	"database": {"postgresql", "redis"},
 	"addons": {"oauth2"},
+}
+
+var TARGETS = []string{
+	"minikube",
+	"gcp",
 }
