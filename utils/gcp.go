@@ -112,7 +112,7 @@ func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error
 		// "kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml",
 		"helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx",
 		"helm repo update",
-		"helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx --set controller.service.annotations.service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path=/healthz --set controller.service.externalTrafficPolicy=Local",
+		"helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx --set controller.service.annotations.service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path=/healthz --set controller.service.externalTrafficPolicy=Local > /dev/null",
 		"kubectl wait --for=condition=available --timeout=5m deployment/ingress-nginx-controller -n ingress-nginx",
 	}
 
