@@ -155,9 +155,9 @@ func main() {
 		panic(fmt.Errorf("CLIENTS variable not defined"))
 	}
 
-	ALLOWED_HOSTS, isSet := os.LookupEnv("ALLOWED_HOSTS")
+	ALLOWED_ORIGINS, isSet := os.LookupEnv("ALLOWED_ORIGINS")
 	if !isSet {
-		panic(fmt.Errorf("ALLOWED_HOSTS variable not defined"))
+		panic(fmt.Errorf("ALLOWED_ORIGINS variable not defined"))
 	}
 
 	// parse client credentials
@@ -173,7 +173,7 @@ func main() {
 
 	// cors
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: strings.Split(ALLOWED_HOSTS, ","),
+		AllowOrigins: strings.Split(ALLOWED_ORIGINS, ","),
 		AllowMethods: []string{"GET", "POST"},
 		AllowHeaders: []string{"Content-Type"},
 	}))
