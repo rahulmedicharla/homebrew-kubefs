@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/spf13/cobra"
 )
@@ -33,8 +32,7 @@ example:
 		name := args[0]
 		utils.PrintWarning(fmt.Sprintf("Running resource %s", name))
 
-		var resource *types.Resource
-		err, resource := utils.GetResourceFromName(name)
+		resource, err := utils.GetResourceFromName(name)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -51,7 +49,7 @@ example:
 			}
 
 			for _, name := range resource.Dependents {
-				err, addon := utils.GetAddonFromName(name)
+				addon, err := utils.GetAddonFromName(name)
 				if err != nil {
 					utils.PrintError(err.Error())
 					return

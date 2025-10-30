@@ -27,7 +27,7 @@ example:
 }
 
 func undeployFromTarget(target string, commands []string) error {
-	err, config := utils.VerifyCloudConfig(target)
+	config, err := utils.VerifyCloudConfig(target)
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -207,7 +207,7 @@ example:
 		}
 
 		for _, name := range addonList {
-			err, addon := utils.GetAddonFromName(name)
+			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -266,7 +266,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v from %s", args, target))
 
 		for _, name := range args {
-			err, addon := utils.GetAddonFromName(name)
+			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)

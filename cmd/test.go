@@ -59,7 +59,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 
 	var allowedHosts []string
 	for _, name := range addon.Dependencies {
-		err, resource := utils.GetResourceFromName(name)
+		resource, err := utils.GetResourceFromName(name)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 
 		clients := make([]string, 0)
 		for _, name := range addon.Dependencies {
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				return err
 			}
@@ -147,7 +147,7 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 		}
 
 		for _, a := range resource.Dependents {
-			_, addon := utils.GetAddonFromName(a)
+			addon, _ := utils.GetAddonFromName(a)
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a, addon.DockerHost))
 		}
 
@@ -292,7 +292,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", args))
 
 		for _, name := range args {
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				errors = append(errors, name)
 				continue
@@ -307,7 +307,7 @@ example:
 		}
 
 		for _, name := range addonsList {
-			err, addon := utils.GetAddonFromName(name)
+			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				errors = append(errors, name)
 				continue
@@ -389,7 +389,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", args))
 
 		for _, name := range args {
-			err, addon := utils.GetAddonFromName(name)
+			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				errors = append(errors, name)
 				continue

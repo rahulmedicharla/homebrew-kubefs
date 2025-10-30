@@ -76,7 +76,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Describing resource %v\n", args))
 
 		for _, name := range args {
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				continue

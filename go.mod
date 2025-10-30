@@ -14,6 +14,7 @@ require (
 	github.com/zalando/go-keyring v0.2.6
 	google.golang.org/api v0.247.0
 	gopkg.in/yaml.v3 v3.0.1
+	v8.run/go/exp v0.0.25
 )
 
 require (
@@ -52,5 +53,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
-	v8.run/go/exp v0.0.25 // indirect
 )

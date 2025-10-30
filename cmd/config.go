@@ -77,7 +77,7 @@ example:
 			}
 
 			// Setup GCP
-			err, projectId, region := utils.SetupGcp(ctx, projectName)
+			projectId, region, err := utils.SetupGcp(ctx, projectName)
 			if err != nil {
 				utils.PrintError(err.Error())
 				return
@@ -92,7 +92,7 @@ example:
 				ClusterNames: make([]string, 0),
 			}
 
-			err, _ = utils.VerifyCloudConfig("gcp")
+			_, err = utils.VerifyCloudConfig("gcp")
 			if err == nil {
 				// Update existing config
 				err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)

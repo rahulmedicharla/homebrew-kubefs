@@ -45,7 +45,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
+		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -82,7 +82,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
+		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -130,7 +130,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
+		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -185,7 +185,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
+		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -242,7 +242,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
+		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -276,7 +276,7 @@ example:
 		}
 
 		// update Manifest
-		_, config.ClusterNames = utils.RemoveClusterName(config, clusterName)
+		config.ClusterNames, _ = utils.RemoveClusterName(config, clusterName)
 		if len(config.ClusterNames) > 0 {
 			config.MainCluster = config.ClusterNames[0]
 		} else {
@@ -316,7 +316,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
+		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
 			utils.PrintError(err.Error())
 			return

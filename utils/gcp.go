@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	compute "cloud.google.com/go/compute/apiv1"
+	computepb "cloud.google.com/go/compute/apiv1/computepb"
+	container "cloud.google.com/go/container/apiv1"
+	containerpb "cloud.google.com/go/container/apiv1/containerpb"
 	resourcemanager "cloud.google.com/go/resourcemanager/apiv3"
 	resourcemanagerpb "cloud.google.com/go/resourcemanager/apiv3/resourcemanagerpb"
 	serviceusage "cloud.google.com/go/serviceusage/apiv1"
 	serviceusagepb "cloud.google.com/go/serviceusage/apiv1/serviceusagepb"
-	container "cloud.google.com/go/container/apiv1"
-	containerpb "cloud.google.com/go/container/apiv1/containerpb"
-	compute "cloud.google.com/go/compute/apiv1"
-	computepb "cloud.google.com/go/compute/apiv1/computepb"
-	"google.golang.org/api/iterator"
 	"github.com/rahulmedicharla/kubefs/types"
+	"google.golang.org/api/iterator"
 )
 
 func GetGCPClusterContext(gcpConfig *types.CloudConfig) error {
@@ -74,7 +75,7 @@ func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error
 	}
 
 	createClusterReq := &containerpb.CreateClusterRequest{
-		Parent: fmt.Sprintf("%s/locations/%s", gcpConfig.ProjectId, gcpConfig.Region),
+		Parent:  fmt.Sprintf("%s/locations/%s", gcpConfig.ProjectId, gcpConfig.Region),
 		Cluster: cluster,
 	}
 
@@ -120,7 +121,7 @@ func ProvisionGcpCluster(gcpConfig *types.CloudConfig, clusterName string) error
 }
 
 func AuthenticateGCP() error {
-	commands:= []string{
+	commands := []string{
 		"gcloud auth login --update-adc",
 		"gcloud components install gke-gcloud-auth-plugin",
 	}
@@ -133,7 +134,7 @@ func AuthenticateGCP() error {
 	return nil
 }
 
-func SearchGcpProjects(ctx context.Context, projectName string) (error, *string) {
+func SearchGcpProjects(ctx context.Context, projectName string) (*string, error) {
 	//
 	// Search for existing GCP projects with the given project ID
 	// Returns projectName projects/id
@@ -141,7 +142,7 @@ func SearchGcpProjects(ctx context.Context, projectName string) (error, *string)
 
 	client, err := resourcemanager.NewProjectsClient(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create projects client: %v", err), nil
+		return nil, fmt.Errorf("failed to create projects client: %v", err)
 	}
 	defer client.Close()
 
@@ -157,16 +158,16 @@ func SearchGcpProjects(ctx context.Context, projectName string) (error, *string)
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to list projects: %v", err), nil
+			return nil, fmt.Errorf("failed to list projects: %v", err)
 		}
 
 		if project.GetProjectId() == projectName {
 			projectName := project.GetName()
-			return nil, &projectName
+			return &projectName, nil
 		}
 	}
 
-	return fmt.Errorf("Project [%s] not found in GCP.", projectName), nil
+	return nil, fmt.Errorf("project [%s] not found in GCP", projectName)
 }
 
 func EnableGcpServices(ctx context.Context, projectName string, services []string) error {
@@ -183,7 +184,7 @@ func EnableGcpServices(ctx context.Context, projectName string, services []strin
 		req := &serviceusagepb.EnableServiceRequest{
 			Name: fmt.Sprintf("%s/services/%s", projectName, service),
 		}
-		
+
 		operation, err := client.EnableService(ctx, req)
 		if err != nil {
 			return fmt.Errorf("failed to enable service %s: %v", service, err)
@@ -235,17 +236,17 @@ func VerifyRegion(ctx context.Context, projectId *string, region string) error {
 	return fmt.Errorf("region %s not found in GCP. Available regions: %v", region, regions)
 }
 
-func SetupGcp(ctx context.Context, projectName string) (error, *string, *string) {
+func SetupGcp(ctx context.Context, projectName string) (*string, *string, error) {
 	//
 	// Setup GCP project by verifying project existence or creating new project
 	//
-	
+
 	// Verify project exists
-	err, projectId := SearchGcpProjects(ctx, projectName)
+	projectId, err := SearchGcpProjects(ctx, projectName)
 	if err != nil {
-		return fmt.Errorf("error verifying GCP project: %v", err), nil, nil
+		return nil, nil, fmt.Errorf("error verifying GCP project: %v", err)
 	}
-	
+
 	// Enable required services
 	services := []string{
 		"compute.googleapis.com",
@@ -254,20 +255,20 @@ func SetupGcp(ctx context.Context, projectName string) (error, *string, *string)
 
 	err = EnableGcpServices(ctx, *projectId, services)
 	if err != nil {
-		return fmt.Errorf("error enabling GCP services: %v", err), nil, nil
+		return nil, nil, fmt.Errorf("error enabling GCP services: %v", err)
 	}
 
 	var region string
 
 	err = ReadInput("Enter GKE Cluster Region: ", &region)
 	if err != nil {
-		return fmt.Errorf("error reading GKE Cluster Region: %v", err), nil, nil
+		return nil, nil, fmt.Errorf("error reading GKE Cluster Region: %v", err)
 	}
 
 	err = VerifyRegion(ctx, projectId, region)
 	if err != nil {
-		return fmt.Errorf("error verifying GKE Cluster Region: %v", err), nil, nil
+		return nil, nil, fmt.Errorf("error verifying GKE Cluster Region: %v", err)
 	}
 
-	return nil, projectId, &region
+	return projectId, &region, nil
 }

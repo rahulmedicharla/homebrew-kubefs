@@ -29,7 +29,7 @@ example:
 
 func deployToTarget(target string, commands []string) error {
 	// verify cloud config
-	err, config := utils.VerifyCloudConfig(target)
+	config, err := utils.VerifyCloudConfig(target)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 
 			var allowedOrigins []string
 			for _, n := range addon.Dependencies {
-				err, attachedResource := utils.GetResourceFromName(n)
+				attachedResource, err := utils.GetResourceFromName(n)
 				if err != nil {
 					return err
 				}
@@ -279,7 +279,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			}
 
 			for _, a := range resource.Dependents {
-				_, addon := utils.GetAddonFromName(a)
+				addon, _ := utils.GetAddonFromName(a)
 				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, a, count, addon.ClusterHost))
 				count++
 			}
@@ -419,7 +419,7 @@ example:
 
 		for _, name := range args {
 			var resource *types.Resource
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 
 			if err != nil {
 				utils.PrintError(err.Error())
@@ -441,7 +441,7 @@ example:
 			if addon == "" {
 				continue
 			}
-			err, addonResource := utils.GetAddonFromName(addon)
+			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, addon)
@@ -504,7 +504,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Deploying addons %v to %s", args, target))
 
 		for _, addon := range args {
-			err, addonResource := utils.GetAddonFromName(addon)
+			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, addon)

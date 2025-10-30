@@ -28,7 +28,7 @@ example:
 			return
 		}
 
-		err, resource := utils.GetResourceFromName(args[0])
+		resource, err := utils.GetResourceFromName(args[0])
 		if err != nil {
 			utils.PrintError(err.Error())
 			return
@@ -41,7 +41,7 @@ example:
 
 			// get target
 			target, _ := cmd.Flags().GetString("target")
-			err, config := utils.VerifyCloudConfig(target)
+			config, err := utils.VerifyCloudConfig(target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error verifying target %s configuration", target))
 			}

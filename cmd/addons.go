@@ -48,7 +48,7 @@ func connectGatewayToResource(addonName string, resourceNames maps.Set[string], 
 	validAttachedResourceNames := maps.NewSet[string]()
 
 	for _, n := range maps.Keys(resourceNames) {
-		err, resource := utils.GetResourceFromName(n)
+		resource, err := utils.GetResourceFromName(n)
 		if err != nil {
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
 			fmt.Println(*errors)
@@ -108,7 +108,7 @@ func connectOauth2ToResource(addonName string, resourceNames maps.Set[string], e
 	validAttachedResourceNames := maps.NewSet[string]()
 
 	for _, n := range maps.Keys(resourceNames) {
-		err, resource := utils.GetResourceFromName(n)
+		resource, err := utils.GetResourceFromName(n)
 		if err != nil {
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
 			continue
@@ -159,7 +159,7 @@ func disconnectAddonFromResource(addonName string, dependencies maps.Set[string]
 	validDisconnectResourceNames := maps.NewSet[string]()
 
 	for _, n := range maps.Keys(dependencies) {
-		err, resource := utils.GetResourceFromName(n)
+		resource, err := utils.GetResourceFromName(n)
 		if err != nil {
 			utils.PrintError(err.Error())
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
@@ -336,7 +336,7 @@ example:
 
 		for _, name := range args {
 
-			err, addon := utils.GetAddonFromName(name)
+			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -428,7 +428,7 @@ example:
 			utils.PrintError(utils.ManifestStatus.Error())
 		}
 
-		err, addon := utils.GetAddonFromName(args[0])
+		addon, err := utils.GetAddonFromName(args[0])
 		if err != nil {
 			utils.PrintError(err.Error())
 			return

@@ -160,8 +160,7 @@ example:
 		var successes []string
 
 		for _, name := range args {
-			var resource *types.Resource
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
