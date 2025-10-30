@@ -102,10 +102,6 @@ var undeployAllCmd = &cobra.Command{
 example:
 	kubefs undeploy all --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
 
 		target, _ := cmd.Flags().GetString("target")
 
@@ -123,7 +119,7 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := undeployUnique(&resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error undeploying resource %s. %v", resource.Name, err))
+				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", resource.Name, err))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -133,7 +129,7 @@ example:
 		for _, addon := range utils.ManifestData.Addons {
 			err := undeployAddon(&addon, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error undeploying addon %s. %v", addon.Name, err))
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", addon.Name, err))
 				errors = append(errors, addon.Name)
 				continue
 			}
@@ -141,7 +137,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -161,11 +157,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -199,7 +190,7 @@ example:
 
 			err = undeployUnique(resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error undeploying resource %s. %v", name, err))
+				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -216,7 +207,7 @@ example:
 
 			err = undeployAddon(addon, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error undeploying addon %s. %v", name, err))
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -224,7 +215,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -244,11 +235,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -275,7 +261,7 @@ example:
 
 			err = undeployAddon(addon, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error undeploying addon %s. %v", name, err))
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -283,7 +269,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {

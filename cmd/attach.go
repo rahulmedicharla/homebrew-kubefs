@@ -23,11 +23,6 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
-
 		resource, err := utils.GetResourceFromName(args[0])
 		if err != nil {
 			utils.PrintError(err)
@@ -47,9 +42,10 @@ example:
 			}
 
 			// update context
-			if target == "minikube" {
+			switch target {
+			case "minikube":
 				err = utils.GetMinikubeContext(config)
-			} else if target == "gcp" {
+			case "gcp":
 				err = utils.GetGCPClusterContext(config)
 			}
 			if err != nil {
@@ -62,7 +58,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", resource.Name))
 		err = utils.RunCommand(command, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error attaching to container: %v", err))
+			utils.PrintError(fmt.Errorf("error attaching to container: %v", err))
 			return
 		}
 	},

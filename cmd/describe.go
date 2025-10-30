@@ -34,10 +34,6 @@ example:
 	kubefs describe all
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
 
 		utils.PrintWarning("Describing all resources")
 
@@ -65,11 +61,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 

@@ -30,7 +30,7 @@ example:
 
 		err := utils.ReadInput("Enter project description: ", &description)
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error reading project description: %v", err))
+			utils.PrintError(fmt.Errorf("error reading project description: %v", err))
 			return
 		}
 
@@ -41,7 +41,7 @@ example:
 
 		err = utils.RunMultipleCommands(commands, false, true)
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Couldn't initialize project: %v", err))
+			utils.PrintError(fmt.Errorf("couldn't initialize project: %v", err))
 		}
 
 		cloudConfig := types.CloudConfig{

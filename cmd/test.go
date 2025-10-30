@@ -190,10 +190,6 @@ example:
 	kubefs test all --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
 
 		utils.PrintWarning("Testing all resources in docker")
 
@@ -220,14 +216,14 @@ example:
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error writing docker-compose.yaml file. %v", err))
+			utils.PrintError(fmt.Errorf("error writing docker-compose.yaml file. %v", err))
 			return
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error including resources & addons %v", errors))
+			utils.PrintError(fmt.Errorf("error including resources & addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -242,7 +238,7 @@ example:
 		if !onlyWrite {
 			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error running docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("eror running docker compose: %v", err))
 				return
 			}
 
@@ -255,7 +251,7 @@ example:
 
 			err = utils.RunCommand(command, true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error stopping docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("error stopping docker compose: %v", err))
 				return
 			}
 		}
@@ -272,11 +268,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -323,14 +314,14 @@ example:
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error writing docker-compose.yaml file. %v", err))
+			utils.PrintError(fmt.Errorf("error writing docker-compose.yaml file. %v", err))
 			return
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error including resources & addons %v", errors))
+			utils.PrintError(fmt.Errorf("error including resources & addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -345,7 +336,7 @@ example:
 		if !onlyWrite {
 			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error running docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("error running docker compose: %v", err))
 				return
 			}
 
@@ -358,7 +349,7 @@ example:
 
 			err = utils.RunCommand(command, true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error stopping docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("error stopping docker compose: %v", err))
 				return
 			}
 		}
@@ -375,11 +366,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -405,14 +391,14 @@ example:
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error writing docker-compose.yaml file. %v", err))
+			utils.PrintError(fmt.Errorf("error writing docker-compose.yaml file. %v", err))
 			return
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error including resources & addons %v", errors))
+			utils.PrintError(fmt.Errorf("error including resources & addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -427,7 +413,7 @@ example:
 		if !onlyWrite {
 			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error running docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("error running docker compose: %v", err))
 				return
 			}
 
@@ -440,7 +426,7 @@ example:
 
 			err = utils.RunCommand(command, true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error stopping docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("error stopping docker compose: %v", err))
 				return
 			}
 		}

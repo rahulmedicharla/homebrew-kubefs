@@ -323,10 +323,6 @@ example:
 	kubefs deploy all --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
 
 		var onlyHelmify, onlyDeploy bool
 		onlyHelmify, _ = cmd.Flags().GetBool("only-helmify")
@@ -347,7 +343,7 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error deploying resource %s. %v", resource.Name, err))
+				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", resource.Name, err))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -358,7 +354,7 @@ example:
 		for _, addon := range utils.ManifestData.Addons {
 			err := deployAddon(&addon, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error deploying addon %s. %v", addon.Name, err))
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon.Name, err))
 				errors = append(errors, addon.Name)
 				continue
 			}
@@ -366,7 +362,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -386,11 +382,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -429,7 +420,7 @@ example:
 
 			err = deployUnique(resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error deploying resource %s. %v", name, err))
+				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -450,7 +441,7 @@ example:
 
 			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error deploying addon %s. %v", addon, err))
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
 				continue
 			}
@@ -459,7 +450,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -479,11 +470,6 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return
-		}
-
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -513,7 +499,7 @@ example:
 
 			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error deploying addon %s. %v", addon, err))
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
 				continue
 			}
@@ -522,7 +508,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {

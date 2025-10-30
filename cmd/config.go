@@ -38,7 +38,7 @@ example:
 
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error reading remove flag: %v", err))
+			utils.PrintError(fmt.Errorf("error reading remove flag: %v", err))
 			return
 		}
 
@@ -46,13 +46,13 @@ example:
 			// Revoke gcloud authentication
 			err = utils.RunCommand("gcloud auth revoke", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error revoking GCP authentication: %v", err))
+				utils.PrintError(fmt.Errorf("error revoking GCP authentication: %v", err))
 				return
 			}
 
 			err = utils.RemoveCloudConfig(&utils.ManifestData, "gcp")
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error removing GCP configuration from manifest: %v", err))
+				utils.PrintError(fmt.Errorf("error removing GCP configuration from manifest: %v", err))
 				return
 			}
 
@@ -62,7 +62,7 @@ example:
 			// Authenticate and enable with GCP using gcloud CLI
 			err = utils.AuthenticateGCP()
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error authenticating with GCP: %v", err))
+				utils.PrintError(fmt.Errorf("error authenticating with GCP: %v", err))
 				return
 			}
 
@@ -72,7 +72,7 @@ example:
 
 			err = utils.ReadInput("Enter GCP Project Id: ", &projectName)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error reading GCP Project Id: %v", err))
+				utils.PrintError(fmt.Errorf("error reading GCP Project Id: %v", err))
 				return
 			}
 
@@ -97,7 +97,7 @@ example:
 				// Update existing config
 				err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)
 				if err != nil {
-					utils.PrintError(fmt.Errorf("Error updating GCP configuration to manifest: %v", err))
+					utils.PrintError(fmt.Errorf("error updating GCP configuration to manifest: %v", err))
 					return
 				}
 
@@ -109,7 +109,7 @@ example:
 			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
 			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error saving GCP configuration to manifest: %v", err))
+				utils.PrintError(fmt.Errorf("error saving GCP configuration to manifest: %v", err))
 				return
 			}
 
@@ -134,14 +134,14 @@ example:
 		// Read remove flag
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
-			utils.PrintError(fmt.Errorf("Error reading remove flag: %v", err))
+			utils.PrintError(fmt.Errorf("error reading remove flag: %v", err))
 			return
 		}
 
 		if remove {
 			err := keyring.Delete(service, user)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error deleting Docker credentials: %v", err))
+				utils.PrintError(fmt.Errorf("error deleting Docker credentials: %v", err))
 				return
 			}
 			utils.PrintInfo("Docker credentials removed successfully")
@@ -149,17 +149,17 @@ example:
 			var username, pat string
 			err := utils.ReadInput("Enter Docker username: ", &username)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error reading Docker username: %v", err))
+				utils.PrintError(fmt.Errorf("error reading Docker username: %v", err))
 			}
 
 			err = utils.ReadInput("Enter Docker PAT (https://docs.docker.com/security/for-developers/access-tokens/): ", &pat)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error reading Docker PAT: %v", err))
+				utils.PrintError(fmt.Errorf("error reading Docker PAT: %v", err))
 			}
 
 			err = keyring.Set(service, user, fmt.Sprintf("%s:%s", username, pat))
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error saving Docker credentials: %v", err))
+				utils.PrintError(fmt.Errorf("error saving Docker credentials: %v", err))
 				return
 			}
 

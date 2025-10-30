@@ -95,10 +95,6 @@ example:
 	kubefs remove all --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
 
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
@@ -112,7 +108,7 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := removeUnique(&resource, onlyLocal, onlyRemote)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error removing resource %s. %v", resource.Name, err))
+				utils.PrintError(fmt.Errorf("error removing resource %s. %v", resource.Name, err))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -121,7 +117,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error removing resources %v", errors))
+			utils.PrintError(fmt.Errorf("error removing resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -145,11 +141,6 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
-
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
 		onlyRemote, _ = cmd.Flags().GetBool("only-remote")
@@ -169,7 +160,7 @@ example:
 
 			err = removeUnique(resource, onlyLocal, onlyRemote)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("Error removing resource %s. %v", name, err))
+				utils.PrintError(fmt.Errorf("error removing resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -178,7 +169,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Errorf("Error removing resources %v", errors))
+			utils.PrintError(fmt.Errorf("error removing resources %v", errors))
 		}
 
 		if len(successes) > 0 {

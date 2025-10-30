@@ -19,10 +19,6 @@ var runCmd = &cobra.Command{
 example:
 	kubefs run <resource-name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus)
-			return
-		}
 
 		if len(args) < 1 {
 			cmd.Help()
@@ -40,7 +36,7 @@ example:
 
 		upLocalCmd := strings.Builder{}
 		if resource.Type == "database" {
-			utils.PrintError(fmt.Errorf("Cannot run database resource %s", name))
+			utils.PrintError(fmt.Errorf("cannot run database resource %s", name))
 			return
 		} else {
 			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", resource.Name))
