@@ -1,17 +1,17 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+	"reflect"
+	"strconv"
+	"strings"
+
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"strings"
-	"strconv"
-	"reflect"
+	"github.com/spf13/cobra"
 )
 
 // addonsCmd represents the addons command
@@ -39,12 +39,12 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return 
+			return
 		}
 
-		if utils.ManifestStatus != nil{
+		if utils.ManifestStatus != nil {
 			utils.PrintError(utils.ManifestStatus.Error())
-			return 
+			return
 		}
 
 		var errors []string
@@ -102,7 +102,7 @@ example:
 
 				names := strings.Split(resources, ",")
 				var validAttachedResourceNames []string
-				for _,n := range names{
+				for _, n := range names {
 					err, resource := utils.GetResourceFromName(n)
 					if err != nil {
 						utils.PrintError(err.Error())
@@ -119,7 +119,7 @@ example:
 					}
 					validAttachedResourceNames = append(validAttachedResourceNames, n)
 				}
-				
+
 				commands := []string{
 					fmt.Sprintf("mkdir addons/%s", name),
 					fmt.Sprintf("openssl genrsa -out addons/%s/private_key.pem", name),
@@ -131,21 +131,23 @@ example:
 					utils.PrintError(err.Error())
 					errors = append(errors, name)
 					continue
-				}					
+				}
 
 				newAddon = types.Addon{
-					Name: name,
-					Port: port,
-					DockerRepo: "rmedicharla/auth",
-					LocalHost: fmt.Sprintf("http://localhost:%s", addonPort),
-					DockerHost: fmt.Sprintf("http://oauth2:%s", addonPort),
-					ClusterHost: fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local"),
+					Name:         name,
+					Port:         port,
+					DockerRepo:   "rmedicharla/auth",
+					LocalHost:    fmt.Sprintf("http://localhost:%s", addonPort),
+					DockerHost:   fmt.Sprintf("http://oauth2:%s", addonPort),
+					ClusterHost:  fmt.Sprintf("http://oauth2-deploy.oauth2.svc.cluster.local"),
 					Dependencies: validAttachedResourceNames,
-					Environment: []string{"TWO_FACTOR_AUTH=" + fmt.Sprintf("%v", twoFa)},
+					Environment:  []string{"TWO_FACTOR_AUTH=" + fmt.Sprintf("%v", twoFa)},
 				}
 
 				utils.ManifestData.Addons = append(utils.ManifestData.Addons, newAddon)
 				successes = append(successes, name)
+			} else if name == "gateway" {
+				// generate client_id and client_secret for each current resource & addon
 			}
 		}
 
@@ -172,10 +174,10 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
-			return 
+			return
 		}
 
-		if utils.ManifestStatus != nil{
+		if utils.ManifestStatus != nil {
 			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
@@ -252,7 +254,7 @@ example:
 	kubefs addons list
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil{
+		if utils.ManifestStatus != nil {
 			utils.PrintError(utils.ManifestStatus.Error())
 		}
 
@@ -270,7 +272,6 @@ example:
 		}
 	},
 }
-
 
 func init() {
 	rootCmd.AddCommand(addonsCmd)

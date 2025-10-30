@@ -1,15 +1,15 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // testCmd represents the test command
@@ -77,7 +77,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 		attachedResourceList := addon.Dependencies
 
 		var allowedHosts []string
-		for _,name := range attachedResourceList {
+		for _, name := range attachedResourceList {
 			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				return err
@@ -86,18 +86,18 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 		}
 
 		env := service["environment"].([]string)
-		env = append(env, 
-			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")), 
+		env = append(env,
+			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")),
 			fmt.Sprintf("PORT=%v", addon.Port),
 			fmt.Sprintf("NAME=%s", utils.ManifestData.KubefsName),
 		)
 
-		for _,line := range addon.Environment {
+		for _, line := range addon.Environment {
 			env = append(env, line)
 		}
 
 		service["environment"] = env
-		
+
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",
 		}
@@ -120,37 +120,37 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 			"shared_network",
 		},
 		"environment": []string{},
-		"volumes": []string{},
+		"volumes":     []string{},
 	}
 
 	if resource.Type != "database" {
 		for _, r := range utils.ManifestData.Resources {
 			if r.Type == "database" {
-				service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST_READ=%s", r.Name, r.DockerHost))	
+				service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST_READ=%s", r.Name, r.DockerHost))
 			}
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
-		}	
-		
-		for _, a := range resource.Dependents{
+		}
+
+		for _, a := range resource.Dependents {
 			_, addon := utils.GetAddonFromName(a)
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a, addon.DockerHost))
 		}
 
-	 	envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+		envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
 		if err == nil {
-			for _,line := range envData {
+			for _, line := range envData {
 				service["environment"] = append(service["environment"].([]string), line)
 			}
 		}
 
-	}else{
+	} else {
 		if resource.Framework == "redis" {
 			service["environment"] = []string{fmt.Sprintf("REDIS_PASSWORD=%s", resource.Opts["password"]), fmt.Sprintf("REDIS_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("REDIS_DATABASE=%s", resource.Opts["default-database"])}
 			service["volumes"] = []string{"redis_data:/bitnami/redis/data"}
 			(*rawCompose)["volumes"].(map[string]interface{})["redis_data"] = map[string]string{
 				"driver": "local",
 			}
-		}else{
+		} else {
 			service["environment"] = []string{fmt.Sprintf("POSTGRESQL_PASSWORD=%s", resource.Opts["password"]), fmt.Sprintf("POSTGRESQL_PORT_NUMBER=%v", resource.Port), fmt.Sprintf("POSTGRESQL_DATABASE=%s", resource.Opts["default-database"]), fmt.Sprintf("POSTGRESQL_USERNAME=%s", resource.Opts["user"])}
 			service["volumes"] = []string{"postgresql_data:/bitnami/postgresql"}
 			(*rawCompose)["volumes"].(map[string]interface{})["postgresql_data"] = map[string]string{
@@ -176,7 +176,7 @@ example:
 			return
 		}
 
-        utils.PrintWarning("Testing all resources in docker")
+		utils.PrintWarning("Testing all resources in docker")
 
 		var errors []string
 		var successes []string
@@ -222,9 +222,9 @@ example:
 			}
 
 			var command string
-			if persist{
+			if persist {
 				command = "docker compose down"
-			}else{
+			} else {
 				command = "docker compose down -v --rmi all"
 			}
 
@@ -254,7 +254,7 @@ example:
 			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
-		
+
 		addonNames, _ := cmd.Flags().GetString("with-addons")
 		var addonsList []string
 		if addonNames != "" {
@@ -263,7 +263,7 @@ example:
 
 		var errors []string
 		var successes []string
-		
+
 		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", args))
 
 		for _, name := range args {
@@ -321,9 +321,9 @@ example:
 			}
 
 			var command string
-			if persist{
+			if persist {
 				command = "docker compose down"
-			}else{
+			} else {
 				command = "docker compose down -v --rmi all"
 			}
 
@@ -356,7 +356,7 @@ example:
 
 		var errors []string
 		var successes []string
-		
+
 		utils.PrintWarning(fmt.Sprintf("Testing resources %v in docker", args))
 
 		for _, name := range args {
@@ -397,9 +397,9 @@ example:
 			}
 
 			var command string
-			if persist{
+			if persist {
 				command = "docker compose down"
-			}else{
+			} else {
 				command = "docker compose down -v --rmi all"
 			}
 

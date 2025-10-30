@@ -2,6 +2,9 @@ package main
 
 import (
 	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -89,14 +92,23 @@ func parseClients(clients string) []AuthReq {
 
 func validateClientCredentials(authReq AuthReq, clientCredentials []AuthReq) error {
 	for _, cred := range clientCredentials {
-		if cred.ClientId == authReq.ClientId && cred.ClientSecret == authReq.ClientSecret {
+		// base 64 decode clientSecret & then hash & then compare values
+		base64DecodedSecret, err := base64.URLEncoding.DecodeString(authReq.ClientSecret)
+		if err != nil {
+			return err
+		}
+
+		hashedSecret := sha256.Sum256(base64DecodedSecret)
+		stringConvertedSecret := hex.EncodeToString(hashedSecret[:])
+
+		if cred.ClientId == authReq.ClientId && cred.ClientSecret == stringConvertedSecret {
 			return nil
 		}
 	}
 	return fmt.Errorf("Client Credentials missing or invalid")
 }
 
-func verifyAccessToken(authReq AuthReq) (error, int) {
+func verifyAccessToken(authReq AuthReq) (int, error) {
 	var claims jwt.MapClaims
 	tkn, err := jwt.ParseWithClaims(authReq.AccessToken, &claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
@@ -106,19 +118,17 @@ func verifyAccessToken(authReq AuthReq) (error, int) {
 		return publicKey, nil
 	})
 	if err != nil {
-		return err, http.StatusBadRequest
+		return http.StatusBadRequest, err
 	}
 
 	if tkn == nil || !tkn.Valid {
-		return err, http.StatusUnauthorized
+		return http.StatusUnauthorized, err
 	}
 
-	return nil, http.StatusOK
+	return http.StatusOK, nil
 }
 
 func main() {
-	r := gin.Default()
-
 	err := godotenv.Load()
 	if err != nil {
 		log.Printf("env file not found")
@@ -145,6 +155,11 @@ func main() {
 		panic(fmt.Errorf("CLIENTS variable not defined"))
 	}
 
+	ALLOWED_HOSTS, isSet := os.LookupEnv("ALLOWED_HOSTS")
+	if !isSet {
+		panic(fmt.Errorf("ALLOWED_HOSTS variable not defined"))
+	}
+
 	// parse client credentials
 	clientCredentials := parseClients(CLIENTS)
 
@@ -154,9 +169,11 @@ func main() {
 		panic(err)
 	}
 
+	r := gin.Default()
+
 	// cors
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: strings.Split(ALLOWED_HOSTS, ","),
 		AllowMethods: []string{"GET", "POST"},
 		AllowHeaders: []string{"Content-Type"},
 	}))
@@ -233,7 +250,7 @@ func main() {
 		}
 
 		// generate token
-		err, responseCode := verifyAccessToken(authReq)
+		responseCode, err := verifyAccessToken(authReq)
 		if err != nil {
 			c.JSON(responseCode, gin.H{
 				"error": err.Error(),
