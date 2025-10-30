@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/container v1.44.1
 	cloud.google.com/go/resourcemanager v1.10.7
 	cloud.google.com/go/serviceusage v1.9.7
+	github.com/google/uuid v1.6.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/thanhpk/randstr v1.0.6

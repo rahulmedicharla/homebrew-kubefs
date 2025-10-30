@@ -1,20 +1,20 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"os"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "kubefs",
 	Short: "kubefs -  a cli tool to create & deploy full stack applications onto kubernetes clusters",
-	Long: `kubefs - a cli tool to create & deploy full stack applications onto kubernetes clusters`,
+	Long:  `kubefs - a cli tool to create & deploy full stack applications onto kubernetes clusters`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -30,5 +30,3 @@ func init() {
 	utils.ReadManifest()
 	utils.GetHttpClient()
 }
-
-

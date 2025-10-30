@@ -1,14 +1,14 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // compileCmd represents the compile command
@@ -28,38 +28,38 @@ example:
 
 func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) error {
 	if resource.Type == "database" {
-		return fmt.Errorf("Database resources cannot be compiled")
+		return fmt.Errorf("database resources cannot be compiled")
 	}
-	
+
 	var commands []string
-	
+
 	if !onlyPush {
 		// build docker image
 		commands = append(commands, fmt.Sprintf("cd %s && echo 'node_modules\nDockerfile\ndocker-compose.yaml\n.*\ndeploy/' > .dockerignore; echo ''", resource.Name))
-		if resource.Type== "api"{
+		if resource.Type == "api" {
 			// api
-			if resource.Framework == "nest"{
+			if resource.Framework == "nest" {
 				// nest
 				commands = append(commands, fmt.Sprintf("cd %s && echo 'dist' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /usr/src/app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\nENV PORT=%v\nCMD [\"node\",\"dist/main\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
-			}else if resource.Framework == "fast"{
+			} else if resource.Framework == "fast" {
 				// fast
 				commands = append(commands,
 					fmt.Sprintf("cd %s && source venv/bin/activate && pip freeze > requirements.txt && deactivate", resource.Name),
 					fmt.Sprintf("cd %s && echo 'venv' >> .dockerignore && echo 'FROM python:slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE %v\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"%v\"]' > Dockerfile", resource.Name, resource.Port, resource.Port),
 				)
-			}else{
+			} else {
 				// gin
 				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\nCMD [\"./%s\"]' > Dockerfile", resource.Name, resource.Name, resource.Port, resource.Name))
 			}
-		}else{
+		} else {
 			// frontend
-			if resource.Framework == "next"{
+			if resource.Framework == "next" {
 				// next js
 				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
-			}else if resource.Framework == "remix"{
+			} else if resource.Framework == "remix" {
 				// remix
 				commands = append(commands, fmt.Sprintf("cd %s && echo 'build/' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
-			}else{
+			} else {
 				// svelte
 				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nCMD [\"npm\",\"run\", \"preview\", \"--\", \"--port\", \"%v\", \"--host\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
 			}
@@ -92,7 +92,6 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) erro
 	return nil
 }
 
-
 var compileAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "kubefs compile all - build and push docker images for all resources",
@@ -113,7 +112,7 @@ example:
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning("Compiling all resources")
+		utils.PrintWarning("Compiling all resources")
 
 		for _, resource := range utils.ManifestData.Resources {
 			err := compileUnique(&resource, onlyBuild, onlyPush)
@@ -134,7 +133,7 @@ example:
 		}
 
 	},
-}	
+}
 
 var compileResourceCmd = &cobra.Command{
 	Use:   "resource [name ...]",
@@ -164,7 +163,7 @@ example:
 
 		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", args))
 
-		for _, name := range args{
+		for _, name := range args {
 			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
@@ -191,8 +190,7 @@ example:
 			utils.PrintInfo(fmt.Sprintf("Resource %v compiled successfully", successes))
 		}
 	},
-}	
-
+}
 
 func init() {
 	rootCmd.AddCommand(compileCmd)

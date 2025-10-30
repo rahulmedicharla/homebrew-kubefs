@@ -1,15 +1,15 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // undeployCmd represents the undeploy command
@@ -33,9 +33,9 @@ func undeployFromTarget(target string, commands []string) error {
 	}
 
 	if config.MainCluster == "" {
-		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+		return fmt.Errorf("main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
 	}
-	
+
 	if target == "minikube" {
 		// update context
 		err := utils.GetMinikubeContext(config)
@@ -45,7 +45,7 @@ func undeployFromTarget(target string, commands []string) error {
 
 		// run commands
 		return utils.RunMultipleCommands(commands, true, true)
-	}else if target == "gcp" {
+	} else if target == "gcp" {
 		// get context
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {
@@ -61,7 +61,7 @@ func undeployFromTarget(target string, commands []string) error {
 
 func undeployAddon(addon *types.Addon, target string) error {
 	commands := []string{}
-	if addon.Name == "oauth2"{
+	if addon.Name == "oauth2" {
 		commands = append(commands, "helm uninstall auth-data")
 	}
 
@@ -78,8 +78,8 @@ func undeployAddon(addon *types.Addon, target string) error {
 func undeployUnique(resource *types.Resource, target string) error {
 	commandBuilder := strings.Builder{}
 	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", resource.Name))
-	
-	if resource.Type == "database"{
+
+	if resource.Type == "database" {
 		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", resource.Name))
 	}
 
@@ -120,7 +120,7 @@ example:
 		var errors []string
 		var successes []string
 
-        for _, resource := range utils.ManifestData.Resources {
+		for _, resource := range utils.ManifestData.Resources {
 			err := undeployUnique(&resource, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", resource.Name, err.Error()))
@@ -128,7 +128,7 @@ example:
 				continue
 			}
 			successes = append(successes, resource.Name)
-        }
+		}
 
 		for _, addon := range utils.ManifestData.Addons {
 			err := undeployAddon(&addon, target)
@@ -176,7 +176,7 @@ example:
 			utils.PrintError(err.Error())
 			return
 		}
-		
+
 		addons, _ := cmd.Flags().GetString("with-addons")
 		var addonList []string
 		if addons != "" {
@@ -186,7 +186,7 @@ example:
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning(fmt.Sprintf("Undeploying resource %v from %s", args, target))
+		utils.PrintWarning(fmt.Sprintf("Undeploying resource %v from %s", args, target))
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
@@ -291,7 +291,6 @@ example:
 		}
 	},
 }
-
 
 func init() {
 	rootCmd.AddCommand(undeployCmd)

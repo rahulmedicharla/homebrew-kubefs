@@ -1,15 +1,15 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+	"strings"
+
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"strings"
+	"github.com/spf13/cobra"
 )
 
 // runCmd represents the run command
@@ -41,10 +41,10 @@ example:
 		}
 
 		upLocalCmd := strings.Builder{}
-		if resource.Type == "database"{
+		if resource.Type == "database" {
 			utils.PrintError(fmt.Sprintf("Cannot run database resource %s", name))
 			return
-		}else {
+		} else {
 			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", resource.Name))
 			for _, resource := range utils.ManifestData.Resources {
 				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", resource.Name, resource.LocalHost))

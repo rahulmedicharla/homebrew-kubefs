@@ -92,9 +92,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 			fmt.Sprintf("NAME=%s", utils.ManifestData.KubefsName),
 		)
 
-		for _, line := range addon.Environment {
-			env = append(env, line)
-		}
+		env = append(env, addon.Environment...)
 
 		service["environment"] = env
 
@@ -184,7 +182,6 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := testResource(&rawCompose, &resource)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error including resource %s. %v", resource.Name, err.Error()))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -194,7 +191,6 @@ example:
 		for _, addon := range utils.ManifestData.Addons {
 			err := testAddon(&rawCompose, &addon)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error including addon %s. %v", addon.Name, err.Error()))
 				errors = append(errors, addon.Name)
 				continue
 			}
@@ -208,6 +204,14 @@ example:
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error including resources & addons %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintError(fmt.Sprintf("Successfully included resources & addons %v", successes))
+		}
 
 		var onlyWrite bool
 		var persist bool
@@ -269,14 +273,12 @@ example:
 		for _, name := range args {
 			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error getting resource %s", name))
 				errors = append(errors, name)
 				continue
 			}
 
 			err = testResource(&rawCompose, resource)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error including resource %s", name))
 				errors = append(errors, name)
 				continue
 			}
@@ -286,14 +288,12 @@ example:
 		for _, name := range addonsList {
 			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error getting addon %s", name))
 				errors = append(errors, name)
 				continue
 			}
 
 			err = testAddon(&rawCompose, addon)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error including addon %s", name))
 				errors = append(errors, name)
 				continue
 			}
@@ -307,6 +307,14 @@ example:
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error including resources & addons %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintError(fmt.Sprintf("Successfully included resources & addons %v", successes))
+		}
 
 		var onlyWrite bool
 		var persist bool
@@ -362,14 +370,12 @@ example:
 		for _, name := range args {
 			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error getting addon %s", name))
 				errors = append(errors, name)
 				continue
 			}
 
 			err = testAddon(&rawCompose, addon)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error including addon %s", name))
 				errors = append(errors, name)
 				continue
 			}
@@ -383,6 +389,14 @@ example:
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("Error including resources & addons %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintError(fmt.Sprintf("Successfully included resources & addons %v", successes))
+		}
 
 		var onlyWrite bool
 		var persist bool

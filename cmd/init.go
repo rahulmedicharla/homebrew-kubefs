@@ -1,14 +1,14 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // initCmd represents the init command
@@ -40,32 +40,32 @@ example:
 		}
 
 		err = utils.RunMultipleCommands(commands, false, true)
-		if err != nil{
+		if err != nil {
 			utils.PrintError(fmt.Sprintf("Couldn't initialize project: %v", err.Error()))
 		}
 
 		cloudConfig := types.CloudConfig{
-			Provider: "minikube",
+			Provider:     "minikube",
 			ClusterNames: make([]string, 0),
 		}
 
 		project := types.Project{
-			KubefsName: projectName,
-			Version: "0.0.1",
+			KubefsName:  projectName,
+			Version:     "0.0.1",
 			Description: description,
-			Resources: []types.Resource{},
-			Addons: []types.Addon{},
+			Resources:   []types.Resource{},
+			Addons:      []types.Addon{},
 			CloudConfig: []types.CloudConfig{
 				cloudConfig,
 			},
 		}
-	
-		err = utils.WriteManifest(&project, projectName + "/manifest.yaml")
+
+		err = utils.WriteManifest(&project, projectName+"/manifest.yaml")
 		if err != nil {
 			fmt.Printf("Error writing manifest: %v\n", err.Error())
 			return
 		}
-		
+
 		utils.PrintInfo(fmt.Sprintf("Project %s initialized successfully", projectName))
 	},
 }

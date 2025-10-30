@@ -1,6 +1,5 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
@@ -8,10 +7,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/spf13/cobra"
 	"github.com/zalando/go-keyring"
-	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
 )
 
 // configCmd represents the config command
@@ -30,7 +30,7 @@ example:
 var gcpCmd = &cobra.Command{
 	Use:   "gcp",
 	Short: "Configure GCP settings",
-	Long:  `Configure GCP settings for kubefs
+	Long: `Configure GCP settings for kubefs
 example: 
 	kubefs config gcp --flags
 	`,
@@ -75,20 +75,20 @@ example:
 				utils.PrintError(fmt.Sprintf("Error reading GCP Project Id: %v", err.Error()))
 				return
 			}
-			
+
 			// Setup GCP
 			err, projectId, region := utils.SetupGcp(ctx, projectName)
 			if err != nil {
 				utils.PrintError(err.Error())
 				return
 			}
-			
+
 			// Save GCP configuration
 			cloudConfig := types.CloudConfig{
-				Provider: "gcp",
-				ProjectId: *projectId,
-				ProjectName: projectName,
-				Region: *region,
+				Provider:     "gcp",
+				ProjectId:    *projectId,
+				ProjectName:  projectName,
+				Region:       *region,
 				ClusterNames: make([]string, 0),
 			}
 
@@ -100,7 +100,7 @@ example:
 					utils.PrintError(fmt.Sprintf("Error updating GCP configuration to manifest: %v", err.Error()))
 					return
 				}
-				
+
 				utils.PrintInfo(fmt.Sprintf("GCP Project updated successfully: %s", projectName))
 				return
 			}
@@ -114,7 +114,7 @@ example:
 			}
 
 			utils.PrintInfo(fmt.Sprintf("GCP Project configured successfully: %s", projectName))
-		
+
 		}
 	},
 }
@@ -122,7 +122,7 @@ example:
 var dockerCmd = &cobra.Command{
 	Use:   "docker",
 	Short: "Configure Docker settings",
-	Long:  `Configure Docker settings for kubefs
+	Long: `Configure Docker settings for kubefs
 example: 
 	kubefs config docker --flags
 	`,
@@ -171,7 +171,7 @@ example:
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configurations",
-	Long:  `List all configurations for kubefs
+	Long: `List all configurations for kubefs
 example: 
 	kubefs config list
 	`,
@@ -179,7 +179,7 @@ example:
 		user := "kubefs"
 		services := []string{"docker"}
 
-		fmt.Println("Listing all configurations \n")
+		fmt.Println("Listing all configurations")
 
 		for _, service := range services {
 			creds, err := keyring.Get(service, user)
@@ -206,7 +206,6 @@ example:
 		}
 	},
 }
-
 
 func init() {
 	rootCmd.AddCommand(configCmd)

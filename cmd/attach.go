@@ -1,13 +1,13 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // attachCmd represents the attach command
@@ -49,13 +49,13 @@ example:
 			// update context
 			if target == "minikube" {
 				err = utils.GetMinikubeContext(config)
-			}else if target == "gcp" {
+			} else if target == "gcp" {
 				err = utils.GetGCPClusterContext(config)
 			}
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("failed to switch to %s cluster context: %v", target, err))
 			}
-		}else{
+		} else {
 			command = resource.AttachCommand["docker"]
 		}
 
