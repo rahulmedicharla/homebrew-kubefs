@@ -5,11 +5,13 @@ Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"github.com/spf13/cobra"
 	"github.com/zalando/go-keyring"
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/rahulmedicharla/kubefs/types"
 )
 
 // configCmd represents the config command
@@ -22,6 +24,98 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
+	},
+}
+
+var gcpCmd = &cobra.Command{
+	Use:   "gcp",
+	Short: "Configure GCP settings",
+	Long:  `Configure GCP settings for kubefs
+example: 
+	kubefs config gcp --flags
+	`,
+	Run: func(cmd *cobra.Command, args []string) {
+
+		remove, err := cmd.Flags().GetBool("remove")
+		if err != nil {
+			utils.PrintError(fmt.Sprintf("Error reading remove flag: %v", err.Error()))
+			return
+		}
+
+		if remove {
+			// Revoke gcloud authentication
+			err = utils.RunCommand("gcloud auth revoke", true, true)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error revoking GCP authentication: %v", err.Error()))
+				return
+			}
+
+			err = utils.RemoveCloudConfig(&utils.ManifestData, "gcp")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error removing GCP configuration from manifest: %v", err.Error()))
+				return
+			}
+
+			utils.PrintInfo("GCP authentication revoked successfully")
+		} else {
+
+			// Authenticate and enable with GCP using gcloud CLI
+			err = utils.AuthenticateGCP()
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error authenticating with GCP: %v", err.Error()))
+				return
+			}
+
+			// gather configuration details
+			var projectName string
+			ctx := context.Background()
+
+			err = utils.ReadInput("Enter GCP Project Id: ", &projectName)
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error reading GCP Project Id: %v", err.Error()))
+				return
+			}
+			
+			// Setup GCP
+			err, projectId, region := utils.SetupGcp(ctx, projectName)
+			if err != nil {
+				utils.PrintError(err.Error())
+				return
+			}
+			
+			// Save GCP configuration
+			cloudConfig := types.CloudConfig{
+				Provider: "gcp",
+				ProjectId: *projectId,
+				ProjectName: projectName,
+				Region: *region,
+				ClusterNames: make([]string, 0),
+			}
+
+			err, _ = utils.VerifyCloudConfig("gcp")
+			if err == nil {
+				// Update existing config
+				err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)
+				if err != nil {
+					utils.PrintError(fmt.Sprintf("Error updating GCP configuration to manifest: %v", err.Error()))
+					return
+				}
+				
+				utils.PrintInfo(fmt.Sprintf("GCP Project updated successfully: %s", projectName))
+				return
+			}
+
+			// Add new config
+			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
+			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+			if err != nil {
+				utils.PrintError(fmt.Sprintf("Error saving GCP configuration to manifest: %v", err.Error()))
+				return
+			}
+
+			utils.PrintInfo(fmt.Sprintf("GCP Project configured successfully: %s", projectName))
+		
+		}
 	},
 }
 
@@ -50,7 +144,7 @@ example:
 				utils.PrintError(fmt.Sprintf("Error deleting Docker credentials: %v", err.Error()))
 				return
 			}
-			utils.PrintSuccess("Docker credentials removed successfully")
+			utils.PrintInfo("Docker credentials removed successfully")
 		} else {
 			var username, pat string
 			err := utils.ReadInput("Enter Docker username: ", &username)
@@ -69,7 +163,7 @@ example:
 				return
 			}
 
-			utils.PrintSuccess("Saving Docker credentials")
+			utils.PrintInfo("Saving Docker credentials")
 		}
 	},
 }
@@ -100,13 +194,26 @@ example:
 
 			fmt.Println()
 		}
+
+		fmt.Println("Cloud Configurations:")
+		for _, config := range utils.ManifestData.CloudConfig {
+			fmt.Printf("Provider: %s\n", config.Provider)
+			fmt.Printf("Project ID: %s\n", config.ProjectId)
+			for _, clusterName := range config.ClusterNames {
+				fmt.Printf("Cluster %s", clusterName)
+			}
+			fmt.Println()
+		}
 	},
 }
 
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	configCmd.AddCommand(dockerCmd)
+
 	configCmd.AddCommand(listCmd)
+	configCmd.AddCommand(dockerCmd)
+	configCmd.AddCommand(gcpCmd)
+
 	configCmd.PersistentFlags().BoolP("remove", "r", false, "remove the associated configuration")
 }

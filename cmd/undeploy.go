@@ -26,29 +26,73 @@ example:
 	},
 }
 
-func undeployAddon(addon *types.Addon) error {
+func undeployFromTarget(target string, commands []string) error {
+	err, config := utils.VerifyCloudConfig(target)
+	if err != nil {
+		return err
+	}
+
+	if config.MainCluster == "" {
+		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+	}
+	
+	if target == "minikube" {
+		// update context
+		err := utils.GetMinikubeContext(config)
+		if err != nil {
+			return fmt.Errorf("failed to switch to local cluster context: %v", err)
+		}
+
+		// run commands
+		return utils.RunMultipleCommands(commands, true, true)
+	}else if target == "gcp" {
+		// get context
+		err = utils.GetGCPClusterContext(config)
+		if err != nil {
+			return err
+		}
+
+		// deploy specified commands to GCP cluster
+		return utils.RunMultipleCommands(commands, true, true)
+	}
+
+	return nil
+}
+
+func undeployAddon(addon *types.Addon, target string) error {
 	commands := []string{}
 	if addon.Name == "oauth2"{
 		commands = append(commands, "helm uninstall auth-data")
 	}
 
 	commands = append(commands, fmt.Sprintf("helm uninstall %s", addon.Name))
-	err := utils.RunMultipleCommands(commands, true, true)
-	
-	return err
+
+	err := undeployFromTarget(target, commands)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func undeployUnique(resource *types.Resource) error {
+func undeployUnique(resource *types.Resource, target string) error {
 	commandBuilder := strings.Builder{}
 	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", resource.Name))
 	
 	if resource.Type == "database"{
 		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", resource.Name))
 	}
-	
-	err := utils.RunCommand(commandBuilder.String(), true, true)
-	
-	return err
+
+	commands := []string{
+		commandBuilder.String(),
+	}
+
+	err := undeployFromTarget(target, commands)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 var undeployAllCmd = &cobra.Command{
@@ -62,19 +106,22 @@ example:
 			utils.PrintError(utils.ManifestStatus.Error())
 			return
 		}
-		
-		var closeCluster, pauseCluster bool
-		closeCluster, _ = cmd.Flags().GetBool("close")
-		pauseCluster, _ = cmd.Flags().GetBool("pause")
 
-        utils.PrintWarning("Undeploying all resources")
-		utils.PrintWarning("Undeploying all addons")
+		target, _ := cmd.Flags().GetString("target")
+
+		err := utils.VerifyTarget(target)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
+
+		utils.PrintWarning(fmt.Sprintf("Undeploying all resources & addons from %s", target))
 
 		var errors []string
 		var successes []string
 
         for _, resource := range utils.ManifestData.Resources {
-			err := undeployUnique(&resource)
+			err := undeployUnique(&resource, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", resource.Name, err.Error()))
 				errors = append(errors, resource.Name)
@@ -84,7 +131,7 @@ example:
         }
 
 		for _, addon := range utils.ManifestData.Addons {
-			err := undeployAddon(&addon)
+			err := undeployAddon(&addon, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", addon.Name, err.Error()))
 				errors = append(errors, addon.Name)
@@ -98,25 +145,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
-		}
-
-		if pauseCluster {
-			utils.PrintWarning("Pausing the cluster")
-			err := utils.RunCommand("minikube pause", true, true)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error pausing the cluster: %v", err))
-				return
-			}
-		}
-
-		if closeCluster {
-			utils.PrintWarning("Closing the cluster")
-			err := utils.RunCommand("minikube stop", true, true)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error closing the cluster: %v", err))
-				return
-			}
+			utils.PrintInfo(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 	},
 }
@@ -140,9 +169,13 @@ example:
 			return
 		}
 
-		var closeCluster, pauseCluster bool
-		closeCluster, _ = cmd.Flags().GetBool("close")
-		pauseCluster, _ = cmd.Flags().GetBool("pause")
+		target, _ := cmd.Flags().GetString("target")
+
+		err := utils.VerifyTarget(target)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
 		
 		addons, _ := cmd.Flags().GetString("with-addons")
 		var addonList []string
@@ -153,18 +186,18 @@ example:
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning(fmt.Sprintf("Undeploying resource %v", args))
-		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v", addonList))
+        utils.PrintWarning(fmt.Sprintf("Undeploying resource %v from %s", args, target))
+		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployUnique(resource)
+			err = undeployUnique(resource, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", name, err.Error()))
 				errors = append(errors, name)
@@ -174,14 +207,14 @@ example:
 		}
 
 		for _, name := range addonList {
-			addon, err := utils.GetAddonFromName(name)
+			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployAddon(addon)
+			err = undeployAddon(addon, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
 				errors = append(errors, name)
@@ -195,25 +228,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
-		}
-
-		if pauseCluster {
-			utils.PrintWarning("Pausing the cluster")
-			err := utils.RunCommand("minikube pause", true, true)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error pausing the cluster: %v", err))
-				return
-			}
-		}
-
-		if closeCluster {
-			utils.PrintWarning("Closing the cluster")
-			err := utils.RunCommand("minikube stop", true, true)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error closing the cluster: %v", err))
-				return
-			}
+			utils.PrintInfo(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 	},
 }
@@ -237,24 +252,28 @@ example:
 			return
 		}
 
-		var closeCluster, pauseCluster bool
-		closeCluster, _ = cmd.Flags().GetBool("close")
-		pauseCluster, _ = cmd.Flags().GetBool("pause")
+		target, _ := cmd.Flags().GetString("target")
+
+		err := utils.VerifyTarget(target)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
 
 		var errors []string
 		var successes []string
 
-		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v", args))
+		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v from %s", args, target))
 
 		for _, name := range args {
-			addon, err := utils.GetAddonFromName(name)
+			err, addon := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployAddon(addon)
+			err = undeployAddon(addon, target)
 			if err != nil {
 				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
 				errors = append(errors, name)
@@ -268,25 +287,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v undeployed successfully", successes))
-		}
-
-		if pauseCluster {
-			utils.PrintWarning("Pausing the cluster")
-			err := utils.RunCommand("minikube pause", true, true)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error pausing the cluster: %v", err))
-				return
-			}
-		}
-
-		if closeCluster {
-			utils.PrintWarning("Closing the cluster")
-			err := utils.RunCommand("minikube stop", true, true)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error closing the cluster: %v", err))
-				return
-			}
+			utils.PrintInfo(fmt.Sprintf("Resource %v undeployed successfully", successes))
 		}
 	},
 }
@@ -298,7 +299,8 @@ func init() {
 	undeployCmd.AddCommand(undeployResourceCmd)
 	undeployCmd.AddCommand(undeployAddonCmd)
 
-	undeployCmd.PersistentFlags().BoolP("close", "c", false, "Stop the cluster after undeploying the resources")
+	undeployCmd.PersistentFlags().StringP("target", "t", "minikube", "target cluster to undeploy the resources from ['minikube', 'gcp']")
+
 	undeployCmd.PersistentFlags().BoolP("pause", "p", false, "Pause the cluster after undeploying the resources")
 
 	undeployResourceCmd.Flags().StringP("with-addons", "a", "", "include addons in the undeploy")

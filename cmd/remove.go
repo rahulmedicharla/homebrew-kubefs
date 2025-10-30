@@ -11,7 +11,6 @@ import (
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/zalando/go-keyring"
 	"strings"
-	"github.com/goodhosts/hostsfile"
 )
 
 // removeCmd represents the remove command
@@ -40,14 +39,6 @@ func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) err
 		err = utils.RunCommand(fmt.Sprintf("docker images | grep %s", resource.DockerRepo), true, true)
 		if err == nil {
 			err = utils.RunCommand(fmt.Sprintf("docker rmi %s:latest", resource.DockerRepo), true, true)
-			if err != nil {
-				return err
-			}
-		}
-
-		// if frontend, remove from hosts file
-		if resource.Type == "frontend" {
-			err = utils.RemoveHost("127.0.0.1", resource.Opts["host-domain"])
 			if err != nil {
 				return err
 			}
@@ -96,47 +87,6 @@ func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) err
 
 }
 
-var removeHostEntry = &cobra.Command{
-	Use:   "host-entry [ip-address] [host-domain]",
-	Short: "kubefs remove host-entry - remove new host entry to the hosts file",
-	Long: `kubefs remove host-entry - remove new host entry to the hosts file
-example: 
-	kubefs remove host-entry <ip-address> <host-domain>,
-	`,
-	Hidden: true,
-	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil{
-			utils.PrintError(utils.ManifestStatus.Error())
-			return
-		}
-		
-		ipAddress := args[0]
-		hostDomain := args[1]
-
-		hosts, err := hostsfile.NewHosts()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating hosts file. %v", err.Error()))
-			return
-		}
-
-		err = hosts.Remove(ipAddress, hostDomain)
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error removing host entry %s -> %s. %v", ipAddress, hostDomain, err.Error()))
-			return
-		}
-
-		err = hosts.Flush()
-		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error flushing hosts file. %v", err.Error()))
-			return
-		}
-
-		utils.PrintSuccess(fmt.Sprintf("Successfully removed host entry %s -> %s", hostDomain, ipAddress))
-
-	},
-}
-
-
 var removeAllCmd = &cobra.Command{
     Use:   "all",
     Short: "kubefs remove all - remove all resources locally and from docker hub",
@@ -175,7 +125,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v removed successfully", successes))
 		}
 
     },
@@ -211,7 +161,7 @@ example:
 
 		for _, name := range args {
 			var resource *types.Resource
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -233,7 +183,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v removed successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v removed successfully", successes))
 		}
 
     },
@@ -244,8 +194,6 @@ func init() {
 	rootCmd.AddCommand(removeCmd)
 	removeCmd.AddCommand(removeAllCmd)
 	removeCmd.AddCommand(removeResourceCmd)
-
-	removeCmd.AddCommand(removeHostEntry)
 
 	removeCmd.PersistentFlags().BoolP("only-local", "l", false, "only remove the resource locally")
 	removeCmd.PersistentFlags().BoolP("only-remote", "r", false, "only remove the resource from docker hub")

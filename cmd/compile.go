@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
-	"errors"
 )
 
 // compileCmd represents the compile command
@@ -29,7 +28,7 @@ example:
 
 func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) error {
 	if resource.Type == "database" {
-		return errors.New("Database resources cannot be compiled")
+		return fmt.Errorf("Database resources cannot be compiled")
 	}
 	
 	var commands []string
@@ -66,7 +65,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) erro
 			}
 		}
 
-		commands = append(commands, fmt.Sprintf("cd %s && docker build -t %s:latest .", resource.Name, resource.DockerRepo))
+		commands = append(commands, fmt.Sprintf("cd %s && docker buildx build --platform=linux/amd64,linux/arm64 -t %s:latest .", resource.Name, resource.DockerRepo))
 
 		err := utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
@@ -131,7 +130,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v compiled successfully", successes))
 		}
 
 	},
@@ -166,7 +165,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", args))
 
 		for _, name := range args{
-			resource, err := utils.GetResourceFromName(name)
+			err, resource := utils.GetResourceFromName(name)
 			if err != nil {
 				utils.PrintError(err.Error())
 				errors = append(errors, name)
@@ -189,7 +188,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintSuccess(fmt.Sprintf("Resource %v compiled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("Resource %v compiled successfully", successes))
 		}
 	},
 }	

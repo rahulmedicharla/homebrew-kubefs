@@ -8,7 +8,6 @@ import (
     "gopkg.in/yaml.v3"
     "encoding/json"
     "bufio"
-    "errors"
     log "github.com/sirupsen/logrus"
 )
 
@@ -19,7 +18,7 @@ func PrintError(message string) {
     log.Error(message)
 }
 
-func PrintSuccess(message string) {
+func PrintInfo(message string) {
     log.Info(message)
 }
 
@@ -27,22 +26,22 @@ func PrintWarning(message string) {
 	log.Warn(message)
 }
 
-func GetResourceFromName(name string) (*types.Resource, error) {
+func GetResourceFromName(name string) (error, *types.Resource) {
     for _, resource := range ManifestData.Resources {
         if resource.Name == name {
-            return &resource, nil
+            return nil, &resource
         }
     }
-    return nil, errors.New(fmt.Sprintf("Resource %s not found", name))
+    return fmt.Errorf("Resource [%s] not found, create using 'kubefs create'", name), nil
 }
 
-func GetAddonFromName(name string) (*types.Addon, error) {
+func GetAddonFromName(name string) (error, *types.Addon) {
     for _, addon := range ManifestData.Addons {
         if addon.Name == name {
-            return &addon, nil
+            return nil, &addon
         }
     }
-    return nil, errors.New(fmt.Sprintf("Addon %s not found", name))
+    return fmt.Errorf("Addon [%s] not found, enable using 'kubefs addons enable'", name), nil
 }
 
 func WriteYaml(data *map[string]interface{}, path string) error {
@@ -59,7 +58,7 @@ func WriteYaml(data *map[string]interface{}, path string) error {
     return nil
 }
 
-func ReadManifest() error{
+func ReadManifest() error {
     projectErr := ValidateProject()
     if projectErr != nil {
         return projectErr
@@ -144,6 +143,16 @@ func ReadEnv(path string) ([]string, error) {
     return envData, nil
 }
 
+func UpdateCloudConfig(project *types.Project, provider string, config *types.CloudConfig) error{
+    for i, conf := range project.CloudConfig {
+        if conf.Provider == provider {
+            project.CloudConfig[i] = *config
+            return WriteManifest(project, "manifest.yaml")
+        }
+    }
+    return fmt.Errorf("Cloud config for [%s] not setup. Use 'kubefs config' to setup", provider)
+}
+
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error{
     for i, res := range project.Resources {
         if res.Name == name {
@@ -151,7 +160,7 @@ func UpdateResource(project *types.Project, name string, resource *types.Resourc
             return WriteManifest(project, "manifest.yaml")
         }
     }
-    return errors.New("Resource not found")
+    return fmt.Errorf("Resource [%s] not found. Use 'kubefs create' to setup", name)
 }
 
 func RemoveResource(project *types.Project, name string) error {
@@ -178,10 +187,22 @@ func RemoveAddon(project *types.Project, name string) error {
     return WriteManifest(project, "manifest.yaml")
 }
 
+func RemoveCloudConfig(project *types.Project, provider string) error {
+    configList := []types.CloudConfig{}
+    
+    for i, config := range project.CloudConfig {
+        if config.Provider != provider {
+            configList = append(configList, project.CloudConfig[i])            
+        }
+    }
+    project.CloudConfig = configList
+    return WriteManifest(project, "manifest.yaml")
+}
+
 func ValidateProject() error{
     _, err := os.Stat("manifest.yaml")
     if os.IsNotExist(err) {
-        ManifestStatus = errors.New("Not a valid kubefs project: use 'kubefs init' to create a new project")
+        ManifestStatus = fmt.Errorf("Not a valid kubefs project. Use 'kubefs init to setup'")
         return ManifestStatus
     }
     return nil
@@ -190,13 +211,13 @@ func ValidateProject() error{
 func VerifyName(name string) error {
     for _, resource := range ManifestData.Resources {
         if resource.Name == name {
-            return errors.New(fmt.Sprintf("Resource %s already exists", name))
+            return fmt.Errorf("Resource [%s] already exists. Try another name", name)
         }
     }
 
     for _, addon := range ManifestData.Addons {
         if addon.Name == name {
-            return errors.New(fmt.Sprintf("Addon %s already exists", name))
+            return fmt.Errorf("Addon [%s] already exists. Try another name", name)
         }
     }
 
@@ -206,13 +227,13 @@ func VerifyName(name string) error {
 func VerifyPort(port int) error {
     for _, resource := range ManifestData.Resources {
         if resource.Port == port {
-            return errors.New(fmt.Sprintf("Port %d already in use by %s", port, resource.Name))
+            return fmt.Errorf("Port [%d] already in use by resource [%s]. Try another port", port, resource.Name)
         }
     }
 
     for _, addon := range ManifestData.Addons {
         if addon.Port == port {
-            return errors.New(fmt.Sprintf("Port %d already in use by %s", port, addon.Name))
+            return fmt.Errorf("Port [%d] already in use by addon [%s]. Try another port", port, addon.Name)
         }
     }
 
@@ -225,7 +246,44 @@ func VerifyFramework(framework string, rType string) error {
             return nil
         }
     }
-    return errors.New(fmt.Sprintf("Framework %s not supported for %s", framework, rType))
+    return fmt.Errorf("framework [%s] not supported by kubefs. Try another framework", framework)
+}
+
+func VerifyTarget(target string) error {
+	for _, t := range types.TARGETS {
+        if t == target{
+            return nil
+        }
+    }
+    return fmt.Errorf("invalid deployment target [%s]. Supported targets are %v", types.TARGETS)
+}
+
+func VerifyCloudConfig(provider string) (error, *types.CloudConfig) {
+	for _, config := range ManifestData.CloudConfig {
+		if config.Provider == provider {
+			return nil, &config
+		}
+	}
+	return fmt.Errorf("Cloud config [%s] not setup. Setup using 'kubefs config'", provider), nil
+}
+
+func VerifyClusterName(config *types.CloudConfig, clusterName string) error {
+    for _, name := range config.ClusterNames {
+        if name == clusterName {
+            return nil
+        }
+    }
+    return fmt.Errorf("Cluster name [%s] not found in [%s]", clusterName, config.Provider)
+}
+
+func RemoveClusterName(config *types.CloudConfig, clusterName string) (error, []string) {
+    newConfig := make([]string, 0)
+    for _, name := range config.ClusterNames {
+        if name != clusterName {
+            newConfig = append(newConfig, name)
+        }
+    }
+    return nil, newConfig
 }
 
 func GetCurrentResourceNames() []string {

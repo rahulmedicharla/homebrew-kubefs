@@ -44,12 +44,20 @@ example:
 			utils.PrintError(fmt.Sprintf("Couldn't initialize project: %v", err.Error()))
 		}
 
+		cloudConfig := types.CloudConfig{
+			Provider: "minikube",
+			ClusterNames: make([]string, 0),
+		}
+
 		project := types.Project{
 			KubefsName: projectName,
 			Version: "0.0.1",
 			Description: description,
 			Resources: []types.Resource{},
 			Addons: []types.Addon{},
+			CloudConfig: []types.CloudConfig{
+				cloudConfig,
+			},
 		}
 	
 		err = utils.WriteManifest(&project, projectName + "/manifest.yaml")
@@ -58,7 +66,7 @@ example:
 			return
 		}
 		
-		utils.PrintSuccess(fmt.Sprintf("Project %s initialized successfully", projectName))
+		utils.PrintInfo(fmt.Sprintf("Project %s initialized successfully", projectName))
 	},
 }
 
