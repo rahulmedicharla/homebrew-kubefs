@@ -96,7 +96,7 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -112,7 +112,7 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := removeUnique(&resource, onlyLocal, onlyRemote)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error removing resource %s. %v ", resource.Name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error removing resource %s. %v", resource.Name, err))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -121,7 +121,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error removing resources %v", errors))
+			utils.PrintError(fmt.Errorf("Error removing resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -146,7 +146,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -162,14 +162,14 @@ example:
 		for _, name := range args {
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			err = removeUnique(resource, onlyLocal, onlyRemote)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error removing resource %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error removing resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -178,7 +178,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error removing resources %v", errors))
+			utils.PrintError(fmt.Errorf("Error removing resources %v", errors))
 		}
 
 		if len(successes) > 0 {

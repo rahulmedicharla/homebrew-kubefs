@@ -20,7 +20,7 @@ example:
 	kubefs run <resource-name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -34,13 +34,13 @@ example:
 
 		resource, err := utils.GetResourceFromName(name)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		upLocalCmd := strings.Builder{}
 		if resource.Type == "database" {
-			utils.PrintError(fmt.Sprintf("Cannot run database resource %s", name))
+			utils.PrintError(fmt.Errorf("Cannot run database resource %s", name))
 			return
 		} else {
 			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", resource.Name))
@@ -51,7 +51,7 @@ example:
 			for _, name := range resource.Dependents {
 				addon, err := utils.GetAddonFromName(name)
 				if err != nil {
-					utils.PrintError(err.Error())
+					utils.PrintError(err)
 					return
 				}
 				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", addon.Name, addon.LocalHost))

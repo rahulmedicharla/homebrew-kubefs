@@ -103,7 +103,7 @@ example:
 	kubefs undeploy all --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -111,7 +111,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -123,7 +123,7 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := undeployUnique(&resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", resource.Name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error undeploying resource %s. %v", resource.Name, err))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -133,7 +133,7 @@ example:
 		for _, addon := range utils.ManifestData.Addons {
 			err := undeployAddon(&addon, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", addon.Name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error undeploying addon %s. %v", addon.Name, err))
 				errors = append(errors, addon.Name)
 				continue
 			}
@@ -141,7 +141,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("Error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -165,7 +165,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -173,7 +173,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -192,14 +192,14 @@ example:
 		for _, name := range args {
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			err = undeployUnique(resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error undeploying resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -209,14 +209,14 @@ example:
 		for _, name := range addonList {
 			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			err = undeployAddon(addon, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -224,7 +224,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("Error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -248,7 +248,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -256,7 +256,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -268,14 +268,14 @@ example:
 		for _, name := range args {
 			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			err = undeployAddon(addon, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -283,7 +283,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("Error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {

@@ -161,7 +161,7 @@ func disconnectAddonFromResource(addonName string, dependencies maps.Set[string]
 	for _, n := range maps.Keys(dependencies) {
 		resource, err := utils.GetResourceFromName(n)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
 			continue
 		}
@@ -182,7 +182,7 @@ func disconnectAddonFromResource(addonName string, dependencies maps.Set[string]
 		resource.Dependents = newDependents
 		err = utils.UpdateResource(&utils.ManifestData, n, resource)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
 			continue
 		}
@@ -208,11 +208,6 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
-			return
-		}
-
 		var errors []string
 		var successes []string
 
@@ -221,7 +216,7 @@ example:
 		for _, addon := range args {
 			splitAddon := strings.Split(addon, ":")
 			if len(splitAddon) != 2 {
-				utils.PrintError(fmt.Errorf("addon %s configured incorrectly. should be <addon-name>:<port>", addon).Error())
+				utils.PrintError(fmt.Errorf("addon %s configured incorrectly. should be <addon-name>:<port>", addon))
 				return
 			}
 			name := splitAddon[0]
@@ -230,26 +225,26 @@ example:
 			utils.PrintInfo(fmt.Sprintf("Enabling addon [%s]", name))
 
 			if err := utils.VerifyFramework(name, "addons"); err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			if err := utils.VerifyName(name); err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			port, err := strconv.Atoi(addonPort)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			if err = utils.VerifyPort(port); err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
@@ -257,7 +252,7 @@ example:
 			var resources string
 			err = utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()), &resources)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
@@ -270,7 +265,7 @@ example:
 			if name == "oauth2" {
 				newAddon, err = constructOauth2Addon(name, port, resourceNames, &resourceErrors, &resourceSuccesses)
 				if err != nil {
-					utils.PrintError(err.Error())
+					utils.PrintError(err)
 					errors = append(errors, name)
 					continue
 				}
@@ -278,7 +273,7 @@ example:
 			} else if name == "gateway" {
 				newAddon, err = constructGatewayAddon(name, port, resourceNames, &resourceErrors, &resourceSuccesses)
 				if err != nil {
-					utils.PrintError(err.Error())
+					utils.PrintError(err)
 					errors = append(errors, name)
 					continue
 				}
@@ -296,16 +291,16 @@ example:
 
 		err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error enabling addons %v", errors))
+			utils.PrintError(fmt.Errorf("error enabling addons %v", errors))
 		}
 
 		if len(successes) > 0 {
-			utils.PrintInfo(fmt.Sprintf("Addon %v enabled successfully", successes))
+			utils.PrintInfo(fmt.Sprintf("addon %v enabled successfully", successes))
 		}
 	},
 }
@@ -324,11 +319,6 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
-			return
-		}
-
 		var errors []string
 		var successes []string
 
@@ -338,7 +328,7 @@ example:
 
 			addon, err := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
@@ -353,14 +343,14 @@ example:
 
 			err = utils.RunCommand(fmt.Sprintf("rm -rf addons/%s", name), false, true)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			err = utils.RemoveAddon(&utils.ManifestData, name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
@@ -374,7 +364,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error disabled addons %v", errors))
+			utils.PrintError(fmt.Errorf("error disabled addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -391,9 +381,6 @@ example:
 	kubefs addons list
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
-		}
 
 		utils.PrintInfo("Listing addons")
 
@@ -424,13 +411,9 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
-		}
-
 		addon, err := utils.GetAddonFromName(args[0])
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -476,12 +459,12 @@ example:
 
 		err = utils.UpdateAddons(&utils.ManifestData, addon.Name, addon)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("error managing addons %v", errors))
+			utils.PrintError(fmt.Errorf("error managing addons %v", errors))
 		}
 
 		if len(successes) > 0 {

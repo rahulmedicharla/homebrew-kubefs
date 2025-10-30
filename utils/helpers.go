@@ -15,8 +15,8 @@ import (
 var ManifestData types.Project
 var ManifestStatus error
 
-func PrintError(message string) {
-	log.Error(message)
+func PrintError(err error) {
+	log.Error(err.Error())
 }
 
 func PrintInfo(message string) {

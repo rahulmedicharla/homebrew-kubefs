@@ -35,7 +35,7 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -69,7 +69,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -78,7 +78,7 @@ example:
 		for _, name := range args {
 			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				continue
 			}
 

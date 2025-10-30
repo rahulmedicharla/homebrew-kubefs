@@ -116,12 +116,12 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
 		if err := parseInfo(cmd, args, "api"); err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -155,13 +155,13 @@ example:
 
 		err := utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error creating resource. %v", err))
 			return
 		}
 
 		dockerRepo, err := createDockerRepo(resourceName)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating docker repo. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error creating docker repo. %v", err))
 		}
 
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
@@ -181,7 +181,7 @@ example:
 		})
 
 		if err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml"); err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error writing manifest. %v", err))
 			return
 		}
 
@@ -198,12 +198,12 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
 		if err := parseInfo(cmd, args, "frontend"); err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -211,7 +211,7 @@ example:
 
 		err := utils.ReadInput("Enter the host domain the ingresss should accept: ", &hostDomain)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error reading input. %v", err))
 			return
 		}
 
@@ -241,13 +241,13 @@ example:
 
 		err = utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error creating resource. %v", err))
 			return
 		}
 
 		packageJson, err := utils.ReadJson(fmt.Sprintf("%s/package.json", resourceName))
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading package.json. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error reading package.json. %v", err))
 			return
 		}
 
@@ -255,13 +255,13 @@ example:
 
 		err = utils.WriteJson((*packageJson), fmt.Sprintf("%s/package.json", resourceName))
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing package.json. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error writing package.json. %v", err))
 			return
 		}
 
 		dockerRepo, err := createDockerRepo(resourceName)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating docker repo. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error creating docker repo. %v", err))
 		}
 
 		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
@@ -285,7 +285,7 @@ example:
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error writing manifest. %v", err))
 			return
 		}
 
@@ -302,12 +302,12 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
 		if err := parseInfo(cmd, args, "database"); err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -316,13 +316,13 @@ example:
 
 		err := utils.ReadInput("Enter a password for the database: ", &password)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error reading input. %v", err))
 			return
 		}
 
 		err = utils.ReadInput("How many Gigabytes of persistence on each pod: (ex 1): ", &persistence)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error reading input. %v", err))
 			return
 		}
 
@@ -338,13 +338,13 @@ example:
 		if resourceFramework == "postgresql" {
 			err = utils.ReadInput("Enter the database to be initialized on init: ", &defaultDatabase)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+				utils.PrintError(fmt.Errorf("Unexpected error reading input. %v", err))
 				return
 			}
 
 			err = utils.ReadInput("Enter a username for the database: ", &user)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+				utils.PrintError(fmt.Errorf("Unexpected error reading input. %v", err))
 				return
 			}
 
@@ -372,7 +372,7 @@ example:
 
 		err = utils.RunCommand(fmt.Sprintf("mkdir %s", resourceName), true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error creating resource. %v", err))
 			return
 		}
 
@@ -397,7 +397,7 @@ example:
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Unexpected error writing manifest. %v", err))
 			return
 		}
 

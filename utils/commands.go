@@ -47,7 +47,7 @@ func ReadInput(msg string, data interface{}) error {
 	input = strings.TrimSuffix(input, "\n")
 
 	for input == "" {
-		PrintError("Input cannot be empty.")
+		PrintError(fmt.Errorf("input cannot be empty"))
 		fmt.Print(msg)
 		input, err = reader.ReadString('\n')
 		if err != nil {

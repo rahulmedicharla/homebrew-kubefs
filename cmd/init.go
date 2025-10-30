@@ -30,7 +30,7 @@ example:
 
 		err := utils.ReadInput("Enter project description: ", &description)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error reading project description: %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Error reading project description: %v", err))
 			return
 		}
 
@@ -41,7 +41,7 @@ example:
 
 		err = utils.RunMultipleCommands(commands, false, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Couldn't initialize project: %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Couldn't initialize project: %v", err))
 		}
 
 		cloudConfig := types.CloudConfig{
@@ -62,7 +62,7 @@ example:
 
 		err = utils.WriteManifest(&project, projectName+"/manifest.yaml")
 		if err != nil {
-			fmt.Printf("Error writing manifest: %v\n", err.Error())
+			fmt.Printf("Error writing manifest: %v\n", err)
 			return
 		}
 

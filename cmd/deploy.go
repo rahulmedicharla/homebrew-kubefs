@@ -324,7 +324,7 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -335,7 +335,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -347,7 +347,7 @@ example:
 		for _, resource := range utils.ManifestData.Resources {
 			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying resource %s. %v", resource.Name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error deploying resource %s. %v", resource.Name, err))
 				errors = append(errors, resource.Name)
 				continue
 			}
@@ -358,7 +358,7 @@ example:
 		for _, addon := range utils.ManifestData.Addons {
 			err := deployAddon(&addon, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon.Name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error deploying addon %s. %v", addon.Name, err))
 				errors = append(errors, addon.Name)
 				continue
 			}
@@ -366,7 +366,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("Error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -390,7 +390,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -401,7 +401,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -422,14 +422,14 @@ example:
 			resource, err := utils.GetResourceFromName(name)
 
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
 			err = deployUnique(resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying resource %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("Error deploying resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -443,14 +443,14 @@ example:
 			}
 			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, addon)
 				continue
 			}
 
 			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
+				utils.PrintError(fmt.Errorf("Error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
 				continue
 			}
@@ -459,7 +459,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("Error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -483,7 +483,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -494,7 +494,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -506,14 +506,14 @@ example:
 		for _, addon := range args {
 			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, addon)
 				continue
 			}
 
 			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
+				utils.PrintError(fmt.Errorf("Error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
 				continue
 			}
@@ -522,7 +522,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("Error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {

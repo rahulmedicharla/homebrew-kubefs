@@ -40,14 +40,14 @@ example:
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
 		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -77,14 +77,14 @@ example:
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
 		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -92,14 +92,14 @@ example:
 		clusterName := args[0]
 		err = utils.VerifyClusterName(config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		config.MainCluster = clusterName
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -125,14 +125,14 @@ example:
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
 		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -140,7 +140,7 @@ example:
 		clusterName := args[0]
 		err = utils.VerifyClusterName(config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -150,7 +150,7 @@ example:
 			// pause cluster
 			err = utils.PauseMinikubeCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 
@@ -180,14 +180,14 @@ example:
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
 		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -196,7 +196,7 @@ example:
 		// validate cluster exists
 		err = utils.VerifyClusterName(config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -206,7 +206,7 @@ example:
 			// start cluster
 			err = utils.StartMinikubeCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 
@@ -237,14 +237,14 @@ example:
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
 		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -252,7 +252,7 @@ example:
 		// verify cluster exists
 		err = utils.VerifyClusterName(config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -262,7 +262,7 @@ example:
 			// delete cluster
 			err = utils.DeleteMinikubeCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 
@@ -270,7 +270,7 @@ example:
 			// delete gcp cluster
 			err = utils.DeleteGCPCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 		}
@@ -285,7 +285,7 @@ example:
 
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -311,14 +311,14 @@ example:
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
 		config, err := utils.VerifyCloudConfig(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -327,7 +327,7 @@ example:
 		// validate cluster doesn't already exist
 		err = utils.VerifyClusterName(config, clusterName)
 		if err == nil {
-			utils.PrintError(fmt.Sprintf("Cluster %s already exists in %s", clusterName, target))
+			utils.PrintError(fmt.Errorf("cluster %s already exists in %s", clusterName, target))
 			return
 		}
 
@@ -337,7 +337,7 @@ example:
 			// provision minikube cluster
 			err = utils.ProvisionMinikubeCluster(clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 
@@ -345,7 +345,7 @@ example:
 			// provision gcp cluster
 			err = utils.ProvisionGcpCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 		}
@@ -355,7 +355,7 @@ example:
 		config.MainCluster = config.ClusterNames[0]
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 

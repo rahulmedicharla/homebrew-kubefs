@@ -191,7 +191,7 @@ example:
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -220,14 +220,14 @@ example:
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Error writing docker-compose.yaml file. %v", err))
 			return
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error including resources & addons %v", errors))
+			utils.PrintError(fmt.Errorf("Error including resources & addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -242,7 +242,7 @@ example:
 		if !onlyWrite {
 			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("Error running docker compose: %v", err))
 				return
 			}
 
@@ -255,7 +255,7 @@ example:
 
 			err = utils.RunCommand(command, true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("Error stopping docker compose: %v", err))
 				return
 			}
 		}
@@ -276,7 +276,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -323,14 +323,14 @@ example:
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Error writing docker-compose.yaml file. %v", err))
 			return
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error including resources & addons %v", errors))
+			utils.PrintError(fmt.Errorf("Error including resources & addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -345,7 +345,7 @@ example:
 		if !onlyWrite {
 			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("Error running docker compose: %v", err))
 				return
 			}
 
@@ -358,7 +358,7 @@ example:
 
 			err = utils.RunCommand(command, true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("Error stopping docker compose: %v", err))
 				return
 			}
 		}
@@ -379,7 +379,7 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
@@ -405,14 +405,14 @@ example:
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error writing docker-compose.yaml file. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Error writing docker-compose.yaml file. %v", err))
 			return
 		}
 
 		utils.PrintWarning("Wrote docker-compose.yaml file")
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error including resources & addons %v", errors))
+			utils.PrintError(fmt.Errorf("Error including resources & addons %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -427,7 +427,7 @@ example:
 		if !onlyWrite {
 			err := utils.RunCommand("docker compose up --remove-orphans", true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error running docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("Error running docker compose: %v", err))
 				return
 			}
 
@@ -440,7 +440,7 @@ example:
 
 			err = utils.RunCommand(command, true, true)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error stopping docker compose: %v", err))
+				utils.PrintError(fmt.Errorf("Error stopping docker compose: %v", err))
 				return
 			}
 		}

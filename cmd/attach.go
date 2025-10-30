@@ -24,13 +24,13 @@ example:
 		}
 
 		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+			utils.PrintError(utils.ManifestStatus)
 			return
 		}
 
 		resource, err := utils.GetResourceFromName(args[0])
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -43,7 +43,7 @@ example:
 			target, _ := cmd.Flags().GetString("target")
 			config, err := utils.VerifyCloudConfig(target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error verifying target %s configuration", target))
+				utils.PrintError(fmt.Errorf("error verifying target [%s] configuration", target))
 			}
 
 			// update context
@@ -53,7 +53,7 @@ example:
 				err = utils.GetGCPClusterContext(config)
 			}
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("failed to switch to %s cluster context: %v", target, err))
+				utils.PrintError(fmt.Errorf("failed to switch to [%s] cluster context: %v", target, err))
 			}
 		} else {
 			command = resource.AttachCommand["docker"]
@@ -62,7 +62,7 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", resource.Name))
 		err = utils.RunCommand(command, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error attaching to container: %v", err.Error()))
+			utils.PrintError(fmt.Errorf("Error attaching to container: %v", err))
 			return
 		}
 	},
