@@ -15,14 +15,14 @@ type Resource struct {
 	Type            string            `yaml:"type"`
 	Framework       string            `yaml:"framework"`
 	AttachCommand   map[string]string `yaml:"attach_command"`
-	UpLocal         string            `yaml:"up_local",omitempty`
-	LocalHost       string            `yaml:"local_host",omitempty`
-	DockerHost      string            `yaml:"docker_host",omitempty`
-	DockerRepo      string            `yaml:"docker_repo",omitempty`
-	ClusterHost     string            `yaml:"cluster_host",omitempty`
-	ClusterHostRead string            `yaml:"cluster_host_read",omitempty`
-	Dependents      []string          `yaml:"dependents",omitempty`
-	Opts            map[string]string `yaml:"opts",omitempty`
+	UpLocal         string            `yaml:"up_local,omitempty"`
+	LocalHost       string            `yaml:"local_host,omitempty"`
+	DockerHost      string            `yaml:"docker_host,omitempty"`
+	DockerRepo      string            `yaml:"docker_repo,omitempty"`
+	ClusterHost     string            `yaml:"cluster_host,omitempty"`
+	ClusterHostRead string            `yaml:"cluster_host_read,omitempty"`
+	Dependents      []string          `yaml:"dependents,omitempty"`
+	Opts            map[string]string `yaml:"opts,omitempty"`
 }
 
 type Addon struct {
@@ -32,22 +32,22 @@ type Addon struct {
 	LocalHost    string   `yaml:"local_host"`
 	DockerHost   string   `yaml:"docker_host"`
 	ClusterHost  string   `yaml:"cluster_host"`
-	Dependencies []string `yaml:"dependencies",omitempty`
-	Environment  []string `yaml:"environment",omitempty`
+	Dependencies []string `yaml:"dependencies,omitempty"`
+	Environment  []string `yaml:"environment,omitempty"`
 }
 
 type CloudConfig struct {
 	Provider     string   `yaml:"provider"`
-	ProjectId    string   `yaml:"project_id", omitempty`
-	ProjectName  string   `yaml:"project_name", omitempty`
-	Region       string   `yaml:"region", omitempty`
-	ClusterNames []string `yaml:"cluster_names",omitempty`
-	MainCluster  string   `yaml:"main_cluster",omitempty`
+	ProjectId    string   `yaml:"project_id,omitempty"`
+	ProjectName  string   `yaml:"project_name,omitempty"`
+	Region       string   `yaml:"region,omitempty"`
+	ClusterNames []string `yaml:"cluster_names,omitempty"`
+	MainCluster  string   `yaml:"main_cluster,omitempty"`
 }
 
 type ApiResponse struct {
-	Token  string `json:"token",omitempty`
-	Detail string `json:"detail",omitempty`
+	Token  string `json:"token,omitempty"`
+	Detail string `json:"detail,omitempty"`
 }
 
 const (

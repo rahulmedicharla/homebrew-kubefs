@@ -9,7 +9,7 @@ services:
       - PRIVATE_KEY_PATH=/etc/ssl/private/private_key.pem
       - PUBLIC_KEY_PATH=/etc/ssl/public/public_key.pem
       - CLIENTS=6c757337-ad08-443b-b9c9-165a28dbba08:445c493247f07ef1b7a556fd8cf14820cb8ef7bd8ac657a350b0a2b038265e64
-      # - MODE=release
+      - DEBUG=1
     volumes:
       - ./private_key.pem:/etc/ssl/private/private_key.pem
       - ./public_key.pem:/etc/ssl/public/public_key.pem

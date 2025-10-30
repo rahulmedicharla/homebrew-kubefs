@@ -21,7 +21,7 @@ import (
 type AuthReq struct {
 	ClientId     string `json:"clientId"`
 	ClientSecret string `json:"clientSecret"`
-	AccessToken  string `json:"accessToken",omitempty`
+	AccessToken  string `json:"accessToken,omitempty"`
 }
 
 var (
@@ -105,14 +105,14 @@ func validateClientCredentials(authReq AuthReq, clientCredentials []AuthReq) err
 			return nil
 		}
 	}
-	return fmt.Errorf("Client Credentials missing or invalid")
+	return fmt.Errorf("client credentials missing or invalid")
 }
 
 func verifyAccessToken(authReq AuthReq) (int, error) {
 	var claims jwt.MapClaims
 	tkn, err := jwt.ParseWithClaims(authReq.AccessToken, &claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("Invalid signing method")
+			return nil, fmt.Errorf("invalid signing method")
 		}
 
 		return publicKey, nil
@@ -158,6 +158,12 @@ func main() {
 	ALLOWED_ORIGINS, isSet := os.LookupEnv("ALLOWED_ORIGINS")
 	if !isSet {
 		panic(fmt.Errorf("ALLOWED_ORIGINS variable not defined"))
+	}
+
+	_, isSet = os.LookupEnv("DEBUG")
+	gin.SetMode(gin.ReleaseMode)
+	if isSet {
+		gin.SetMode(gin.DebugMode)
 	}
 
 	// parse client credentials
