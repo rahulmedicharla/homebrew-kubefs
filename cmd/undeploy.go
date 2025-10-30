@@ -36,7 +36,8 @@ func undeployFromTarget(target string, commands []string) error {
 		return fmt.Errorf("main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
 	}
 
-	if target == "minikube" {
+	switch target {
+	case "minikube":
 		// update context
 		err := utils.GetMinikubeContext(config)
 		if err != nil {
@@ -45,7 +46,7 @@ func undeployFromTarget(target string, commands []string) error {
 
 		// run commands
 		return utils.RunMultipleCommands(commands, true, true)
-	} else if target == "gcp" {
+	case "gcp":
 		// get context
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {

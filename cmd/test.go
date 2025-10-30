@@ -69,7 +69,8 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 	env := service["environment"].([]string)
 	env = append(env, addon.Environment...)
 
-	if addon.Name == "oauth2" {
+	switch addon.Name {
+	case "oauth2":
 		service["volumes"] = []string{
 			"./addons/oauth2/private_key.pem:/etc/ssl/private/private_key.pem",
 			"./addons/oauth2/public_key.pem:/etc/ssl/public/public_key.pem",
@@ -85,7 +86,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",
 		}
-	} else if addon.Name == "gateway" {
+	case "gateway":
 		service["volumes"] = []string{
 			"./addons/gateway/private_key.pem:/etc/ssl/private/private_key.pem",
 			"./addons/gateway/public_key.pem:/etc/ssl/public/public_key.pem",
@@ -114,7 +115,6 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 			"DEBUG=1",
 		)
 	}
-
 	service["environment"] = env
 
 	(*rawCompose)["services"].(map[string]interface{})[addon.Name] = service

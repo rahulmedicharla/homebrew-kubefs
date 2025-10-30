@@ -445,10 +445,11 @@ example:
 
 		var addResourceNames maps.Set[string]
 		var removeResourceNames maps.Set[string]
-		if addon.Name == "oauth2" {
-			addResourceNames = connectOauth2ToResource(addon.Name, addList, &errors, &successes)
 
-		} else if addon.Name == "gateway" {
+		switch addon.Name {
+		case "oauth2":
+			addResourceNames = connectOauth2ToResource(addon.Name, addList, &errors, &successes)
+		case "gateway":
 			addResourceNames = connectGatewayToResource(addon.Name, addList, &errors, &successes)
 		}
 		removeResourceNames = disconnectAddonFromResource(addon.Name, removeList, &errors, &successes)

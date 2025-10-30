@@ -146,15 +146,15 @@ example:
 
 		utils.PrintInfo(fmt.Sprintf("Pausing cluster [%s] in target %s", clusterName, target))
 
-		if target == "minikube" {
+		switch target {
+		case "minikube":
 			// pause cluster
 			err = utils.PauseMinikubeCluster(config, clusterName)
 			if err != nil {
 				utils.PrintError(err)
 				return
 			}
-
-		} else if target == "gcp" {
+		case "gcp":
 			utils.PrintWarning("gcp autopilot clusters don't support pausing/stopping")
 			return
 		}
@@ -202,15 +202,15 @@ example:
 
 		utils.PrintInfo(fmt.Sprintf("Starting cluster [%s] in target %s", clusterName, target))
 
-		if target == "minikube" {
+		switch target {
+		case "minikube":
 			// start cluster
 			err = utils.StartMinikubeCluster(config, clusterName)
 			if err != nil {
 				utils.PrintError(err)
 				return
 			}
-
-		} else if target == "gcp" {
+		case "gcp":
 			utils.PrintWarning("gcp autopilot clusters don't support starting clusters")
 			return
 		}
@@ -258,15 +258,15 @@ example:
 
 		utils.PrintInfo(fmt.Sprintf("Deleting cluster [%s] in %s", clusterName, target))
 
-		if target == "minikube" {
+		switch target {
+		case "minikube":
 			// delete cluster
 			err = utils.DeleteMinikubeCluster(config, clusterName)
 			if err != nil {
 				utils.PrintError(err)
 				return
 			}
-
-		} else if target == "gcp" {
+		case "gcp":
 			// delete gcp cluster
 			err = utils.DeleteGCPCluster(config, clusterName)
 			if err != nil {
@@ -333,15 +333,15 @@ example:
 
 		utils.PrintInfo(fmt.Sprintf("Provisioning cluster [%s] in %s", clusterName, target))
 
-		if target == "minikube" {
+		switch target {
+		case "minikube":
 			// provision minikube cluster
 			err = utils.ProvisionMinikubeCluster(clusterName)
 			if err != nil {
 				utils.PrintError(err)
 				return
 			}
-
-		} else if target == "gcp" {
+		case "gcp":
 			// provision gcp cluster
 			err = utils.ProvisionGcpCluster(config, clusterName)
 			if err != nil {
@@ -349,7 +349,6 @@ example:
 				return
 			}
 		}
-
 		// update manifest
 		config.ClusterNames = append(config.ClusterNames, clusterName)
 		config.MainCluster = config.ClusterNames[0]
