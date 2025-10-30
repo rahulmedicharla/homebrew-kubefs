@@ -23,6 +23,7 @@ type Resource struct {
 	ClusterHostRead string            `yaml:"cluster_host_read,omitempty"`
 	Dependents      []string          `yaml:"dependents,omitempty"`
 	Opts            map[string]string `yaml:"opts,omitempty"`
+	Environment     map[string]string `yaml:"environment,omitempty"`
 }
 
 type Addon struct {

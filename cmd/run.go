@@ -59,6 +59,10 @@ example:
 				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", addon.Name, addon.LocalHost))
 			}
 
+			for key, env := range resource.Environment {
+				upLocalCmd.WriteString(fmt.Sprintf("%s=%s ", key, env))
+			}
+
 			upLocalCmd.WriteString(resource.UpLocal)
 		}
 

@@ -4,6 +4,9 @@ Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -20,27 +23,14 @@ var testCmd = &cobra.Command{
 example:
 	kubefs test all --flags,
 	kubefs test resource <frontend> <api> <database> --flags,
-	kubefs test resource <frontend> --flags`,
+	kubefs test addons <addons> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
 }
 
 var rawCompose = map[string]interface{}{
-	"services": map[string]interface{}{
-		// "nginx-proxy": map[string]interface{}{
-		// 	"image": "nginxproxy/nginx-proxy",
-		// 	"ports": []string{
-		// 		"80:80",
-		// 	},
-		// 	"volumes": []string{
-		// 		"/var/run/docker.sock:/tmp/docker.sock:ro",
-		// 	},
-		// 	"networks": []string{
-		// 		"shared_network",
-		// 	},
-		// },
-	},
+	"services": map[string]interface{}{},
 	"networks": map[string]interface{}{
 		"shared_network": map[string]string{
 			"driver": "bridge",
@@ -63,43 +53,70 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 		"environment": []string{},
 	}
 
-	if addon.Name == "oauth2" {
-		service["ports"] = []string{
-			fmt.Sprintf("%v:%v", addon.Port, addon.Port),
-		}
+	service["ports"] = []string{
+		fmt.Sprintf("%v:%v", addon.Port, addon.Port),
+	}
 
+	var allowedHosts []string
+	for _, name := range addon.Dependencies {
+		err, resource := utils.GetResourceFromName(name)
+		if err != nil {
+			return err
+		}
+		allowedHosts = append(allowedHosts, resource.DockerHost)
+	}
+
+	env := service["environment"].([]string)
+	env = append(env, addon.Environment...)
+
+	if addon.Name == "oauth2" {
 		service["volumes"] = []string{
 			"./addons/oauth2/private_key.pem:/etc/ssl/private/private_key.pem",
 			"./addons/oauth2/public_key.pem:/etc/ssl/public/public_key.pem",
 			"oauth2Store:/app/store",
 		}
 
-		attachedResourceList := addon.Dependencies
-
-		var allowedHosts []string
-		for _, name := range attachedResourceList {
-			err, resource := utils.GetResourceFromName(name)
-			if err != nil {
-				return err
-			}
-			allowedHosts = append(allowedHosts, resource.DockerHost)
-		}
-
-		env := service["environment"].([]string)
 		env = append(env,
 			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")),
 			fmt.Sprintf("PORT=%v", addon.Port),
 			fmt.Sprintf("NAME=%s", utils.ManifestData.KubefsName),
 		)
 
-		env = append(env, addon.Environment...)
-
-		service["environment"] = env
-
 		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
 			"driver": "local",
 		}
+	} else if addon.Name == "gateway" {
+		service["volumes"] = []string{
+			"./addons/gateway/private_key.pem:/etc/ssl/private/private_key.pem",
+			"./addons/gateway/public_key.pem:/etc/ssl/public/public_key.pem",
+		}
+
+		clients := make([]string, 0)
+		for _, name := range addon.Dependencies {
+			err, resource := utils.GetResourceFromName(name)
+			if err != nil {
+				return err
+			}
+
+			secret, err := base64.URLEncoding.DecodeString(resource.Environment["clientSecret"])
+			if err != nil {
+				return err
+			}
+
+			hash := sha256.Sum256(secret)
+			clients = append(clients, fmt.Sprintf("%s:%s", resource.Environment["clientId"], hex.EncodeToString(hash[:])))
+		}
+
+		env = append(env,
+			fmt.Sprintf("CLIENTS=%s", strings.Join(clients, ",")),
+			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")),
+			fmt.Sprintf("PORT=%v", addon.Port),
+			"DEBUG=1",
+		)
 	}
+
+	service["environment"] = env
+
 	(*rawCompose)["services"].(map[string]interface{})[addon.Name] = service
 
 	return nil
@@ -139,6 +156,10 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 			for _, line := range envData {
 				service["environment"] = append(service["environment"].([]string), line)
 			}
+		}
+
+		for key, env := range resource.Environment {
+			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%s=%s", key, env))
 		}
 
 	} else {
@@ -210,7 +231,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintError(fmt.Sprintf("Successfully included resources & addons %v", successes))
+			utils.PrintInfo(fmt.Sprintf("Successfully included resources & addons %v", successes))
 		}
 
 		var onlyWrite bool
@@ -313,7 +334,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintError(fmt.Sprintf("Successfully included resources & addons %v", successes))
+			utils.PrintInfo(fmt.Sprintf("Successfully included resources & addons %v", successes))
 		}
 
 		var onlyWrite bool
@@ -395,7 +416,7 @@ example:
 		}
 
 		if len(successes) > 0 {
-			utils.PrintError(fmt.Sprintf("Successfully included resources & addons %v", successes))
+			utils.PrintInfo(fmt.Sprintf("Successfully included resources & addons %v", successes))
 		}
 
 		var onlyWrite bool

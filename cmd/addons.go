@@ -5,9 +5,7 @@ package cmd
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -45,7 +43,6 @@ func generateKeyFiles(addonName string) error {
 
 func constructGatewayAddon(addonName string, port int, resourceNames []string, errors *[]string, successes *[]string) (*types.Addon, error) {
 	var validAttachedResourceNames []string
-	var clients []string
 
 	err := generateKeyFiles(addonName)
 	if err != nil {
@@ -64,16 +61,13 @@ func constructGatewayAddon(addonName string, port int, resourceNames []string, e
 		secret := make([]byte, 32)
 		rand.Read(secret)
 		client_secret := base64.URLEncoding.EncodeToString(secret)
-		sum := sha256.Sum256(secret)
-
-		clients = append(clients, fmt.Sprintf("%s:%s", client_id, hex.EncodeToString(sum[:])))
 
 		resource.Dependents = append(resource.Dependents, addonName)
-		if resource.Opts == nil {
-			resource.Opts = make(map[string]string, 0)
+		if resource.Environment == nil {
+			resource.Environment = make(map[string]string, 0)
 		}
-		resource.Opts["clientId"] = client_id.String()
-		resource.Opts["clientSecret"] = client_secret
+		resource.Environment["clientId"] = client_id.String()
+		resource.Environment["clientSecret"] = client_secret
 
 		err = utils.UpdateResource(&utils.ManifestData, n, resource)
 		if err != nil {
@@ -93,9 +87,8 @@ func constructGatewayAddon(addonName string, port int, resourceNames []string, e
 		ClusterHost:  "http://gateway-deploy.gateway.svc.cluster.local",
 		Dependencies: validAttachedResourceNames,
 		Environment: []string{
-			fmt.Sprintf("CLIENTS=%s", strings.Join(clients, ",")),
 			"PRIVATE_KEY_PATH=/etc/ssl/private/private_key.pem",
-			"PRIVATE_KEY_PATH=/etc/ssl/public/public_key.pem",
+			"PUBLIC_KEY_PATH=/etc/ssl/public/public_key.pem",
 		},
 	}
 
