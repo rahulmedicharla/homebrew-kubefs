@@ -15,6 +15,7 @@ import (
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/spf13/cobra"
+	"v8.run/go/exp/util/maps"
 )
 
 // addonsCmd represents the addons command
@@ -25,6 +26,8 @@ var addonsCmd = &cobra.Command{
 example:
 	kubefs addons enable --flags,
 	kubefs addons disable --flags,
+	kubefs addons manage --flags
+	kubefs addons list
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
@@ -41,21 +44,16 @@ func generateKeyFiles(addonName string) error {
 	return utils.RunMultipleCommands(commands, false, true)
 }
 
-func constructGatewayAddon(addonName string, port int, resourceNames []string, errors *[]string, successes *[]string) (*types.Addon, error) {
-	var validAttachedResourceNames []string
+func connectGatewayToResource(addonName string, resourceNames maps.Set[string], errors *[]string, successes *[]string) maps.Set[string] {
+	validAttachedResourceNames := maps.NewSet[string]()
 
-	err := generateKeyFiles(addonName)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, n := range resourceNames {
+	for _, n := range maps.Keys(resourceNames) {
 		err, resource := utils.GetResourceFromName(n)
 		if err != nil {
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
+			fmt.Println(*errors)
 			continue
 		}
-
 		// update resource dependents & generate client_id and secret
 		client_id := uuid.New()
 		secret := make([]byte, 32)
@@ -74,9 +72,20 @@ func constructGatewayAddon(addonName string, port int, resourceNames []string, e
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
 			continue
 		}
-		validAttachedResourceNames = append(validAttachedResourceNames, n)
+		validAttachedResourceNames.Insert(n)
 		*successes = append(*successes, fmt.Sprintf("%s:%s", addonName, n))
 	}
+	return validAttachedResourceNames
+}
+
+func constructGatewayAddon(addonName string, port int, resourceNames maps.Set[string], errors *[]string, successes *[]string) (*types.Addon, error) {
+
+	err := generateKeyFiles(addonName)
+	if err != nil {
+		return nil, err
+	}
+
+	validAttachedResourceNames := connectGatewayToResource(addonName, resourceNames, errors, successes)
 
 	newAddon := types.Addon{
 		Name:         addonName,
@@ -85,7 +94,7 @@ func constructGatewayAddon(addonName string, port int, resourceNames []string, e
 		LocalHost:    fmt.Sprintf("http://localhost:%v", port),
 		DockerHost:   fmt.Sprintf("http://gateway:%v", port),
 		ClusterHost:  "http://gateway-deploy.gateway.svc.cluster.local",
-		Dependencies: validAttachedResourceNames,
+		Dependencies: maps.Keys(validAttachedResourceNames),
 		Environment: []string{
 			"PRIVATE_KEY_PATH=/etc/ssl/private/private_key.pem",
 			"PUBLIC_KEY_PATH=/etc/ssl/public/public_key.pem",
@@ -95,20 +104,10 @@ func constructGatewayAddon(addonName string, port int, resourceNames []string, e
 	return &newAddon, nil
 }
 
-func constructOauth2Addon(addonName string, port int, resourceNames []string, errors *[]string, successes *[]string) (*types.Addon, error) {
-	var twoFa bool
-	err := utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ", &twoFa)
-	if err != nil {
-		return nil, err
-	}
+func connectOauth2ToResource(addonName string, resourceNames maps.Set[string], errors *[]string, successes *[]string) maps.Set[string] {
+	validAttachedResourceNames := maps.NewSet[string]()
 
-	err = generateKeyFiles(addonName)
-	if err != nil {
-		return nil, err
-	}
-
-	var validAttachedResourceNames []string
-	for _, n := range resourceNames {
+	for _, n := range maps.Keys(resourceNames) {
 		err, resource := utils.GetResourceFromName(n)
 		if err != nil {
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
@@ -121,9 +120,26 @@ func constructOauth2Addon(addonName string, port int, resourceNames []string, er
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
 			continue
 		}
-		validAttachedResourceNames = append(validAttachedResourceNames, n)
+		validAttachedResourceNames.Insert(n)
 		*successes = append(*successes, fmt.Sprintf("%s:%s", addonName, n))
 	}
+
+	return validAttachedResourceNames
+}
+
+func constructOauth2Addon(addonName string, port int, resourceNames maps.Set[string], errors *[]string, successes *[]string) (*types.Addon, error) {
+	var twoFa bool
+	err := utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ", &twoFa)
+	if err != nil {
+		return nil, err
+	}
+
+	err = generateKeyFiles(addonName)
+	if err != nil {
+		return nil, err
+	}
+
+	validAttachedResourceNames := connectOauth2ToResource(addonName, resourceNames, errors, successes)
 
 	newAddon := types.Addon{
 		Name:         addonName,
@@ -132,11 +148,50 @@ func constructOauth2Addon(addonName string, port int, resourceNames []string, er
 		LocalHost:    fmt.Sprintf("http://localhost:%v", port),
 		DockerHost:   fmt.Sprintf("http://oauth2:%v", port),
 		ClusterHost:  "http://oauth2-deploy.oauth2.svc.cluster.local",
-		Dependencies: validAttachedResourceNames,
+		Dependencies: maps.Keys(validAttachedResourceNames),
 		Environment:  []string{"TWO_FACTOR_AUTH=" + fmt.Sprintf("%v", twoFa)},
 	}
 
 	return &newAddon, nil
+}
+
+func disconnectAddonFromResource(addonName string, dependencies maps.Set[string], errors *[]string, successes *[]string) maps.Set[string] {
+	validDisconnectResourceNames := maps.NewSet[string]()
+
+	for _, n := range maps.Keys(dependencies) {
+		err, resource := utils.GetResourceFromName(n)
+		if err != nil {
+			utils.PrintError(err.Error())
+			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
+			continue
+		}
+
+		var newDependents []string
+		for _, dep := range resource.Dependents {
+			if dep != addonName {
+				newDependents = append(newDependents, dep)
+			}
+		}
+
+		// remove clientID and clientSecret if gateway
+		if addonName == "gateway" {
+			delete(resource.Environment, "clientId")
+			delete(resource.Environment, "clientSecret")
+		}
+
+		resource.Dependents = newDependents
+		err = utils.UpdateResource(&utils.ManifestData, n, resource)
+		if err != nil {
+			utils.PrintError(err.Error())
+			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
+			continue
+		}
+
+		validDisconnectResourceNames.Insert(n)
+		*successes = append(*successes, fmt.Sprintf("%s:%s", addonName, n))
+	}
+
+	return validDisconnectResourceNames
 }
 
 var addonsEnableCmd = &cobra.Command{
@@ -164,8 +219,13 @@ example:
 		utils.PrintInfo(fmt.Sprintf("Enabling addons %v", args))
 
 		for _, addon := range args {
-			name := strings.Split(addon, ":")[0]
-			addonPort := strings.Split(addon, ":")[1]
+			splitAddon := strings.Split(addon, ":")
+			if len(splitAddon) != 2 {
+				utils.PrintError(fmt.Errorf("addon %s configured incorrectly. should be <addon-name>:<port>", addon).Error())
+				return
+			}
+			name := splitAddon[0]
+			addonPort := splitAddon[1]
 
 			utils.PrintInfo(fmt.Sprintf("Enabling addon [%s]", name))
 
@@ -202,7 +262,7 @@ example:
 				continue
 			}
 
-			resourceNames := strings.Split(resources, ",")
+			resourceNames := maps.NewSet(strings.Split(resources, ",")...)
 
 			var newAddon *types.Addon
 			resourceErrors := make([]string, 0)
@@ -234,7 +294,11 @@ example:
 			utils.ManifestData.Addons = append(utils.ManifestData.Addons, *newAddon)
 		}
 
-		utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+		err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
 
 		if len(errors) > 0 {
 			utils.PrintError(fmt.Sprintf("Error enabling addons %v", errors))
@@ -279,6 +343,14 @@ example:
 				continue
 			}
 
+			resourceErrors := make([]string, 0)
+			resourceSuccesses := make([]string, 0)
+
+			// make set so no duplicates
+			disableList := maps.NewSet(addon.Dependencies...)
+
+			disconnectAddonFromResource(addon.Name, disableList, &resourceErrors, &resourceSuccesses)
+
 			err = utils.RunCommand(fmt.Sprintf("rm -rf addons/%s", name), false, true)
 			if err != nil {
 				utils.PrintError(err.Error())
@@ -293,37 +365,12 @@ example:
 				continue
 			}
 
-			for _, dependent := range addon.Dependencies {
-				err, resource := utils.GetResourceFromName(dependent)
-				if err != nil {
-					utils.PrintError(err.Error())
-					errors = append(errors, name)
-					continue
-				}
-
-				var newDependents []string
-				for _, dep := range resource.Dependents {
-					if dep != name {
-						newDependents = append(newDependents, dep)
-					}
-				}
-
-				// remove clientID and clientSecret if gateway
-				if addon.Name == "gateway" {
-					delete(resource.Opts, "clientId")
-					delete(resource.Opts, "clientSecret")
-				}
-
-				resource.Dependents = newDependents
-				err = utils.UpdateResource(&utils.ManifestData, dependent, resource)
-				if err != nil {
-					utils.PrintError(err.Error())
-					errors = append(errors, name)
-					continue
-				}
+			if len(resourceErrors) > 0 {
+				errors = append(errors, resourceErrors...)
 			}
-
-			successes = append(successes, name)
+			if len(resourceSuccesses) > 0 {
+				successes = append(successes, resourceSuccesses...)
+			}
 		}
 
 		if len(errors) > 0 {
@@ -363,10 +410,94 @@ example:
 	},
 }
 
+var addonsManageCmd = &cobra.Command{
+	Use:   "manage",
+	Short: "kubefs addons manage - manage attached resources to addons in project",
+	Long: `kubefs addons manage - manage attached resource to addons in project
+example:
+	kubefs addons manage <addonName> --add <resourceName>
+	kubefs addons manage <addonName> --remove <resourceName>
+`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if utils.ManifestStatus != nil {
+			utils.PrintError(utils.ManifestStatus.Error())
+		}
+
+		err, addon := utils.GetAddonFromName(args[0])
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
+
+		errors := make([]string, 0)
+		successes := make([]string, 0)
+
+		var addResources, removeReources string
+		addResources, _ = cmd.Flags().GetString("add")
+		removeReources, _ = cmd.Flags().GetString("remove")
+
+		addList := maps.NewSet[string]()
+		removeList := maps.NewSet[string]()
+		if len(addResources) > 0 {
+			addList = maps.NewSet(strings.Split(addResources, ",")...)
+		}
+		if len(removeReources) > 0 {
+			removeList = maps.NewSet(strings.Split(removeReources, ",")...)
+		}
+
+		// remove any duplicates and get current addon dependencies
+		currentList := maps.NewSet(addon.Dependencies...)
+
+		// remove any dependencies that are being added & already in use
+		// remove any dependencies that are being removed & not already in use
+		errors = append(errors, maps.Keys(addList.Intersection(currentList))...)
+		errors = append(errors, maps.Keys(removeList.Subtract(currentList))...)
+		addList = addList.Subtract(currentList)
+		removeList = removeList.Intersection(currentList)
+
+		var addResourceNames maps.Set[string]
+		var removeResourceNames maps.Set[string]
+		if addon.Name == "oauth2" {
+			addResourceNames = connectOauth2ToResource(addon.Name, addList, &errors, &successes)
+
+		} else if addon.Name == "gateway" {
+			addResourceNames = connectGatewayToResource(addon.Name, addList, &errors, &successes)
+		}
+		removeResourceNames = disconnectAddonFromResource(addon.Name, removeList, &errors, &successes)
+
+		//update manifest
+		newDependencyList := (currentList.Union(addResourceNames)).Subtract(removeResourceNames)
+		addon.Dependencies = maps.Keys(newDependencyList)
+
+		err = utils.UpdateAddons(&utils.ManifestData, addon.Name, addon)
+		if err != nil {
+			utils.PrintError(err.Error())
+			return
+		}
+
+		if len(errors) > 0 {
+			utils.PrintError(fmt.Sprintf("error managing addons %v", errors))
+		}
+
+		if len(successes) > 0 {
+			utils.PrintInfo(fmt.Sprintf("managed addons %v", successes))
+		}
+
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(addonsCmd)
 	addonsCmd.AddCommand(addonsEnableCmd)
 	addonsCmd.AddCommand(addonsDisableCmd)
 	addonsCmd.AddCommand(addonsListCmd)
+	addonsCmd.AddCommand(addonsManageCmd)
 
+	addonsManageCmd.Flags().StringP("add", "a", "", "resources to add to specified addon (comma seperated)")
+	addonsManageCmd.Flags().StringP("remove", "r", "", "resources to remove from specified addon (comma seperated)")
 }
