@@ -4,6 +4,9 @@ Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -63,26 +66,41 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 	if err != nil {
 		return err
 	}
-	pass := randstr.String(16)
 
 	if !onlyDeploy {
 		// helmify
-		if name == "oauth2" {
-			commands := []string{
+		commands := []string{
+			fmt.Sprintf("(cd addons/%s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", name),
+		}
+		switch name {
+		case "oauth2":
+			commands = append(commands,
 				"(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)",
-				"(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)",
-				"echo '' > addons/oauth2/postgresql/templates/NOTES.txt",
-			}
+			)
+		case "gateway":
+		}
 
-			err = utils.RunMultipleCommands(commands, true, true)
-			if err != nil {
-				return err
-			}
+		err = utils.RunMultipleCommands(commands, true, true)
+		if err != nil {
+			return err
 		}
 	}
 	if !onlyHelmify {
 		// deploy
-		if name == "oauth2" {
+		commandBuilder := strings.Builder{}
+		baseConfigs := []string{
+			"--set image.repository=" + addon.DockerRepo,
+			"--set service.port=" + fmt.Sprintf("%v", addon.Port),
+			"--set namespace=" + name,
+			"--set readinessProbe.httpGet.path=/health",
+			"--set livenessProbe.httpGet.path=/health",
+			"--set service.type=ClusterIP",
+			"--set ingress.enabled=false",
+		}
+
+		switch name {
+		case "oauth2":
+			pass := randstr.String(16)
 			configs := []string{
 				"--set namespaceOverride=oauth2",
 				"--set auth.postgresPassword=" + pass,
@@ -104,13 +122,6 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 				allowedOrigins = append(allowedOrigins, attachedResource.ClusterHost)
 			}
 			authConfigs := []string{
-				"--set image.repository=" + addon.DockerRepo,
-				"--set service.port=" + fmt.Sprintf("%v", addon.Port),
-				"--set namespace=oauth2",
-				"--set readinessProbe.httpGet.path=/health",
-				"--set livenessProbe.httpGet.path=/health",
-				"--set service.type=ClusterIP",
-				"--set ingress.enabled=false",
 				"--set env[0].name=ALLOWED_ORIGINS",
 				"--set env[0].value=" + strings.Join(allowedOrigins, ","),
 				"--set env[1].name=PORT",
@@ -152,27 +163,94 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 				return err
 			}
 
-			oauthBuilder := strings.Builder{}
-			oauthBuilder.WriteString("helm upgrade --install oauth2 addons/oauth2/deploy")
+			commandBuilder.WriteString("helm upgrade --install oauth2 addons/oauth2/deploy")
+			authConfigs = append(authConfigs, baseConfigs...)
 			for _, c := range authConfigs {
-				oauthBuilder.WriteString(fmt.Sprintf(" %s", c))
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
+			commandBuilder.WriteString(";")
 
-			authDataBuilder := strings.Builder{}
-			authDataBuilder.WriteString("helm upgrade --install auth-data addons/oauth2/postgresql")
+			commandBuilder.WriteString("helm upgrade --install auth-data addons/oauth2/postgresql")
 			for _, c := range configs {
-				authDataBuilder.WriteString(fmt.Sprintf(" %s", c))
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
 
-			commands := []string{
-				oauthBuilder.String(),
-				authDataBuilder.String(),
+		case "gateway":
+			var allowedOrigins []string
+			var clients []string
+			for _, n := range addon.Dependencies {
+				attachedResource, err := utils.GetResourceFromName(n)
+				if err != nil {
+					return err
+				}
+
+				secret, err := base64.URLEncoding.DecodeString(attachedResource.Environment["clientSecret"])
+				if err != nil {
+					return err
+				}
+
+				hash := sha256.Sum256(secret)
+
+				clients = append(clients, fmt.Sprintf("%s:%s", attachedResource.Environment["clientId"], hex.EncodeToString(hash[:])))
+				allowedOrigins = append(allowedOrigins, attachedResource.ClusterHost)
 			}
 
-			err = deployToTarget(target, commands)
+			gatewayConfigs := []string{
+				// env variables
+				"--set env[0].name=ALLOWED_ORIGINS",
+				"--set env[0].value=" + strings.Join(allowedOrigins, ","),
+				"--set env[1].name=PORT",
+				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
+				"--set env[2].name=PRIVATE_KEY_PATH",
+				"--set env[2].value=/etc/ssl/private/private_key.pem",
+				"--set env[3].name=PUBLIC_KEY_PATH",
+				"--set env[3].value=/etc/ssl/public/public_key.pem",
+				// secret 0
+				"--set secrets[0].name=public_key.pem",
+				"--set secrets[0].value=files/public_key.pem",
+				"--set secrets[0].secretRef=gateway-deploy-secret",
+				"--set secrets[0].valueIsFile=true",
+				// secret 1
+				"--set secrets[1].name=private_key.pem",
+				"--set secrets[1].value=files/private_key.pem",
+				"--set secrets[1].secretRef=gateway-deploy-secret",
+				"--set secrets[1].valueIsFile=true",
+				// secret 2
+				"--set secrets[2].name=CLIENTS",
+				"--set secrets[2].value=" + strings.Join(clients, ","),
+				"--set secrets[2].secretRef=gateway-deploy-secret",
+				"--set secrets[2].valueIsFile=false",
+				// volumes
+				"--set volumes[0].name=keys",
+				"--set volumes[0].secret.secretName=gateway-deploy-secret",
+				// volume mounts
+				"--set volumeMounts[0].name=keys",
+				"--set volumeMounts[0].mountPath=/etc/ssl/private/private_key.pem",
+				"--set volumeMounts[0].subPath=private_key.pem",
+				"--set volumeMounts[1].name=keys",
+				"--set volumeMounts[1].mountPath=/etc/ssl/public/public_key.pem",
+				"--set volumeMounts[1].subPath=public_key.pem",
+			}
+
+			err = utils.RunCommand("mkdir -p addons/gateway/deploy/files && cp addons/gateway/public_key.pem addons/gateway/deploy/files && cp addons/gateway/private_key.pem addons/gateway/deploy/files", true, true)
 			if err != nil {
 				return err
 			}
+
+			commandBuilder.WriteString("helm upgrade --install gateway addons/gateway/deploy")
+			gatewayConfigs = append(gatewayConfigs, baseConfigs...)
+			for _, c := range gatewayConfigs {
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
+			}
+		}
+
+		commands := []string{
+			commandBuilder.String(),
+		}
+
+		err = deployToTarget(target, commands)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -268,6 +346,7 @@ func deployUnique(name string, resource *types.Resource, onlyHelmify bool, onlyD
 				)
 			}
 
+			// add all the resource hosts as env variables
 			var count = 0
 			for rName, r := range utils.ManifestData.Resources {
 				if r.Type == "database" {
@@ -278,20 +357,27 @@ func deployUnique(name string, resource *types.Resource, onlyHelmify bool, onlyD
 				count++
 			}
 
+			// add all the addon hosts as env variables
 			for _, a := range resource.Dependents {
 				addon, _ := utils.GetAddonFromName(a)
 				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, a, count, addon.ClusterHost))
 				count++
 			}
 
+			// add all the variables in .env as secrets
 			envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", name))
+			secrets := 0
 			if err == nil {
-				count = 0
 				for _, line := range envData {
-					utils.PrintWarning(line)
-					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", count, strings.Split(line, "=")[0], count, strings.Split(line, "=")[1], count, name))
-					count++
+					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", secrets, strings.Split(line, "=")[0], secrets, strings.Split(line, "=")[1], secrets, name))
+					secrets++
 				}
+			}
+
+			// add all the kubefs env variables as secrets
+			for key, value := range resource.Environment {
+				configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", secrets, key, secrets, value, secrets, name))
+				secrets++
 			}
 
 			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", name, name))
