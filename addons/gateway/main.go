@@ -77,7 +77,7 @@ func parseClients(clients string) []AuthReq {
 	// parse clients of form c1,c2,c3 where cX = clientId:clientSecret
 	clientCredentials := make([]AuthReq, 0)
 
-	splitClients := strings.Split(clients, ",")
+	splitClients := strings.Split(clients, "&")
 
 	for _, c := range splitClients {
 		clientCreds := strings.Split(c, ":")
@@ -179,7 +179,7 @@ func main() {
 
 	// cors
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: strings.Split(ALLOWED_ORIGINS, ","),
+		AllowOrigins: strings.Split(ALLOWED_ORIGINS, "&"),
 		AllowMethods: []string{"GET", "POST"},
 		AllowHeaders: []string{"Content-Type"},
 	}))

@@ -123,7 +123,7 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 			}
 			authConfigs := []string{
 				"--set env[0].name=ALLOWED_ORIGINS",
-				"--set env[0].value=" + strings.Join(allowedOrigins, ","),
+				"--set env[0].value=" + fmt.Sprintf("'%s'", strings.Join(allowedOrigins, "&")),
 				"--set env[1].name=PORT",
 				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
 				"--set env[2].name=MODE",
@@ -192,13 +192,13 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 				hash := sha256.Sum256(secret)
 
 				clients = append(clients, fmt.Sprintf("%s:%s", attachedResource.Environment["clientId"], hex.EncodeToString(hash[:])))
-				allowedOrigins = append(allowedOrigins, attachedResource.ClusterHost)
+				allowedOrigins = append(allowedOrigins, attachedResource.DockerHost)
 			}
 
 			gatewayConfigs := []string{
 				// env variables
 				"--set env[0].name=ALLOWED_ORIGINS",
-				"--set env[0].value=" + strings.Join(allowedOrigins, ","),
+				"--set env[0].value=" + fmt.Sprintf("'%s'", strings.Join(allowedOrigins, "&")),
 				"--set env[1].name=PORT",
 				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
 				"--set env[2].name=PRIVATE_KEY_PATH",
@@ -217,7 +217,7 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 				"--set secrets[1].valueIsFile=true",
 				// secret 2
 				"--set secrets[2].name=CLIENTS",
-				"--set secrets[2].value=" + strings.Join(clients, ","),
+				"--set secrets[2].value=" + fmt.Sprintf("'%s'", strings.Join(clients, "&")),
 				"--set secrets[2].secretRef=gateway-deploy-secret",
 				"--set secrets[2].valueIsFile=false",
 				// volumes

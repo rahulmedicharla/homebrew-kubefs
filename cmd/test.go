@@ -78,7 +78,7 @@ func testAddon(rawCompose *map[string]interface{}, addonName string, addon *type
 		}
 
 		env = append(env,
-			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")),
+			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, "&")),
 			fmt.Sprintf("PORT=%v", addon.Port),
 			fmt.Sprintf("NAME=%s", utils.ManifestData.KubefsName),
 		)
@@ -109,8 +109,8 @@ func testAddon(rawCompose *map[string]interface{}, addonName string, addon *type
 		}
 
 		env = append(env,
-			fmt.Sprintf("CLIENTS=%s", strings.Join(clients, ",")),
-			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, ",")),
+			fmt.Sprintf("CLIENTS=%s", strings.Join(clients, "&")),
+			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, "&")),
 			fmt.Sprintf("PORT=%v", addon.Port),
 			"DEBUG=1",
 		)
