@@ -206,6 +206,11 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		var errors []string
 		var successes []string
 
@@ -319,6 +324,11 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		var errors []string
 		var successes []string
 
@@ -381,8 +391,12 @@ example:
 	kubefs addons list
 `,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
-		utils.PrintInfo("Listing addons")
+		fmt.Println(utils.ManifestData.Addons)
 
 		for name, addon := range utils.ManifestData.Addons {
 			fmt.Println(name)
@@ -409,6 +423,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 

@@ -190,6 +190,10 @@ example:
 	kubefs test all --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
 		utils.PrintWarning("Testing all resources in docker")
 
@@ -268,6 +272,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 

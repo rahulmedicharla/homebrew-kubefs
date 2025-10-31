@@ -59,7 +59,7 @@ example:
 			},
 		}
 
-		err = utils.WriteManifest(&project, projectName+"/manifest.yaml")
+		err = utils.WriteManifest(&project, fmt.Sprintf("%s/manifest.yaml", projectName))
 		if err != nil {
 			fmt.Printf("Error writing manifest: %v\n", err)
 			return

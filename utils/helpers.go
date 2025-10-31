@@ -221,8 +221,7 @@ func RemoveClusterName(config *types.CloudConfig, clusterName string) ([]string,
 func ValidateProject() error {
 	_, err := os.Stat("manifest.yaml")
 	if os.IsNotExist(err) {
-		ManifestStatus = fmt.Errorf("not a valid kubefs project. Use 'kubefs init to setup'")
-		return ManifestStatus
+		return fmt.Errorf("not a valid kubefs project. Use 'kubefs init to setup'")
 	}
 	return nil
 }

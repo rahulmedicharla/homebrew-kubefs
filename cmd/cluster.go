@@ -36,6 +36,11 @@ example:
 	kubefs cluster list --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
@@ -70,6 +75,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -118,6 +128,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -176,6 +191,11 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
@@ -230,6 +250,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -304,6 +329,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 

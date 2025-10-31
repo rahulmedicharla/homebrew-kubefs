@@ -115,6 +115,15 @@ example:
 	kubefs create api <name> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
 		if err := parseInfo(cmd, args, "api"); err != nil {
 			utils.PrintError(err)
@@ -193,6 +202,15 @@ example:
 	kubefs create frontend <name> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
 		if err := parseInfo(cmd, args, "frontend"); err != nil {
 			utils.PrintError(err)
@@ -293,6 +311,15 @@ example:
 	kubefs create database <db> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
 		if err := parseInfo(cmd, args, "database"); err != nil {
 			utils.PrintError(err)

@@ -95,6 +95,10 @@ example:
 	kubefs remove all --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
 		var onlyLocal, onlyRemote bool
 		onlyLocal, _ = cmd.Flags().GetBool("only-local")
@@ -138,6 +142,11 @@ example:
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 

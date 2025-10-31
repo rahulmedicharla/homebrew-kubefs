@@ -19,9 +19,13 @@ var runCmd = &cobra.Command{
 example:
 	kubefs run <resource-name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		if len(args) < 1 {
 			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 

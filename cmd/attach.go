@@ -23,6 +23,11 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		name := args[0]
 
 		resource, err := utils.GetResourceFromName(name)

@@ -35,6 +35,10 @@ example:
 	kubefs config gcp --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
 
 		remove, err := cmd.Flags().GetBool("remove")
 		if err != nil {
@@ -113,6 +117,11 @@ example:
 	kubefs config docker --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// get service information
 		service := "docker"
 		user := "kubefs"
@@ -162,6 +171,11 @@ example:
 	kubefs config list
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		user := "kubefs"
 		services := []string{"docker"}
 
