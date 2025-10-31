@@ -3,12 +3,12 @@ package types
 import "v8.run/go/exp/util/maps"
 
 type Project struct {
-	KubefsName  string              `yaml:"name"`
-	Version     string              `yaml:"version"`
-	Description string              `yaml:"description"`
-	Resources   map[string]Resource `yaml:"resources"`
-	Addons      map[string]Addon    `yaml:"addons"`
-	CloudConfig []CloudConfig       `yaml:"cloud_config"`
+	KubefsName  string                 `yaml:"name"`
+	Version     string                 `yaml:"version"`
+	Description string                 `yaml:"description"`
+	Resources   map[string]Resource    `yaml:"resources"`
+	Addons      map[string]Addon       `yaml:"addons"`
+	CloudConfig map[string]CloudConfig `yaml:"cloud_config"`
 }
 
 type Resource struct {
@@ -38,7 +38,6 @@ type Addon struct {
 }
 
 type CloudConfig struct {
-	Provider     string   `yaml:"provider"`
 	ProjectId    string   `yaml:"project_id,omitempty"`
 	ProjectName  string   `yaml:"project_name,omitempty"`
 	Region       string   `yaml:"region,omitempty"`

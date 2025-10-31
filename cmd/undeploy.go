@@ -27,7 +27,7 @@ example:
 }
 
 func undeployFromTarget(target string, commands []string) error {
-	config, err := utils.VerifyCloudConfig(target)
+	config, err := utils.GetCloudConfigFromProvider(target)
 	if err != nil {
 		return err
 	}

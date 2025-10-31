@@ -29,7 +29,7 @@ example:
 
 func deployToTarget(target string, commands []string) error {
 	// verify cloud config
-	config, err := utils.VerifyCloudConfig(target)
+	config, err := utils.GetCloudConfigFromProvider(target)
 	if err != nil {
 		return err
 	}

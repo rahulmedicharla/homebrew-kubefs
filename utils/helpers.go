@@ -15,6 +15,7 @@ import (
 var ManifestData types.Project
 var ManifestStatus error
 
+// LOGGER FUNCTIONS
 func PrintError(err error) {
 	log.Error(err.Error())
 }
@@ -27,6 +28,7 @@ func PrintWarning(message string) {
 	log.Warn(message)
 }
 
+// RETURNS A POINTER TO RESOURCE/ADDON/CLOUD_CONFIG
 func GetResourceFromName(name string) (*types.Resource, error) {
 	resource, ok := ManifestData.Resources[name]
 	if !ok {
@@ -43,6 +45,23 @@ func GetAddonFromName(name string) (*types.Addon, error) {
 	return &addon, nil
 }
 
+func GetCloudConfigFromProvider(provider string) (*types.CloudConfig, error) {
+	cloudConfig, ok := ManifestData.CloudConfig[provider]
+	if !ok {
+		return nil, fmt.Errorf("cloud config [%s] not found, enable using 'kubefs config'", provider)
+	}
+	return &cloudConfig, nil
+}
+
+func GetCurrentResourceNames() []string {
+	var names []string
+	for key := range ManifestData.Resources {
+		names = append(names, key)
+	}
+	return names
+}
+
+// READ AND WRITE FILES
 func WriteYaml(data *map[string]interface{}, path string) error {
 	yamlData, err := yaml.Marshal(data)
 	if err != nil {
@@ -142,16 +161,7 @@ func ReadEnv(path string) ([]string, error) {
 	return envData, nil
 }
 
-func UpdateCloudConfig(project *types.Project, provider string, config *types.CloudConfig) error {
-	for i, conf := range project.CloudConfig {
-		if conf.Provider == provider {
-			project.CloudConfig[i] = *config
-			return WriteManifest(project, "manifest.yaml")
-		}
-	}
-	return fmt.Errorf("cloud config for [%s] not setup. Use 'kubefs config' to setup", provider)
-}
-
+// UPDATES A POINTER TO RESOURCE/ADDON/CLOUD_CONFIG
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error {
 	_, ok := project.Resources[name]
 	if !ok {
@@ -171,6 +181,17 @@ func UpdateAddons(project *types.Project, name string, addon *types.Addon) error
 	return WriteManifest(project, "manifest.yaml")
 }
 
+func UpdateCloudConfig(project *types.Project, provider string, config *types.CloudConfig) error {
+	_, ok := project.CloudConfig[provider]
+	if !ok {
+		return fmt.Errorf("cloud config for [%s] not setup. Use 'kubefs config' to setup", provider)
+	}
+	project.CloudConfig[provider] = *config
+	return WriteManifest(project, "manifest.yaml")
+
+}
+
+// DELETS POINTERS TO RESOURCE/ADDON/CLOUD_CONFIG
 func RemoveResource(project *types.Project, name string) error {
 	delete(project.Resources, name)
 	return WriteManifest(project, "manifest.yaml")
@@ -182,17 +203,21 @@ func RemoveAddon(project *types.Project, name string) error {
 }
 
 func RemoveCloudConfig(project *types.Project, provider string) error {
-	configList := []types.CloudConfig{}
-
-	for i, config := range project.CloudConfig {
-		if config.Provider != provider {
-			configList = append(configList, project.CloudConfig[i])
-		}
-	}
-	project.CloudConfig = configList
+	delete(project.CloudConfig, provider)
 	return WriteManifest(project, "manifest.yaml")
 }
 
+func RemoveClusterName(config *types.CloudConfig, clusterName string) ([]string, error) {
+	newConfig := make([]string, 0)
+	for _, name := range config.ClusterNames {
+		if name != clusterName {
+			newConfig = append(newConfig, name)
+		}
+	}
+	return newConfig, nil
+}
+
+// VALIDATION
 func ValidateProject() error {
 	_, err := os.Stat("manifest.yaml")
 	if os.IsNotExist(err) {
@@ -247,40 +272,13 @@ func VerifyTarget(target string) error {
 	return nil
 }
 
-func VerifyCloudConfig(provider string) (*types.CloudConfig, error) {
-	for _, config := range ManifestData.CloudConfig {
-		if config.Provider == provider {
-			return &config, nil
-		}
-	}
-	return nil, fmt.Errorf("cloud config [%s] not setup. Setup using 'kubefs config'", provider)
-}
-
-func VerifyClusterName(config *types.CloudConfig, clusterName string) error {
-	for _, name := range config.ClusterNames {
-		if name == clusterName {
+func VerifyClusterName(provider string, config *types.CloudConfig, clusterName string) error {
+	for _, n := range config.ClusterNames {
+		if n == clusterName {
 			return nil
 		}
 	}
-	return fmt.Errorf("cluster name [%s] not found in [%s]", clusterName, config.Provider)
-}
-
-func RemoveClusterName(config *types.CloudConfig, clusterName string) ([]string, error) {
-	newConfig := make([]string, 0)
-	for _, name := range config.ClusterNames {
-		if name != clusterName {
-			newConfig = append(newConfig, name)
-		}
-	}
-	return newConfig, nil
-}
-
-func GetCurrentResourceNames() []string {
-	var names []string
-	for key := range ManifestData.Resources {
-		names = append(names, key)
-	}
-	return names
+	return fmt.Errorf("cluster name [%s] not found in [%s]", clusterName, provider)
 }
 
 func GetHelmChart(dockerRepo string, name string, serviceType string, port int, ingressEnabled bool, ingressHost string, healthCheck string, replicaCount int) *map[string]interface{} {

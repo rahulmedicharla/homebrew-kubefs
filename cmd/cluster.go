@@ -45,13 +45,13 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		config, err := utils.VerifyCloudConfig(target)
+		config, err := utils.GetCloudConfigFromProvider(target)
 		if err != nil {
 			utils.PrintError(err)
 			return
 		}
 
-		fmt.Printf("Target %s \n", config.Provider)
+		fmt.Printf("Target %s \n", target)
 		fmt.Printf("\t Main Cluster: %s \n", config.MainCluster)
 		for i, name := range config.ClusterNames {
 			fmt.Printf("\t Cluster %v: %s \n", i, name)
@@ -82,7 +82,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		config, err := utils.VerifyCloudConfig(target)
+		config, err := utils.GetCloudConfigFromProvider(target)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -90,7 +90,7 @@ example:
 
 		// verify cloud config cluster and param matches
 		clusterName := args[0]
-		err = utils.VerifyClusterName(config, clusterName)
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -130,7 +130,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		config, err := utils.VerifyCloudConfig(target)
+		config, err := utils.GetCloudConfigFromProvider(target)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -138,7 +138,7 @@ example:
 
 		// verify cloud config cluster and param matches
 		clusterName := args[0]
-		err = utils.VerifyClusterName(config, clusterName)
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -185,7 +185,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		config, err := utils.VerifyCloudConfig(target)
+		config, err := utils.GetCloudConfigFromProvider(target)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -194,7 +194,7 @@ example:
 		clusterName := args[0]
 
 		// validate cluster exists
-		err = utils.VerifyClusterName(config, clusterName)
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -242,7 +242,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		config, err := utils.VerifyCloudConfig(target)
+		config, err := utils.GetCloudConfigFromProvider(target)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -250,7 +250,7 @@ example:
 
 		clusterName := args[0]
 		// verify cluster exists
-		err = utils.VerifyClusterName(config, clusterName)
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -316,7 +316,7 @@ example:
 		}
 
 		//  Verify authentication with cloud provider
-		config, err := utils.VerifyCloudConfig(target)
+		config, err := utils.GetCloudConfigFromProvider(target)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -325,7 +325,7 @@ example:
 		clusterName := args[0]
 
 		// validate cluster doesn't already exist
-		err = utils.VerifyClusterName(config, clusterName)
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err == nil {
 			utils.PrintError(fmt.Errorf("cluster %s already exists in %s", clusterName, target))
 			return

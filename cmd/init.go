@@ -45,7 +45,6 @@ example:
 		}
 
 		cloudConfig := types.CloudConfig{
-			Provider:     "minikube",
 			ClusterNames: make([]string, 0),
 		}
 
@@ -55,8 +54,8 @@ example:
 			Description: description,
 			Resources:   map[string]types.Resource{},
 			Addons:      map[string]types.Addon{},
-			CloudConfig: []types.CloudConfig{
-				cloudConfig,
+			CloudConfig: map[string]types.CloudConfig{
+				"minikube": cloudConfig,
 			},
 		}
 

@@ -38,7 +38,7 @@ example:
 
 			// get target
 			target, _ := cmd.Flags().GetString("target")
-			config, err := utils.VerifyCloudConfig(target)
+			config, err := utils.GetCloudConfigFromProvider(target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error verifying target [%s] configuration", target))
 			}

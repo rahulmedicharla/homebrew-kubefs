@@ -85,28 +85,14 @@ example:
 
 			// Save GCP configuration
 			cloudConfig := types.CloudConfig{
-				Provider:     "gcp",
 				ProjectId:    *projectId,
 				ProjectName:  projectName,
 				Region:       *region,
 				ClusterNames: make([]string, 0),
 			}
 
-			_, err = utils.VerifyCloudConfig("gcp")
-			if err == nil {
-				// Update existing config
-				err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)
-				if err != nil {
-					utils.PrintError(fmt.Errorf("error updating GCP configuration to manifest: %v", err))
-					return
-				}
-
-				utils.PrintInfo(fmt.Sprintf("GCP Project updated successfully: %s", projectName))
-				return
-			}
-
 			// Add new config
-			utils.ManifestData.CloudConfig = append(utils.ManifestData.CloudConfig, cloudConfig)
+			utils.ManifestData.CloudConfig["gcp"] = cloudConfig
 			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error saving GCP configuration to manifest: %v", err))
@@ -196,8 +182,8 @@ example:
 		}
 
 		fmt.Println("Cloud Configurations:")
-		for _, config := range utils.ManifestData.CloudConfig {
-			fmt.Printf("Provider: %s\n", config.Provider)
+		for provider, config := range utils.ManifestData.CloudConfig {
+			fmt.Printf("Provider: %s\n", provider)
 			fmt.Printf("Project ID: %s\n", config.ProjectId)
 			for _, clusterName := range config.ClusterNames {
 				fmt.Printf("Cluster %s", clusterName)
