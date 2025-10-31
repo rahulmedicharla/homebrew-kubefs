@@ -1,11 +1,13 @@
 package types
 
+import "v8.run/go/exp/util/maps"
+
 type Project struct {
 	KubefsName  string              `yaml:"name"`
 	Version     string              `yaml:"version"`
 	Description string              `yaml:"description"`
 	Resources   map[string]Resource `yaml:"resources"`
-	Addons      []Addon             `yaml:"addons"`
+	Addons      map[string]Addon    `yaml:"addons"`
 	CloudConfig []CloudConfig       `yaml:"cloud_config"`
 }
 
@@ -26,7 +28,6 @@ type Resource struct {
 }
 
 type Addon struct {
-	Name         string   `yaml:"name"`
 	Port         int      `yaml:"port"`
 	DockerRepo   string   `yaml:"docker_repo"`
 	LocalHost    string   `yaml:"local_host"`
@@ -55,14 +56,11 @@ const (
 	DOCKER_REPO_ENDPOINT  = "https://hub.docker.com/v2/repositories/"
 )
 
-var FRAMEWORKS = map[string][]string{
-	"api":      {"nest", "fast", "gin"},
-	"frontend": {"next", "sveltekit", "remix"},
-	"database": {"postgresql", "redis"},
-	"addons":   {"oauth2", "gateway"},
+var FRAMEWORKS = map[string]maps.Set[string]{
+	"api":      maps.NewSet("nest", "fast", "gin"),
+	"frontend": maps.NewSet("next", "sveltekit", "remix"),
+	"database": maps.NewSet("postgresql", "redis"),
+	"addons":   maps.NewSet("oauth2", "gateway"),
 }
 
-var TARGETS = []string{
-	"minikube",
-	"gcp",
-}
+var TARGETS = maps.NewSet("minikube", "gcp")

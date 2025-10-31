@@ -88,7 +88,6 @@ func constructGatewayAddon(addonName string, port int, resourceNames maps.Set[st
 	validAttachedResourceNames := connectGatewayToResource(addonName, resourceNames, errors, successes)
 
 	newAddon := types.Addon{
-		Name:         addonName,
 		Port:         port,
 		DockerRepo:   "rmedicharla/gateway",
 		LocalHost:    fmt.Sprintf("http://localhost:%v", port),
@@ -142,7 +141,6 @@ func constructOauth2Addon(addonName string, port int, resourceNames maps.Set[str
 	validAttachedResourceNames := connectOauth2ToResource(addonName, resourceNames, errors, successes)
 
 	newAddon := types.Addon{
-		Name:         addonName,
 		Port:         port,
 		DockerRepo:   "rmedicharla/auth",
 		LocalHost:    fmt.Sprintf("http://localhost:%v", port),
@@ -288,7 +286,7 @@ example:
 				successes = append(successes, resourceSuccesses...)
 			}
 
-			utils.ManifestData.Addons = append(utils.ManifestData.Addons, *newAddon)
+			utils.ManifestData.Addons[name] = *newAddon
 		}
 
 		err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
@@ -341,7 +339,7 @@ example:
 			// make set so no duplicates
 			disableList := maps.NewSet(addon.Dependencies...)
 
-			disconnectAddonFromResource(addon.Name, disableList, &resourceErrors, &resourceSuccesses)
+			disconnectAddonFromResource(name, disableList, &resourceErrors, &resourceSuccesses)
 
 			err = utils.RunCommand(fmt.Sprintf("rm -rf addons/%s", name), false, true)
 			if err != nil {
@@ -413,7 +411,8 @@ example:
 			return
 		}
 
-		addon, err := utils.GetAddonFromName(args[0])
+		name := args[0]
+		addon, err := utils.GetAddonFromName(name)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -448,19 +447,19 @@ example:
 		var addResourceNames maps.Set[string]
 		var removeResourceNames maps.Set[string]
 
-		switch addon.Name {
+		switch name {
 		case "oauth2":
-			addResourceNames = connectOauth2ToResource(addon.Name, addList, &errors, &successes)
+			addResourceNames = connectOauth2ToResource(name, addList, &errors, &successes)
 		case "gateway":
-			addResourceNames = connectGatewayToResource(addon.Name, addList, &errors, &successes)
+			addResourceNames = connectGatewayToResource(name, addList, &errors, &successes)
 		}
-		removeResourceNames = disconnectAddonFromResource(addon.Name, removeList, &errors, &successes)
+		removeResourceNames = disconnectAddonFromResource(name, removeList, &errors, &successes)
 
 		//update manifest
 		newDependencyList := (currentList.Union(addResourceNames)).Subtract(removeResourceNames)
 		addon.Dependencies = maps.Keys(newDependencyList)
 
-		err = utils.UpdateAddons(&utils.ManifestData, addon.Name, addon)
+		err = utils.UpdateAddons(&utils.ManifestData, name, addon)
 		if err != nil {
 			utils.PrintError(err)
 			return

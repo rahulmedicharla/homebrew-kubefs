@@ -60,13 +60,13 @@ func undeployFromTarget(target string, commands []string) error {
 	return nil
 }
 
-func undeployAddon(addon *types.Addon, target string) error {
+func undeployAddon(name string, target string) error {
 	commands := []string{}
-	if addon.Name == "oauth2" {
+	if name == "oauth2" {
 		commands = append(commands, "helm uninstall auth-data")
 	}
 
-	commands = append(commands, fmt.Sprintf("helm uninstall %s", addon.Name))
+	commands = append(commands, fmt.Sprintf("helm uninstall %s", name))
 
 	err := undeployFromTarget(target, commands)
 	if err != nil {
@@ -127,14 +127,14 @@ example:
 			successes = append(successes, name)
 		}
 
-		for _, addon := range utils.ManifestData.Addons {
-			err := undeployAddon(&addon, target)
+		for name, _ := range utils.ManifestData.Addons {
+			err := undeployAddon(name, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", addon.Name, err))
-				errors = append(errors, addon.Name)
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, addon.Name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {
@@ -199,14 +199,14 @@ example:
 		}
 
 		for _, name := range addonList {
-			addon, err := utils.GetAddonFromName(name)
+			_, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployAddon(addon, target)
+			err = undeployAddon(name, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
@@ -253,14 +253,14 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v from %s", args, target))
 
 		for _, name := range args {
-			addon, err := utils.GetAddonFromName(name)
+			_, err := utils.GetAddonFromName(name)
 			if err != nil {
 				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployAddon(addon, target)
+			err = undeployAddon(name, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)

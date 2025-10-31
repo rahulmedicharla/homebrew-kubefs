@@ -39,7 +39,7 @@ var rawCompose = map[string]interface{}{
 	"volumes": map[string]interface{}{},
 }
 
-func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
+func testAddon(rawCompose *map[string]interface{}, addonName string, addon *types.Addon) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), false, true)
 	if err != nil {
 		return err
@@ -69,7 +69,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 	env := service["environment"].([]string)
 	env = append(env, addon.Environment...)
 
-	switch addon.Name {
+	switch addonName {
 	case "oauth2":
 		service["volumes"] = []string{
 			"./addons/oauth2/private_key.pem:/etc/ssl/private/private_key.pem",
@@ -117,7 +117,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 	}
 	service["environment"] = env
 
-	(*rawCompose)["services"].(map[string]interface{})[addon.Name] = service
+	(*rawCompose)["services"].(map[string]interface{})[addonName] = service
 
 	return nil
 }
@@ -205,13 +205,13 @@ example:
 			successes = append(successes, name)
 		}
 
-		for _, addon := range utils.ManifestData.Addons {
-			err := testAddon(&rawCompose, &addon)
+		for name, addon := range utils.ManifestData.Addons {
+			err := testAddon(&rawCompose, name, &addon)
 			if err != nil {
-				errors = append(errors, addon.Name)
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, addon.Name)
+			successes = append(successes, name)
 		}
 
 		err := utils.WriteYaml(&rawCompose, "docker-compose.yaml")
@@ -304,7 +304,7 @@ example:
 				continue
 			}
 
-			err = testAddon(&rawCompose, addon)
+			err = testAddon(&rawCompose, name, addon)
 			if err != nil {
 				errors = append(errors, name)
 				continue
@@ -381,7 +381,7 @@ example:
 				continue
 			}
 
-			err = testAddon(&rawCompose, addon)
+			err = testAddon(&rawCompose, name, addon)
 			if err != nil {
 				errors = append(errors, name)
 				continue

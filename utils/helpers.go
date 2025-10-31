@@ -36,12 +36,11 @@ func GetResourceFromName(name string) (*types.Resource, error) {
 }
 
 func GetAddonFromName(name string) (*types.Addon, error) {
-	for _, addon := range ManifestData.Addons {
-		if addon.Name == name {
-			return &addon, nil
-		}
+	addon, ok := ManifestData.Addons[name]
+	if !ok {
+		return nil, fmt.Errorf("addon [%s] not found, enable using 'kubefs addons enable'", name)
 	}
-	return nil, fmt.Errorf("addon [%s] not found, enable using 'kubefs addons enable'", name)
+	return &addon, nil
 }
 
 func WriteYaml(data *map[string]interface{}, path string) error {
@@ -154,18 +153,22 @@ func UpdateCloudConfig(project *types.Project, provider string, config *types.Cl
 }
 
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error {
+	_, ok := project.Resources[name]
+	if !ok {
+		return fmt.Errorf("resource [%s] not found. Use 'kubefs create' to setup", name)
+	}
 	project.Resources[name] = *resource
 	return WriteManifest(project, "manifest.yaml")
 }
 
 func UpdateAddons(project *types.Project, name string, addon *types.Addon) error {
-	for i, ad := range project.Addons {
-		if ad.Name == name {
-			project.Addons[i] = *addon
-			return WriteManifest(project, "manifest.yaml")
-		}
+	_, ok := project.Addons[name]
+	if !ok {
+		return fmt.Errorf("addon [%s] not found. Use 'kubefs addons enable' to setup", name)
 	}
-	return fmt.Errorf("addon [%s] not found. Use 'kubefs addons enable' to setup", name)
+
+	project.Addons[name] = *addon
+	return WriteManifest(project, "manifest.yaml")
 }
 
 func RemoveResource(project *types.Project, name string) error {
@@ -174,14 +177,7 @@ func RemoveResource(project *types.Project, name string) error {
 }
 
 func RemoveAddon(project *types.Project, name string) error {
-	addonList := []types.Addon{}
-
-	for i, addon := range project.Addons {
-		if addon.Name != name {
-			addonList = append(addonList, project.Addons[i])
-		}
-	}
-	project.Addons = addonList
+	delete(project.Addons, name)
 	return WriteManifest(project, "manifest.yaml")
 }
 
@@ -212,12 +208,10 @@ func VerifyName(name string) error {
 		return fmt.Errorf("resource [%s] already exists. Try another name", name)
 	}
 
-	for _, addon := range ManifestData.Addons {
-		if addon.Name == name {
-			return fmt.Errorf("addon [%s] already exists. Try another name", name)
-		}
+	_, ok = ManifestData.Resources[name]
+	if ok {
+		return fmt.Errorf("addon [%s] already exists. Try another name", name)
 	}
-
 	return nil
 }
 
@@ -228,9 +222,9 @@ func VerifyPort(port int) error {
 		}
 	}
 
-	for _, addon := range ManifestData.Addons {
+	for name, addon := range ManifestData.Addons {
 		if addon.Port == port {
-			return fmt.Errorf("port [%d] already in use by addon [%s]. Try another port", port, addon.Name)
+			return fmt.Errorf("port [%d] already in use by addon [%s]. Try another port", port, name)
 		}
 	}
 
@@ -238,21 +232,19 @@ func VerifyPort(port int) error {
 }
 
 func VerifyFramework(framework string, rType string) error {
-	for _, f := range types.FRAMEWORKS[rType] {
-		if f == framework {
-			return nil
-		}
+	exists := types.FRAMEWORKS[rType].Contains(framework)
+	if !exists {
+		return fmt.Errorf("framework [%s] not supported by kubefs. Try another framework", framework)
 	}
-	return fmt.Errorf("framework [%s] not supported by kubefs. Try another framework", framework)
+	return nil
 }
 
 func VerifyTarget(target string) error {
-	for _, t := range types.TARGETS {
-		if t == target {
-			return nil
-		}
+	exists := types.TARGETS.Contains(target)
+	if !exists {
+		return fmt.Errorf("invalid deployment target [%s]. Supported targets are %v", target, types.TARGETS)
 	}
-	return fmt.Errorf("invalid deployment target [%s]. Supported targets are %v", target, types.TARGETS)
+	return nil
 }
 
 func VerifyCloudConfig(provider string) (*types.CloudConfig, error) {
@@ -285,8 +277,8 @@ func RemoveClusterName(config *types.CloudConfig, clusterName string) ([]string,
 
 func GetCurrentResourceNames() []string {
 	var names []string
-	for name, _ := range ManifestData.Resources {
-		names = append(names, name)
+	for key := range ManifestData.Resources {
+		names = append(names, key)
 	}
 	return names
 }

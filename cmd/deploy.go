@@ -58,7 +58,7 @@ func deployToTarget(target string, commands []string) error {
 	return nil
 }
 
-func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target string) error {
+func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target string) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 
 	if !onlyDeploy {
 		// helmify
-		if addon.Name == "oauth2" {
+		if name == "oauth2" {
 			commands := []string{
 				"(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)",
 				"(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)",
@@ -82,7 +82,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 	}
 	if !onlyHelmify {
 		// deploy
-		if addon.Name == "oauth2" {
+		if name == "oauth2" {
 			configs := []string{
 				"--set namespaceOverride=oauth2",
 				"--set auth.postgresPassword=" + pass,
@@ -351,14 +351,14 @@ example:
 			successes = append(successes, name)
 		}
 
-		for _, addon := range utils.ManifestData.Addons {
-			err := deployAddon(&addon, onlyHelmify, onlyDeploy, target)
+		for name, addon := range utils.ManifestData.Addons {
+			err := deployAddon(name, &addon, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon.Name, err))
-				errors = append(errors, addon.Name)
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, addon.Name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {
@@ -427,9 +427,6 @@ example:
 		}
 
 		for _, addon := range addonList {
-			if addon == "" {
-				continue
-			}
 			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
 				utils.PrintError(err)
@@ -437,7 +434,7 @@ example:
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
+			err = deployAddon(addon, addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
@@ -495,7 +492,7 @@ example:
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
+			err = deployAddon(addon, addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)

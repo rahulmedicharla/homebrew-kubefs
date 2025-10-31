@@ -50,7 +50,7 @@ example:
 					utils.PrintError(err)
 					return
 				}
-				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", addon.Name, addon.LocalHost))
+				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", name, addon.LocalHost))
 			}
 
 			for key, env := range resource.Environment {

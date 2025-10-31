@@ -54,7 +54,7 @@ example:
 			Version:     "0.0.1",
 			Description: description,
 			Resources:   map[string]types.Resource{},
-			Addons:      []types.Addon{},
+			Addons:      map[string]types.Addon{},
 			CloudConfig: []types.CloudConfig{
 				cloudConfig,
 			},
