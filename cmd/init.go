@@ -53,7 +53,7 @@ example:
 			KubefsName:  projectName,
 			Version:     "0.0.1",
 			Description: description,
-			Resources:   []types.Resource{},
+			Resources:   map[string]types.Resource{},
 			Addons:      []types.Addon{},
 			CloudConfig: []types.CloudConfig{
 				cloudConfig,

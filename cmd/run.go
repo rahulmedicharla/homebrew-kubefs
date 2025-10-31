@@ -39,9 +39,9 @@ example:
 			utils.PrintError(fmt.Errorf("cannot run database resource %s", name))
 			return
 		} else {
-			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", resource.Name))
-			for _, resource := range utils.ManifestData.Resources {
-				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", resource.Name, resource.LocalHost))
+			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", name))
+			for rName, resource := range utils.ManifestData.Resources {
+				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", rName, resource.LocalHost))
 			}
 
 			for _, name := range resource.Dependents {

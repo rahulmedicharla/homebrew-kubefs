@@ -122,7 +122,7 @@ func testAddon(rawCompose *map[string]interface{}, addon *types.Addon) error {
 	return nil
 }
 
-func testResource(rawCompose *map[string]interface{}, resource *types.Resource) error {
+func testResource(rawCompose *map[string]interface{}, name string, resource *types.Resource) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", resource.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -139,11 +139,11 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 	}
 
 	if resource.Type != "database" {
-		for _, r := range utils.ManifestData.Resources {
+		for rName, r := range utils.ManifestData.Resources {
 			if r.Type == "database" {
-				service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST_READ=%s", r.Name, r.DockerHost))
+				service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST_READ=%s", rName, r.DockerHost))
 			}
-			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", r.Name, r.DockerHost))
+			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", rName, r.DockerHost))
 		}
 
 		for _, a := range resource.Dependents {
@@ -151,7 +151,7 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 			service["environment"] = append(service["environment"].([]string), fmt.Sprintf("%sHOST=%s", a, addon.DockerHost))
 		}
 
-		envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+		envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", name))
 		if err == nil {
 			for _, line := range envData {
 				service["environment"] = append(service["environment"].([]string), line)
@@ -178,7 +178,7 @@ func testResource(rawCompose *map[string]interface{}, resource *types.Resource) 
 		}
 	}
 
-	(*rawCompose)["services"].(map[string]interface{})[resource.Name] = service
+	(*rawCompose)["services"].(map[string]interface{})[name] = service
 	return nil
 }
 
@@ -196,13 +196,13 @@ example:
 		var errors []string
 		var successes []string
 
-		for _, resource := range utils.ManifestData.Resources {
-			err := testResource(&rawCompose, &resource)
+		for name, resource := range utils.ManifestData.Resources {
+			err := testResource(&rawCompose, name, &resource)
 			if err != nil {
-				errors = append(errors, resource.Name)
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, resource.Name)
+			successes = append(successes, name)
 		}
 
 		for _, addon := range utils.ManifestData.Addons {
@@ -289,7 +289,7 @@ example:
 				continue
 			}
 
-			err = testResource(&rawCompose, resource)
+			err = testResource(&rawCompose, name, resource)
 			if err != nil {
 				errors = append(errors, name)
 				continue

@@ -1,16 +1,15 @@
 package types
 
 type Project struct {
-	KubefsName  string        `yaml:"name"`
-	Version     string        `yaml:"version"`
-	Description string        `yaml:"description"`
-	Resources   []Resource    `yaml:"resources"`
-	Addons      []Addon       `yaml:"addons"`
-	CloudConfig []CloudConfig `yaml:"cloud_config"`
+	KubefsName  string              `yaml:"name"`
+	Version     string              `yaml:"version"`
+	Description string              `yaml:"description"`
+	Resources   map[string]Resource `yaml:"resources"`
+	Addons      []Addon             `yaml:"addons"`
+	CloudConfig []CloudConfig       `yaml:"cloud_config"`
 }
 
 type Resource struct {
-	Name            string            `yaml:"name"`
 	Port            int               `yaml:"port"`
 	Type            string            `yaml:"type"`
 	Framework       string            `yaml:"framework"`

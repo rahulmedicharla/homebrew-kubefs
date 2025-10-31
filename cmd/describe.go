@@ -37,7 +37,8 @@ example:
 
 		utils.PrintWarning("Describing all resources")
 
-		for _, resource := range utils.ManifestData.Resources {
+		for name, resource := range utils.ManifestData.Resources {
+			fmt.Println(name)
 			resourceValue := reflect.ValueOf(resource)
 			resourceType := reflect.TypeOf(resource)
 			for i := 0; i < resourceValue.NumField(); i++ {

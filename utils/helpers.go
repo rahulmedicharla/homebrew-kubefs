@@ -28,12 +28,11 @@ func PrintWarning(message string) {
 }
 
 func GetResourceFromName(name string) (*types.Resource, error) {
-	for _, resource := range ManifestData.Resources {
-		if resource.Name == name {
-			return &resource, nil
-		}
+	resource, ok := ManifestData.Resources[name]
+	if !ok {
+		return nil, fmt.Errorf("resource [%s] not found, create using 'kubefs create'", name)
 	}
-	return nil, fmt.Errorf("resource [%s] not found, create using 'kubefs create'", name)
+	return &resource, nil
 }
 
 func GetAddonFromName(name string) (*types.Addon, error) {
@@ -155,13 +154,8 @@ func UpdateCloudConfig(project *types.Project, provider string, config *types.Cl
 }
 
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error {
-	for i, res := range project.Resources {
-		if res.Name == name {
-			project.Resources[i] = *resource
-			return WriteManifest(project, "manifest.yaml")
-		}
-	}
-	return fmt.Errorf("resource [%s] not found. Use 'kubefs create' to setup", name)
+	project.Resources[name] = *resource
+	return WriteManifest(project, "manifest.yaml")
 }
 
 func UpdateAddons(project *types.Project, name string, addon *types.Addon) error {
@@ -175,14 +169,7 @@ func UpdateAddons(project *types.Project, name string, addon *types.Addon) error
 }
 
 func RemoveResource(project *types.Project, name string) error {
-	resourceList := []types.Resource{}
-
-	for i, resource := range project.Resources {
-		if resource.Name != name {
-			resourceList = append(resourceList, project.Resources[i])
-		}
-	}
-	project.Resources = resourceList
+	delete(project.Resources, name)
 	return WriteManifest(project, "manifest.yaml")
 }
 
@@ -220,10 +207,9 @@ func ValidateProject() error {
 }
 
 func VerifyName(name string) error {
-	for _, resource := range ManifestData.Resources {
-		if resource.Name == name {
-			return fmt.Errorf("resource [%s] already exists. Try another name", name)
-		}
+	_, ok := ManifestData.Resources[name]
+	if ok {
+		return fmt.Errorf("resource [%s] already exists. Try another name", name)
 	}
 
 	for _, addon := range ManifestData.Addons {
@@ -236,9 +222,9 @@ func VerifyName(name string) error {
 }
 
 func VerifyPort(port int) error {
-	for _, resource := range ManifestData.Resources {
+	for name, resource := range ManifestData.Resources {
 		if resource.Port == port {
-			return fmt.Errorf("port [%d] already in use by resource [%s]. Try another port", port, resource.Name)
+			return fmt.Errorf("port [%d] already in use by resource [%s]. Try another port", port, name)
 		}
 	}
 
@@ -299,8 +285,8 @@ func RemoveClusterName(config *types.CloudConfig, clusterName string) ([]string,
 
 func GetCurrentResourceNames() []string {
 	var names []string
-	for _, resource := range ManifestData.Resources {
-		names = append(names, resource.Name)
+	for name, _ := range ManifestData.Resources {
+		names = append(names, name)
 	}
 	return names
 }

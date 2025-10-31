@@ -76,12 +76,12 @@ func undeployAddon(addon *types.Addon, target string) error {
 	return nil
 }
 
-func undeployUnique(resource *types.Resource, target string) error {
+func undeployUnique(name string, resource *types.Resource, target string) error {
 	commandBuilder := strings.Builder{}
-	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", resource.Name))
+	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", name))
 
 	if resource.Type == "database" {
-		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", resource.Name))
+		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", name))
 	}
 
 	commands := []string{
@@ -117,14 +117,14 @@ example:
 		var errors []string
 		var successes []string
 
-		for _, resource := range utils.ManifestData.Resources {
-			err := undeployUnique(&resource, target)
+		for name, resource := range utils.ManifestData.Resources {
+			err := undeployUnique(name, &resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", resource.Name, err))
-				errors = append(errors, resource.Name)
+				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, resource.Name)
+			successes = append(successes, name)
 		}
 
 		for _, addon := range utils.ManifestData.Addons {
@@ -189,7 +189,7 @@ example:
 				continue
 			}
 
-			err = undeployUnique(resource, target)
+			err = undeployUnique(name, resource, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", name, err))
 				errors = append(errors, name)

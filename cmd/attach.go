@@ -23,7 +23,9 @@ example:
 			return
 		}
 
-		resource, err := utils.GetResourceFromName(args[0])
+		name := args[0]
+
+		resource, err := utils.GetResourceFromName(name)
 		if err != nil {
 			utils.PrintError(err)
 			return
@@ -55,7 +57,7 @@ example:
 			command = resource.AttachCommand["docker"]
 		}
 
-		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", resource.Name))
+		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", name))
 		err = utils.RunCommand(command, true, true)
 		if err != nil {
 			utils.PrintError(fmt.Errorf("error attaching to container: %v", err))

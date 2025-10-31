@@ -161,8 +161,7 @@ example:
 			utils.PrintError(fmt.Errorf("unexpected error creating docker repo. %v", err))
 		}
 
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
-			Name:      resourceName,
+		utils.ManifestData.Resources[resourceName] = types.Resource{
 			Port:      resourcePort,
 			Type:      "api",
 			Framework: resourceFramework,
@@ -175,7 +174,7 @@ example:
 			DockerHost:  fmt.Sprintf("http://%s:%v", resourceName, resourcePort),
 			DockerRepo:  dockerRepo,
 			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
-		})
+		}
 
 		if err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml"); err != nil {
 			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
@@ -258,8 +257,7 @@ example:
 			utils.PrintError(fmt.Errorf("unexpected error creating docker repo. %v", err))
 		}
 
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
-			Name:      resourceName,
+		utils.ManifestData.Resources[resourceName] = types.Resource{
 			Port:      resourcePort,
 			Type:      "frontend",
 			Framework: resourceFramework,
@@ -275,7 +273,7 @@ example:
 			Opts: map[string]string{
 				"host-domain": hostDomain,
 			},
-		})
+		}
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
@@ -366,8 +364,7 @@ example:
 			return
 		}
 
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
-			Name:            resourceName,
+		utils.ManifestData.Resources[resourceName] = types.Resource{
 			Port:            resourcePort,
 			Type:            "database",
 			Framework:       resourceFramework,
@@ -383,7 +380,7 @@ example:
 				"default-database": defaultDatabase,
 				"persistence":      fmt.Sprintf("%vGi", persistence),
 			},
-		})
+		}
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {

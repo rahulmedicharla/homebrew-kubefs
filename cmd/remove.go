@@ -28,10 +28,10 @@ example:
 	},
 }
 
-func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) error {
+func removeUnique(name string, resource *types.Resource, onlyLocal bool, onlyRemote bool) error {
 	if !onlyRemote {
 		// remove locally
-		err := utils.RunCommand(fmt.Sprintf("rm -rf %s", resource.Name), true, true)
+		err := utils.RunCommand(fmt.Sprintf("rm -rf %s", name), true, true)
 		if err != nil {
 			return err
 		}
@@ -44,7 +44,7 @@ func removeUnique(resource *types.Resource, onlyLocal bool, onlyRemote bool) err
 			}
 		}
 
-		err = utils.RemoveResource(&utils.ManifestData, resource.Name)
+		err = utils.RemoveResource(&utils.ManifestData, name)
 		if err != nil {
 			return err
 		}
@@ -105,15 +105,15 @@ example:
 		var errors []string
 		var successes []string
 
-		for _, resource := range utils.ManifestData.Resources {
-			err := removeUnique(&resource, onlyLocal, onlyRemote)
+		for name, resource := range utils.ManifestData.Resources {
+			err := removeUnique(name, &resource, onlyLocal, onlyRemote)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("error removing resource %s. %v", resource.Name, err))
-				errors = append(errors, resource.Name)
+				utils.PrintError(fmt.Errorf("error removing resource %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			utils.RemoveResource(&utils.ManifestData, resource.Name)
-			successes = append(successes, resource.Name)
+			utils.RemoveResource(&utils.ManifestData, name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {
@@ -158,7 +158,7 @@ example:
 				continue
 			}
 
-			err = removeUnique(resource, onlyLocal, onlyRemote)
+			err = removeUnique(name, resource, onlyLocal, onlyRemote)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error removing resource %s. %v", name, err))
 				errors = append(errors, name)

@@ -179,7 +179,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 	return nil
 }
 
-func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) error {
+func deployUnique(name string, resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", resource.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -192,20 +192,20 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			// database
 			if resource.Framework == "postgresql" {
 				cmds = append(cmds,
-					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", resource.Name),
+					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", name),
 				)
 			} else {
 				cmds = append(cmds,
-					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", resource.Name),
+					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", name),
 				)
 			}
 
 		} else {
 			// api or frontend
-			cmds = append(cmds, fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", resource.Name))
+			cmds = append(cmds, fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", name))
 		}
 
-		cmds = append(cmds, fmt.Sprintf("echo 'connect using kubefs attach' > %s/deploy/templates/NOTES.txt", resource.Name))
+		cmds = append(cmds, fmt.Sprintf("echo 'connect using kubefs attach' > %s/deploy/templates/NOTES.txt", name))
 
 		err = utils.RunMultipleCommands(cmds, true, true)
 		if err != nil {
@@ -229,7 +229,7 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 					"--set auth.database=" + resource.Opts["default-database"],
 					"--set auth.username=" + resource.Opts["user"],
 					"--set auth.password=" + resource.Opts["password"],
-					"--set namespaceOverride=" + resource.Name,
+					"--set namespaceOverride=" + name,
 				}
 			} else {
 				configs = []string{
@@ -238,17 +238,17 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 					"--set master.service.ports.redis=80",
 					"--set replica.service.ports.redis=80",
 					"--set auth.password=" + resource.Opts["password"],
-					"--set namespaceOverride=" + resource.Name,
+					"--set namespaceOverride=" + name,
 				}
 			}
 
-			commandBuilder.WriteString(fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy", resource.Name, resource.Name, resource.Name))
+			commandBuilder.WriteString(fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy", name, name, name))
 		} else {
 			// api or frontend
 			configs = []string{
 				"--set image.repository=" + resource.DockerRepo,
 				"--set service.port=" + fmt.Sprintf("%v", resource.Port),
-				"--set namespace=" + resource.Name,
+				"--set namespace=" + name,
 			}
 
 			if resource.Type == "api" {
@@ -269,12 +269,12 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 			}
 
 			var count = 0
-			for _, r := range utils.ManifestData.Resources {
+			for rName, r := range utils.ManifestData.Resources {
 				if r.Type == "database" {
-					configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST_READ --set env[%v].value=%s", count, r.Name, count, r.ClusterHostRead))
+					configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST_READ --set env[%v].value=%s", count, rName, count, r.ClusterHostRead))
 					count++
 				}
-				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, r.Name, count, r.ClusterHost))
+				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, rName, count, r.ClusterHost))
 				count++
 			}
 
@@ -284,17 +284,17 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 				count++
 			}
 
-			envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+			envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", name))
 			if err == nil {
 				count = 0
 				for _, line := range envData {
 					utils.PrintWarning(line)
-					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", count, strings.Split(line, "=")[0], count, strings.Split(line, "=")[1], count, resource.Name))
+					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", count, strings.Split(line, "=")[0], count, strings.Split(line, "=")[1], count, name))
 					count++
 				}
 			}
 
-			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
+			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", name, name))
 		}
 
 		for _, c := range configs {
@@ -340,15 +340,15 @@ example:
 
 		utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
 
-		for _, resource := range utils.ManifestData.Resources {
-			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
+		for name, resource := range utils.ManifestData.Resources {
+			err := deployUnique(name, &resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", resource.Name, err))
-				errors = append(errors, resource.Name)
+				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
 
-			successes = append(successes, resource.Name)
+			successes = append(successes, name)
 		}
 
 		for _, addon := range utils.ManifestData.Addons {
@@ -409,16 +409,14 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
-			var resource *types.Resource
 			resource, err := utils.GetResourceFromName(name)
-
 			if err != nil {
 				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = deployUnique(resource, onlyHelmify, onlyDeploy, target)
+			err = deployUnique(name, resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", name, err))
 				errors = append(errors, name)

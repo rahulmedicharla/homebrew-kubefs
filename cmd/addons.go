@@ -219,6 +219,7 @@ example:
 				utils.PrintError(fmt.Errorf("addon %s configured incorrectly. should be <addon-name>:<port>", addon))
 				return
 			}
+
 			name := splitAddon[0]
 			addonPort := splitAddon[1]
 
@@ -262,15 +263,16 @@ example:
 			var newAddon *types.Addon
 			resourceErrors := make([]string, 0)
 			resourceSuccesses := make([]string, 0)
-			if name == "oauth2" {
+
+			switch name {
+			case "oauth2":
 				newAddon, err = constructOauth2Addon(name, port, resourceNames, &resourceErrors, &resourceSuccesses)
 				if err != nil {
 					utils.PrintError(err)
 					errors = append(errors, name)
 					continue
 				}
-
-			} else if name == "gateway" {
+			case "gateway":
 				newAddon, err = constructGatewayAddon(name, port, resourceNames, &resourceErrors, &resourceSuccesses)
 				if err != nil {
 					utils.PrintError(err)
