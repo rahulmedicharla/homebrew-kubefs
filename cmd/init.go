@@ -1,14 +1,14 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // initCmd represents the init command
@@ -30,7 +30,7 @@ example:
 
 		err := utils.ReadInput("Enter project description: ", &description)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error reading project description: %v", err.Error()))
+			utils.PrintError(fmt.Errorf("error reading project description: %v", err))
 			return
 		}
 
@@ -40,32 +40,31 @@ example:
 		}
 
 		err = utils.RunMultipleCommands(commands, false, true)
-		if err != nil{
-			utils.PrintError(fmt.Sprintf("Couldn't initialize project: %v", err.Error()))
+		if err != nil {
+			utils.PrintError(fmt.Errorf("couldn't initialize project: %v", err))
 		}
 
 		cloudConfig := types.CloudConfig{
-			Provider: "minikube",
 			ClusterNames: make([]string, 0),
 		}
 
 		project := types.Project{
-			KubefsName: projectName,
-			Version: "0.0.1",
+			KubefsName:  projectName,
+			Version:     "0.0.1",
 			Description: description,
-			Resources: []types.Resource{},
-			Addons: []types.Addon{},
-			CloudConfig: []types.CloudConfig{
-				cloudConfig,
+			Resources:   map[string]types.Resource{},
+			Addons:      map[string]types.Addon{},
+			CloudConfig: map[string]types.CloudConfig{
+				"minikube": cloudConfig,
 			},
 		}
-	
-		err = utils.WriteManifest(&project, projectName + "/manifest.yaml")
+
+		err = utils.WriteManifest(&project, fmt.Sprintf("%s/manifest.yaml", projectName))
 		if err != nil {
-			fmt.Printf("Error writing manifest: %v\n", err.Error())
+			fmt.Printf("Error writing manifest: %v\n", err)
 			return
 		}
-		
+
 		utils.PrintInfo(fmt.Sprintf("Project %s initialized successfully", projectName))
 	},
 }

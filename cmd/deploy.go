@@ -1,15 +1,18 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 	"github.com/thanhpk/randstr"
 )
 
@@ -29,25 +32,24 @@ example:
 
 func deployToTarget(target string, commands []string) error {
 	// verify cloud config
-	err, config := utils.VerifyCloudConfig(target)
+	config, err := utils.GetCloudConfigFromProvider(target)
 	if err != nil {
 		return err
 	}
 
 	if config.MainCluster == "" {
-		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+		return fmt.Errorf("main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
 	}
-	
-	if target == "minikube" {
-		// update context
+
+	switch target {
+	case "minikube":
 		err := utils.GetMinikubeContext(config)
 		if err != nil {
 			return err
 		}
 
 		return utils.RunMultipleCommands(commands, true, true)
-	} else if target == "gcp" {
-		// update context
+	case "gcp":
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {
 			return err
@@ -55,34 +57,50 @@ func deployToTarget(target string, commands []string) error {
 
 		return utils.RunMultipleCommands(commands, true, true)
 	}
+
 	return nil
 }
 
-func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target string) error {
+func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target string) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", addon.DockerRepo), true, true)
 	if err != nil {
 		return err
 	}
-	pass := randstr.String(16)
 
 	if !onlyDeploy {
 		// helmify
-		if addon.Name == "oauth2"{
-			commands := []string{
-				fmt.Sprintf("(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)"),
-				fmt.Sprintf("(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)"),
-				fmt.Sprintf("echo '' > addons/oauth2/postgresql/templates/NOTES.txt"),
-			}
+		commands := []string{
+			fmt.Sprintf("(cd addons/%s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", name),
+		}
+		switch name {
+		case "oauth2":
+			commands = append(commands,
+				"(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)",
+			)
+		case "gateway":
+		}
 
-			err = utils.RunMultipleCommands(commands, true, true)
-			if err != nil {
-				return err
-			}
+		err = utils.RunMultipleCommands(commands, true, true)
+		if err != nil {
+			return err
 		}
 	}
 	if !onlyHelmify {
 		// deploy
-		if addon.Name == "oauth2"{
+		commandBuilder := strings.Builder{}
+		baseConfigs := []string{
+			"--set image.repository=" + addon.DockerRepo,
+			"--set service.port=" + fmt.Sprintf("%v", addon.Port),
+			"--set namespace=" + name,
+			"--set readinessProbe.httpGet.path=/health",
+			"--set livenessProbe.httpGet.path=/health",
+			"--set service.type=ClusterIP",
+			"--set ingress.enabled=false",
+		}
+
+		switch name {
+		case "oauth2":
+			pass := randstr.String(16)
 			configs := []string{
 				"--set namespaceOverride=oauth2",
 				"--set auth.postgresPassword=" + pass,
@@ -96,7 +114,7 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 
 			var allowedOrigins []string
 			for _, n := range addon.Dependencies {
-				err, attachedResource := utils.GetResourceFromName(n)
+				attachedResource, err := utils.GetResourceFromName(n)
 				if err != nil {
 					return err
 				}
@@ -104,15 +122,8 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 				allowedOrigins = append(allowedOrigins, attachedResource.ClusterHost)
 			}
 			authConfigs := []string{
-				"--set image.repository=" + addon.DockerRepo,
-				"--set service.port=" + fmt.Sprintf("%v", addon.Port),
-				"--set namespace=oauth2",
-				"--set readinessProbe.httpGet.path=/health",
-				"--set livenessProbe.httpGet.path=/health",
-				"--set service.type=ClusterIP",
-				"--set ingress.enabled=false",
 				"--set env[0].name=ALLOWED_ORIGINS",
-				"--set env[0].value=" + strings.Join(allowedOrigins, ","),
+				"--set env[0].value=" + fmt.Sprintf("'%s'", strings.Join(allowedOrigins, "&")),
 				"--set env[1].name=PORT",
 				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
 				"--set env[2].name=MODE",
@@ -142,44 +153,111 @@ func deployAddon(addon *types.Addon, onlyHelmify bool, onlyDeploy bool, target s
 			}
 
 			count := 6
-			for _, envVar := range addon.Environment{
+			for _, envVar := range addon.Environment {
 				authConfigs = append(authConfigs, fmt.Sprintf("--set env[%v].name=%s --set env[%v].value=%s", count, strings.Split(envVar, "=")[0], count, strings.Split(envVar, "=")[1]))
 				count++
 			}
 
-			err = utils.RunCommand(fmt.Sprintf("mkdir -p addons/oauth2/deploy/files && cp addons/oauth2/public_key.pem addons/oauth2/deploy/files && cp addons/oauth2/private_key.pem addons/oauth2/deploy/files"), true, true)
+			err = utils.RunCommand("mkdir -p addons/oauth2/deploy/files && cp addons/oauth2/public_key.pem addons/oauth2/deploy/files && cp addons/oauth2/private_key.pem addons/oauth2/deploy/files", true, true)
 			if err != nil {
 				return err
 			}
 
-			oauthBuilder := strings.Builder{}
-			oauthBuilder.WriteString("helm upgrade --install oauth2 addons/oauth2/deploy")
+			commandBuilder.WriteString("helm upgrade --install oauth2 addons/oauth2/deploy")
+			authConfigs = append(authConfigs, baseConfigs...)
 			for _, c := range authConfigs {
-				oauthBuilder.WriteString(fmt.Sprintf(" %s", c))
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
+			commandBuilder.WriteString(";")
 
-			authDataBuilder := strings.Builder{}
-			authDataBuilder.WriteString("helm upgrade --install auth-data addons/oauth2/postgresql")
+			commandBuilder.WriteString("helm upgrade --install auth-data addons/oauth2/postgresql")
 			for _, c := range configs {
-				authDataBuilder.WriteString(fmt.Sprintf(" %s", c))
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
 
-			commands := []string{
-				oauthBuilder.String(),
-				authDataBuilder.String(),
+		case "gateway":
+			var allowedOrigins []string
+			var clients []string
+			for _, n := range addon.Dependencies {
+				attachedResource, err := utils.GetResourceFromName(n)
+				if err != nil {
+					return err
+				}
+
+				secret, err := base64.URLEncoding.DecodeString(attachedResource.Environment["clientSecret"])
+				if err != nil {
+					return err
+				}
+
+				hash := sha256.Sum256(secret)
+
+				clients = append(clients, fmt.Sprintf("%s:%s", attachedResource.Environment["clientId"], hex.EncodeToString(hash[:])))
+				allowedOrigins = append(allowedOrigins, attachedResource.DockerHost)
 			}
 
-			err = deployToTarget(target, commands)
+			gatewayConfigs := []string{
+				// env variables
+				"--set env[0].name=ALLOWED_ORIGINS",
+				"--set env[0].value=" + fmt.Sprintf("'%s'", strings.Join(allowedOrigins, "&")),
+				"--set env[1].name=PORT",
+				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
+				"--set env[2].name=PRIVATE_KEY_PATH",
+				"--set env[2].value=/etc/ssl/private/private_key.pem",
+				"--set env[3].name=PUBLIC_KEY_PATH",
+				"--set env[3].value=/etc/ssl/public/public_key.pem",
+				// secret 0
+				"--set secrets[0].name=public_key.pem",
+				"--set secrets[0].value=files/public_key.pem",
+				"--set secrets[0].secretRef=gateway-deploy-secret",
+				"--set secrets[0].valueIsFile=true",
+				// secret 1
+				"--set secrets[1].name=private_key.pem",
+				"--set secrets[1].value=files/private_key.pem",
+				"--set secrets[1].secretRef=gateway-deploy-secret",
+				"--set secrets[1].valueIsFile=true",
+				// secret 2
+				"--set secrets[2].name=CLIENTS",
+				"--set secrets[2].value=" + fmt.Sprintf("'%s'", strings.Join(clients, "&")),
+				"--set secrets[2].secretRef=gateway-deploy-secret",
+				"--set secrets[2].valueIsFile=false",
+				// volumes
+				"--set volumes[0].name=keys",
+				"--set volumes[0].secret.secretName=gateway-deploy-secret",
+				// volume mounts
+				"--set volumeMounts[0].name=keys",
+				"--set volumeMounts[0].mountPath=/etc/ssl/private/private_key.pem",
+				"--set volumeMounts[0].subPath=private_key.pem",
+				"--set volumeMounts[1].name=keys",
+				"--set volumeMounts[1].mountPath=/etc/ssl/public/public_key.pem",
+				"--set volumeMounts[1].subPath=public_key.pem",
+			}
+
+			err = utils.RunCommand("mkdir -p addons/gateway/deploy/files && cp addons/gateway/public_key.pem addons/gateway/deploy/files && cp addons/gateway/private_key.pem addons/gateway/deploy/files", true, true)
 			if err != nil {
 				return err
 			}
+
+			commandBuilder.WriteString("helm upgrade --install gateway addons/gateway/deploy")
+			gatewayConfigs = append(gatewayConfigs, baseConfigs...)
+			for _, c := range gatewayConfigs {
+				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
+			}
+		}
+
+		commands := []string{
+			commandBuilder.String(),
+		}
+
+		err = deployToTarget(target, commands)
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) error {
+func deployUnique(name string, resource *types.Resource, onlyHelmify bool, onlyDeploy bool, target string) error {
 	err := utils.RunCommand(fmt.Sprintf("docker pull %s", resource.DockerRepo), true, true)
 	if err != nil {
 		return err
@@ -188,24 +266,24 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 	if !onlyDeploy {
 		// helmify
 		var cmds []string
-		if resource.Type == "database"{
+		if resource.Type == "database" {
 			// database
-			if resource.Framework == "postgresql"{
-				cmds = append(cmds, 
-					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", resource.Name),
+			if resource.Framework == "postgresql" {
+				cmds = append(cmds,
+					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar && mv postgresql deploy)", name),
 				)
-			}else{
-				cmds = append(cmds, 
-					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", resource.Name),
+			} else {
+				cmds = append(cmds,
+					fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/redis --untar && mv redis deploy)", name),
 				)
 			}
 
-		}else{
+		} else {
 			// api or frontend
-			cmds = append(cmds, fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", resource.Name))
+			cmds = append(cmds, fmt.Sprintf("(cd %s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", name))
 		}
 
-		cmds = append(cmds,fmt.Sprintf("echo 'connect using kubefs attach' > %s/deploy/templates/NOTES.txt", resource.Name))
+		cmds = append(cmds, fmt.Sprintf("echo 'connect using kubefs attach' > %s/deploy/templates/NOTES.txt", name))
 
 		err = utils.RunMultipleCommands(cmds, true, true)
 		if err != nil {
@@ -217,8 +295,8 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 		// deploy
 		var configs []string
 		commandBuilder := strings.Builder{}
-		if resource.Type == "database"{
-			if resource.Framework == "postgresql"{
+		if resource.Type == "database" {
+			if resource.Framework == "postgresql" {
 				configs = []string{
 					"--set primary.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
 					"--set readReplicas.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
@@ -229,72 +307,80 @@ func deployUnique(resource *types.Resource, onlyHelmify bool, onlyDeploy bool, t
 					"--set auth.database=" + resource.Opts["default-database"],
 					"--set auth.username=" + resource.Opts["user"],
 					"--set auth.password=" + resource.Opts["password"],
-					"--set namespaceOverride=" + resource.Name,
+					"--set namespaceOverride=" + name,
 				}
-			}else{
+			} else {
 				configs = []string{
 					"--set master.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
 					"--set replica.persistence.size=" + fmt.Sprintf("%v", resource.Opts["persistence"]),
 					"--set master.service.ports.redis=80",
 					"--set replica.service.ports.redis=80",
 					"--set auth.password=" + resource.Opts["password"],
-					"--set namespaceOverride=" + resource.Name,
+					"--set namespaceOverride=" + name,
 				}
 			}
 
-			commandBuilder.WriteString(fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy", resource.Name, resource.Name, resource.Name))
-		}else{
+			commandBuilder.WriteString(fmt.Sprintf("kubectl create namespace %s; helm upgrade --install %s %s/deploy", name, name, name))
+		} else {
 			// api or frontend
 			configs = []string{
 				"--set image.repository=" + resource.DockerRepo,
 				"--set service.port=" + fmt.Sprintf("%v", resource.Port),
-				"--set namespace=" + resource.Name,
+				"--set namespace=" + name,
 			}
 
-			if resource.Type == "api"{
-				configs = append(configs, 
+			if resource.Type == "api" {
+				configs = append(configs,
 					"--set readinessProbe.httpGet.path=/health",
 					"--set livenessProbe.httpGet.path=/health",
 					"--set service.type=ClusterIP",
 					"--set ingress.enabled=false",
 				)
-			}else {
+			} else {
 				configs = append(configs,
 					"--set readinessProbe.httpGet.path=/",
 					"--set livenessProbe.httpGet.path=/",
 					"--set service.type=NodePort",
 					"--set ingress.enabled=true",
-					"--set ingress.host=" + resource.Opts["host-domain"],
+					"--set ingress.host="+resource.Opts["host-domain"],
 				)
 			}
 
+			// add all the resource hosts as env variables
 			var count = 0
-			for _, r := range utils.ManifestData.Resources {
-				if r.Type == "database"{
-					configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST_READ --set env[%v].value=%s", count, r.Name, count, r.ClusterHostRead))
+			for rName, r := range utils.ManifestData.Resources {
+				if r.Type == "database" {
+					configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST_READ --set env[%v].value=%s", count, rName, count, r.ClusterHostRead))
 					count++
 				}
-				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, r.Name, count, r.ClusterHost))
+				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, rName, count, r.ClusterHost))
 				count++
 			}
 
-			for _, a := range resource.Dependents{
-				_, addon := utils.GetAddonFromName(a)
+			// add all the addon hosts as env variables
+			for _, a := range resource.Dependents {
+				addon, _ := utils.GetAddonFromName(a)
 				configs = append(configs, fmt.Sprintf("--set env[%v].name=%sHOST --set env[%v].value=%s", count, a, count, addon.ClusterHost))
 				count++
 			}
 
-			envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", resource.Name))
+			// add all the variables in .env as secrets
+			envData, err := utils.ReadEnv(fmt.Sprintf("%s/.env", name))
+			secrets := 0
 			if err == nil {
-				count = 0
-				for _,line := range envData {
-					utils.PrintWarning(line)
-					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", count, strings.Split(line, "=")[0], count, strings.Split(line, "=")[1], count, resource.Name))
-					count++
+				for _, line := range envData {
+					configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", secrets, strings.Split(line, "=")[0], secrets, strings.Split(line, "=")[1], secrets, name))
+					secrets++
 				}
 			}
 
-			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", resource.Name, resource.Name))
+			// add all the kubefs env variables as secrets
+			for key, value := range resource.Environment {
+				configs = append(configs, fmt.Sprintf("--set secrets[%v].name=%s --set secrets[%v].value=%s --set secrets[%v].secretRef=%s-deploy-secret", secrets, key, secrets, value, secrets, name))
+				secrets++
+			}
+
+			commandBuilder.WriteString(fmt.Sprintf("helm upgrade --install %s %s/deploy", name, name))
 		}
 
 		for _, c := range configs {
@@ -323,8 +409,8 @@ example:
 	kubefs deploy all --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -335,38 +421,38 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
+		utils.PrintWarning(fmt.Sprintf("Deploying all resources & addons to %s", target))
 
-        for _, resource := range utils.ManifestData.Resources {
-			err := deployUnique(&resource, onlyHelmify, onlyDeploy, target)
+		for name, resource := range utils.ManifestData.Resources {
+			err := deployUnique(name, &resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying resource %s. %v", resource.Name, err.Error()))
-				errors = append(errors, resource.Name)
+				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
 
-			successes = append(successes, resource.Name)
-        }
+			successes = append(successes, name)
+		}
 
-		for _, addon := range utils.ManifestData.Addons {
-			err := deployAddon(&addon, onlyHelmify, onlyDeploy, target)
+		for name, addon := range utils.ManifestData.Addons {
+			err := deployAddon(name, &addon, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon.Name, err.Error()))
-				errors = append(errors, addon.Name)
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, addon.Name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -389,8 +475,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -401,7 +487,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -418,18 +504,16 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
-			var resource *types.Resource
-			err, resource := utils.GetResourceFromName(name)
-
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = deployUnique(resource, onlyHelmify, onlyDeploy, target)
+			err = deployUnique(name, resource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying resource %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("error deploying resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -438,19 +522,16 @@ example:
 		}
 
 		for _, addon := range addonList {
-			if addon == ""{
-				continue
-			}
-			err, addonResource := utils.GetAddonFromName(addon)
+			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, addon)
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
+			err = deployAddon(addon, addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
 				continue
 			}
@@ -459,7 +540,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -482,8 +563,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -494,7 +575,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -504,16 +585,16 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Deploying addons %v to %s", args, target))
 
 		for _, addon := range args {
-			err, addonResource := utils.GetAddonFromName(addon)
+			addonResource, err := utils.GetAddonFromName(addon)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, addon)
 				continue
 			}
 
-			err = deployAddon(addonResource, onlyHelmify, onlyDeploy, target)
+			err = deployAddon(addon, addonResource, onlyHelmify, onlyDeploy, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error deploying addon %s. %v", addon, err.Error()))
+				utils.PrintError(fmt.Errorf("error deploying addon %s. %v", addon, err))
 				errors = append(errors, addon)
 				continue
 			}
@@ -522,7 +603,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error deploying resource %v", errors))
+			utils.PrintError(fmt.Errorf("error deploying resource %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -538,12 +619,10 @@ func init() {
 	deployCmd.AddCommand(deployAddonCmd)
 
 	deployCmd.PersistentFlags().StringP("target", "t", "minikube", "target environment to deploy to ['minikube', 'gcp']")
-	
+
 	deployCmd.PersistentFlags().BoolP("only-helmify", "w", false, "only helmify the resources")
 	deployCmd.PersistentFlags().BoolP("only-deploy", "d", false, "only deploy the resources")
-	
+
 	deployResourceCmd.Flags().StringP("with-addons", "a", "", "addons to be included in deployment (comma separated)")
-
-
 
 }

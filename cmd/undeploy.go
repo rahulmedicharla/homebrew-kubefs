@@ -1,15 +1,15 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // undeployCmd represents the undeploy command
@@ -27,16 +27,17 @@ example:
 }
 
 func undeployFromTarget(target string, commands []string) error {
-	err, config := utils.VerifyCloudConfig(target)
+	config, err := utils.GetCloudConfigFromProvider(target)
 	if err != nil {
 		return err
 	}
 
 	if config.MainCluster == "" {
-		return fmt.Errorf("Main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
+		return fmt.Errorf("main cluster not specified. Please run 'kubefs cluster provision' to setup a main cluster")
 	}
-	
-	if target == "minikube" {
+
+	switch target {
+	case "minikube":
 		// update context
 		err := utils.GetMinikubeContext(config)
 		if err != nil {
@@ -45,7 +46,7 @@ func undeployFromTarget(target string, commands []string) error {
 
 		// run commands
 		return utils.RunMultipleCommands(commands, true, true)
-	}else if target == "gcp" {
+	case "gcp":
 		// get context
 		err = utils.GetGCPClusterContext(config)
 		if err != nil {
@@ -59,13 +60,13 @@ func undeployFromTarget(target string, commands []string) error {
 	return nil
 }
 
-func undeployAddon(addon *types.Addon, target string) error {
+func undeployAddon(name string, target string) error {
 	commands := []string{}
-	if addon.Name == "oauth2"{
+	if name == "oauth2" {
 		commands = append(commands, "helm uninstall auth-data")
 	}
 
-	commands = append(commands, fmt.Sprintf("helm uninstall %s", addon.Name))
+	commands = append(commands, fmt.Sprintf("helm uninstall %s", name))
 
 	err := undeployFromTarget(target, commands)
 	if err != nil {
@@ -75,12 +76,12 @@ func undeployAddon(addon *types.Addon, target string) error {
 	return nil
 }
 
-func undeployUnique(resource *types.Resource, target string) error {
+func undeployUnique(name string, resource *types.Resource, target string) error {
 	commandBuilder := strings.Builder{}
-	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", resource.Name))
-	
-	if resource.Type == "database"{
-		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", resource.Name))
+	commandBuilder.WriteString(fmt.Sprintf("helm uninstall %s;", name))
+
+	if resource.Type == "database" {
+		commandBuilder.WriteString(fmt.Sprintf("kubectl delete namespace %s;", name))
 	}
 
 	commands := []string{
@@ -102,8 +103,8 @@ var undeployAllCmd = &cobra.Command{
 example:
 	kubefs undeploy all --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -111,7 +112,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -120,28 +121,28 @@ example:
 		var errors []string
 		var successes []string
 
-        for _, resource := range utils.ManifestData.Resources {
-			err := undeployUnique(&resource, target)
+		for name, resource := range utils.ManifestData.Resources {
+			err := undeployUnique(name, &resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", resource.Name, err.Error()))
-				errors = append(errors, resource.Name)
+				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, resource.Name)
-        }
+			successes = append(successes, name)
+		}
 
-		for _, addon := range utils.ManifestData.Addons {
-			err := undeployAddon(&addon, target)
+		for name, _ := range utils.ManifestData.Addons {
+			err := undeployAddon(name, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", addon.Name, err.Error()))
-				errors = append(errors, addon.Name)
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, addon.Name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -164,8 +165,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -173,10 +174,10 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
-		
+
 		addons, _ := cmd.Flags().GetString("with-addons")
 		var addonList []string
 		if addons != "" {
@@ -186,20 +187,20 @@ example:
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning(fmt.Sprintf("Undeploying resource %v from %s", args, target))
+		utils.PrintWarning(fmt.Sprintf("Undeploying resource %v from %s", args, target))
 		utils.PrintWarning(fmt.Sprintf("Including addons %v", addonList))
 
 		for _, name := range args {
-			err, resource := utils.GetResourceFromName(name)
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployUnique(resource, target)
+			err = undeployUnique(name, resource, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying resource %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("error undeploying resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -207,16 +208,16 @@ example:
 		}
 
 		for _, name := range addonList {
-			err, addon := utils.GetAddonFromName(name)
+			_, err := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployAddon(addon, target)
+			err = undeployAddon(name, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -224,7 +225,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -247,8 +248,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -256,7 +257,7 @@ example:
 
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -266,16 +267,16 @@ example:
 		utils.PrintWarning(fmt.Sprintf("Undeploying addons %v from %s", args, target))
 
 		for _, name := range args {
-			err, addon := utils.GetAddonFromName(name)
+			_, err := utils.GetAddonFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = undeployAddon(addon, target)
+			err = undeployAddon(name, target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error undeploying addon %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -283,7 +284,7 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error undeploying resources %v", errors))
+			utils.PrintError(fmt.Errorf("error undeploying resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -291,7 +292,6 @@ example:
 		}
 	},
 }
-
 
 func init() {
 	rootCmd.AddCommand(undeployCmd)

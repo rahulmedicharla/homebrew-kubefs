@@ -30,4 +30,4 @@ refresh:
 push-chart:
 	helm package base-chart/deploy
 	helm push base-chart/deploy-0.1.0.tgz oci://registry-1.docker.io/rmedicharla
-
+	rm deploy-0.1.0.tgz 

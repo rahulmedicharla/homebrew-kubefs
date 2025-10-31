@@ -1,23 +1,23 @@
-package utils 
+package utils
 
 import (
-	"net/http"
-	"time"
-	"encoding/json"
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/rahulmedicharla/kubefs/types"
-	"io/ioutil"
-	"os"
 	"io"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/rahulmedicharla/kubefs/types"
 )
 
 var client *http.Client
 
-func GetHttpClient(){
+func GetHttpClient() {
 	client = &http.Client{Timeout: 10 * time.Second}
 }
-func PostRequest(url string, headers map[string]string, paylod map[string]interface{}) (*types.ApiResponse , error){
+func PostRequest(url string, headers map[string]string, paylod map[string]interface{}) (*types.ApiResponse, error) {
 	postBody, err := json.Marshal(paylod)
 	var apiResponse types.ApiResponse
 
@@ -40,10 +40,10 @@ func PostRequest(url string, headers map[string]string, paylod map[string]interf
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return nil, err
-    }
+	}
 
 	err = json.Unmarshal(body, &apiResponse)
 	if err != nil {
@@ -53,7 +53,7 @@ func PostRequest(url string, headers map[string]string, paylod map[string]interf
 	return &apiResponse, nil
 }
 
-func DeleteRequest(url string, headers map[string]string) error{
+func DeleteRequest(url string, headers map[string]string) error {
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return err

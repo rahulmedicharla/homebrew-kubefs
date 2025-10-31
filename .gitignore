@@ -9,3 +9,7 @@ addons/oauth/private_key.pem
 addons/oauth/public_key.pem
 
 addons/oauth/deploy/files/*
+
+addons/gateway/private_key.pem
+addons/gateway/public_key.pem
+addons/gateway/.env

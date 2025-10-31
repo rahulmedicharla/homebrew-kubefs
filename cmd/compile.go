@@ -1,14 +1,14 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // compileCmd represents the compile command
@@ -26,46 +26,45 @@ example:
 	},
 }
 
-func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) error {
+func compileUnique(name string, resource *types.Resource, onlyBuild bool, onlyPush bool) error {
 	if resource.Type == "database" {
-		return fmt.Errorf("Database resources cannot be compiled")
+		return fmt.Errorf("database resources cannot be compiled")
 	}
-	
+
 	var commands []string
-	
+
 	if !onlyPush {
 		// build docker image
-		commands = append(commands, fmt.Sprintf("cd %s && echo 'node_modules\nDockerfile\ndocker-compose.yaml\n.*\ndeploy/' > .dockerignore; echo ''", resource.Name))
-		if resource.Type== "api"{
-			// api
-			if resource.Framework == "nest"{
-				// nest
-				commands = append(commands, fmt.Sprintf("cd %s && echo 'dist' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /usr/src/app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\nENV PORT=%v\nCMD [\"node\",\"dist/main\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
-			}else if resource.Framework == "fast"{
-				// fast
+		commands = append(commands, fmt.Sprintf("cd %s && echo 'node_modules\nDockerfile\ndocker-compose.yaml\n.*\ndeploy/' > .dockerignore; echo ''", name))
+
+		switch resource.Type {
+		case "api":
+			switch resource.Framework {
+			case "nest":
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'dist' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /usr/src/app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\nENV PORT=%v\nCMD [\"node\",\"dist/main\"]' > Dockerfile", name, resource.Port, resource.Port))
+
+			case "fast":
 				commands = append(commands,
-					fmt.Sprintf("cd %s && source venv/bin/activate && pip freeze > requirements.txt && deactivate", resource.Name),
-					fmt.Sprintf("cd %s && echo 'venv' >> .dockerignore && echo 'FROM python:slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE %v\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"%v\"]' > Dockerfile", resource.Name, resource.Port, resource.Port),
+					fmt.Sprintf("cd %s && source venv/bin/activate && pip freeze > requirements.txt && deactivate", name),
+					fmt.Sprintf("cd %s && echo 'venv' >> .dockerignore && echo 'FROM python:slim\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE %v\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"%v\"]' > Dockerfile", name, resource.Port, resource.Port),
 				)
-			}else{
-				// gin
-				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\nCMD [\"./%s\"]' > Dockerfile", resource.Name, resource.Name, resource.Port, resource.Name))
+			case "gin":
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM golang:alpine\n\nWORKDIR /app\n\nCOPY go.mod go.sum ./\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o %s .\n\nEXPOSE %v\n\nCMD [\"./%s\"]' > Dockerfile", name, name, resource.Port, name))
 			}
-		}else{
-			// frontend
-			if resource.Framework == "next"{
-				// next js
-				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
-			}else if resource.Framework == "remix"{
-				// remix
-				commands = append(commands, fmt.Sprintf("cd %s && echo 'build/' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
-			}else{
-				// svelte
-				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nCMD [\"npm\",\"run\", \"preview\", \"--\", \"--port\", \"%v\", \"--host\"]' > Dockerfile", resource.Name, resource.Port, resource.Port))
+		case "frontend":
+			switch resource.Framework {
+			case "next":
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", name, resource.Port, resource.Port))
+
+			case "remix":
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'build/' >> .dockerignore && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nENV PORT=%v\n\nCMD [\"npm\", \"run\", \"start\"]' > Dockerfile", name, resource.Port, resource.Port))
+
+			case "sveltekit":
+				commands = append(commands, fmt.Sprintf("cd %s && echo 'FROM node:alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json ./\n\nRUN npm install\n\nCOPY . .\n\nRUN npm run build\n\nEXPOSE %v\n\nCMD [\"npm\",\"run\", \"preview\", \"--\", \"--port\", \"%v\", \"--host\"]' > Dockerfile", name, resource.Port, resource.Port))
+
 			}
 		}
-
-		commands = append(commands, fmt.Sprintf("cd %s && docker buildx build --platform=linux/amd64,linux/arm64 -t %s:latest .", resource.Name, resource.DockerRepo))
+		commands = append(commands, fmt.Sprintf("cd %s && docker buildx build --platform=linux/amd64,linux/arm64 -t %s:latest .", name, resource.DockerRepo))
 
 		err := utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
@@ -81,7 +80,7 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) erro
 			return err
 		}
 
-		utils.PrintWarning(fmt.Sprintf("Pushing docker image for resource %s", resource.Name))
+		utils.PrintWarning(fmt.Sprintf("Pushing docker image for resource %s", name))
 
 		err = utils.RunCommand(fmt.Sprintf("docker push %s:latest", resource.DockerRepo), true, true)
 		if err != nil {
@@ -92,7 +91,6 @@ func compileUnique(resource *types.Resource, onlyBuild bool, onlyPush bool) erro
 	return nil
 }
 
-
 var compileAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "kubefs compile all - build and push docker images for all resources",
@@ -101,8 +99,8 @@ example:
 	kubefs compile all --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -113,20 +111,20 @@ example:
 		var errors []string
 		var successes []string
 
-        utils.PrintWarning("Compiling all resources")
+		utils.PrintWarning("Compiling all resources")
 
-		for _, resource := range utils.ManifestData.Resources {
-			err := compileUnique(&resource, onlyBuild, onlyPush)
+		for name, resource := range utils.ManifestData.Resources {
+			err := compileUnique(name, &resource, onlyBuild, onlyPush)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error compiling resource %s. %v", resource.Name, err.Error()))
-				errors = append(errors, resource.Name)
+				utils.PrintError(fmt.Errorf("error compiling resource %s. %v", name, err))
+				errors = append(errors, name)
 				continue
 			}
-			successes = append(successes, resource.Name)
+			successes = append(successes, name)
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error compiling resources %v", errors))
+			utils.PrintError(fmt.Errorf("error compiling resources %v", errors))
 		}
 
 		if len(successes) > 0 {
@@ -134,7 +132,7 @@ example:
 		}
 
 	},
-}	
+}
 
 var compileResourceCmd = &cobra.Command{
 	Use:   "resource [name ...]",
@@ -150,8 +148,8 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
@@ -164,17 +162,17 @@ example:
 
 		utils.PrintWarning(fmt.Sprintf("Compiling resource %v", args))
 
-		for _, name := range args{
-			err, resource := utils.GetResourceFromName(name)
+		for _, name := range args {
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				errors = append(errors, name)
 				continue
 			}
 
-			err = compileUnique(resource, onlyBuild, onlyPush)
+			err = compileUnique(name, resource, onlyBuild, onlyPush)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error compiling resource %s. %v", name, err.Error()))
+				utils.PrintError(fmt.Errorf("error compiling resource %s. %v", name, err))
 				errors = append(errors, name)
 				continue
 			}
@@ -184,15 +182,14 @@ example:
 		}
 
 		if len(errors) > 0 {
-			utils.PrintError(fmt.Sprintf("Error compiling resources %v", errors))
+			utils.PrintError(fmt.Errorf("error compiling resources %v", errors))
 		}
 
 		if len(successes) > 0 {
 			utils.PrintInfo(fmt.Sprintf("Resource %v compiled successfully", successes))
 		}
 	},
-}	
-
+}
 
 func init() {
 	rootCmd.AddCommand(compileCmd)

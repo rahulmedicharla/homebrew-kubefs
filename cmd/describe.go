@@ -1,14 +1,14 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/utils"
 	"reflect"
+
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // describeCmd represents the describe command
@@ -27,21 +27,22 @@ example:
 }
 
 var describeAllCmd = &cobra.Command{
-    Use:   "all",
-    Short: "kubefs describe all - describe all resources",
-    Long:  `kubefs describe all - describe all resources
+	Use:   "all",
+	Short: "kubefs describe all - describe all resources",
+	Long: `kubefs describe all - describe all resources
 example: 
 	kubefs describe all
 	`,
-    Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		utils.PrintWarning("Describing all resources")
 
-		for _, resource := range utils.ManifestData.Resources {
+		for name, resource := range utils.ManifestData.Resources {
+			fmt.Println(name)
 			resourceValue := reflect.ValueOf(resource)
 			resourceType := reflect.TypeOf(resource)
 			for i := 0; i < resourceValue.NumField(); i++ {
@@ -49,36 +50,36 @@ example:
 				value := resourceValue.Field(i)
 				fmt.Printf("%s: %v\n", field.Name, value)
 			}
-			fmt.Println("\n")
+			fmt.Println()
 		}
-    },
+	},
 }
 
 var describeResourceCmd = &cobra.Command{
-    Use:   "resource [name ...]",
-    Short: "kubefs describe resource [name ...] - describe listed resource",
-    Long:  `kubefs describe resource [name ...] - describe a specific resource
+	Use:   "resource [name ...]",
+	Short: "kubefs describe resource [name ...] - describe listed resource",
+	Long: `kubefs describe resource [name ...] - describe a specific resource
 example: 
 	kubefs describe resource <frontend> <api> <database>
 	kubefs describe resource <frontend>
 	`,
-    Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			cmd.Help()
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		utils.PrintWarning(fmt.Sprintf("Describing resource %v\n", args))
 
-		for _ , name := range args {
-			err, resource := utils.GetResourceFromName(name)
+		for _, name := range args {
+			resource, err := utils.GetResourceFromName(name)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				continue
 			}
 
@@ -89,11 +90,10 @@ example:
 				value := resourceValue.Field(i)
 				fmt.Printf("%s: %v\n", field.Name, value)
 			}
-			fmt.Println("\n")
+			fmt.Println()
 		}
-    },
+	},
 }
-
 
 func init() {
 	rootCmd.AddCommand(describeCmd)

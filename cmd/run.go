@@ -1,15 +1,14 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/types"
-	"github.com/rahulmedicharla/kubefs/utils"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // runCmd represents the run command
@@ -20,43 +19,46 @@ var runCmd = &cobra.Command{
 example:
 	kubefs run <resource-name> --flags`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if len(args) < 1 {
+			cmd.Help()
 			return
 		}
 
-		if len(args) < 1 {
-			cmd.Help()
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		name := args[0]
 		utils.PrintWarning(fmt.Sprintf("Running resource %s", name))
 
-		var resource *types.Resource
-		err, resource := utils.GetResourceFromName(name)
+		resource, err := utils.GetResourceFromName(name)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		upLocalCmd := strings.Builder{}
-		if resource.Type == "database"{
-			utils.PrintError(fmt.Sprintf("Cannot run database resource %s", name))
+		if resource.Type == "database" {
+			utils.PrintError(fmt.Errorf("cannot run database resource %s", name))
 			return
-		}else {
-			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", resource.Name))
-			for _, resource := range utils.ManifestData.Resources {
-				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", resource.Name, resource.LocalHost))
+		} else {
+			upLocalCmd.WriteString(fmt.Sprintf("cd %s && ", name))
+			for rName, resource := range utils.ManifestData.Resources {
+				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", rName, resource.LocalHost))
 			}
 
 			for _, name := range resource.Dependents {
-				err, addon := utils.GetAddonFromName(name)
+				addon, err := utils.GetAddonFromName(name)
 				if err != nil {
-					utils.PrintError(err.Error())
+					utils.PrintError(err)
 					return
 				}
-				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", addon.Name, addon.LocalHost))
+				upLocalCmd.WriteString(fmt.Sprintf("%sHOST=%s ", name, addon.LocalHost))
+			}
+
+			for key, env := range resource.Environment {
+				upLocalCmd.WriteString(fmt.Sprintf("%s=%s ", key, env))
 			}
 
 			upLocalCmd.WriteString(resource.UpLocal)

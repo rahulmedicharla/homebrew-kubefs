@@ -1,13 +1,13 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // clusterCmd represents the cluster command
@@ -29,31 +29,36 @@ example:
 }
 
 var listClusterCmd = &cobra.Command{
-	Use: "list",
+	Use:   "list",
 	Short: "list the availbale clusters for a target to deploy on",
 	Long: `list the available clusters for a target to deploy on
 example: 
 	kubefs cluster list --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
-		if err != nil{
-			utils.PrintError(err.Error())
+		config, err := utils.GetCloudConfigFromProvider(target)
+		if err != nil {
+			utils.PrintError(err)
 			return
 		}
 
-		fmt.Printf("Target %s \n", config.Provider)
+		fmt.Printf("Target %s \n", target)
 		fmt.Printf("\t Main Cluster: %s \n", config.MainCluster)
-		for i,name := range config.ClusterNames {
+		for i, name := range config.ClusterNames {
 			fmt.Printf("\t Cluster %v: %s \n", i, name)
 		}
 
@@ -61,7 +66,7 @@ example:
 }
 
 var mainCmd = &cobra.Command{
-	Use: "main",
+	Use:   "main",
 	Short: "set the main cluster for a target to deploy on",
 	Long: `set the main cluster for a target to deploy on
 example: 
@@ -73,44 +78,48 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
-		if err != nil{
-			utils.PrintError(err.Error())
+		config, err := utils.GetCloudConfigFromProvider(target)
+		if err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		// verify cloud config cluster and param matches
 		clusterName := args[0]
-		err = utils.VerifyClusterName(config, clusterName) 
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
-			return 
+			utils.PrintError(err)
+			return
 		}
 
 		config.MainCluster = clusterName
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		utils.PrintInfo(fmt.Sprintf("Cluster [%s] configured as main in %s", clusterName, target))
-		
+
 	},
 }
 
-
 var pauseCmd = &cobra.Command{
-	Use: "pause",
+	Use:   "pause",
 	Short: "pause a cluster",
 	Long: `pause a cluster
 example: 
@@ -122,50 +131,55 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
-		if err != nil{
-			utils.PrintError(err.Error())
+		config, err := utils.GetCloudConfigFromProvider(target)
+		if err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		// verify cloud config cluster and param matches
 		clusterName := args[0]
-		err = utils.VerifyClusterName(config, clusterName) 
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
-			return 
+			utils.PrintError(err)
+			return
 		}
 
 		utils.PrintInfo(fmt.Sprintf("Pausing cluster [%s] in target %s", clusterName, target))
 
-		if target == "minikube"{
+		switch target {
+		case "minikube":
 			// pause cluster
 			err = utils.PauseMinikubeCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
-
-		}else if target == "gcp"{
+		case "gcp":
 			utils.PrintWarning("gcp autopilot clusters don't support pausing/stopping")
 			return
 		}
-		
+
 		utils.PrintInfo(fmt.Sprintf("Paused cluster [%s] in target %s", clusterName, target))
 	},
 }
 
 var startCmd = &cobra.Command{
-	Use: "start",
+	Use:   "start",
 	Short: "start a cluster",
 	Long: `start a cluster
 example: 
@@ -177,41 +191,46 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
-		if err != nil{
-			utils.PrintError(err.Error())
+		config, err := utils.GetCloudConfigFromProvider(target)
+		if err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		clusterName := args[0]
 
 		// validate cluster exists
-		err = utils.VerifyClusterName(config, clusterName) 
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
-			return 
+			utils.PrintError(err)
+			return
 		}
 
 		utils.PrintInfo(fmt.Sprintf("Starting cluster [%s] in target %s", clusterName, target))
 
-		if target == "minikube"{
+		switch target {
+		case "minikube":
 			// start cluster
 			err = utils.StartMinikubeCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
-
-		}else if target == "gcp"{
+		case "gcp":
 			utils.PrintWarning("gcp autopilot clusters don't support starting clusters")
 			return
 		}
@@ -222,7 +241,7 @@ example:
 }
 
 var deleteCmd = &cobra.Command{
-	Use: "delete",
+	Use:   "delete",
 	Short: "delete a cluster",
 	Long: `delete a cluster
 example: 
@@ -234,59 +253,64 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
-		if err != nil{
-			utils.PrintError(err.Error())
+		config, err := utils.GetCloudConfigFromProvider(target)
+		if err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		clusterName := args[0]
 		// verify cluster exists
-		err = utils.VerifyClusterName(config, clusterName) 
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err != nil {
-			utils.PrintError(err.Error())
-			return 
+			utils.PrintError(err)
+			return
 		}
 
 		utils.PrintInfo(fmt.Sprintf("Deleting cluster [%s] in %s", clusterName, target))
 
-		if target == "minikube"{
+		switch target {
+		case "minikube":
 			// delete cluster
 			err = utils.DeleteMinikubeCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
-
-		}else if target == "gcp"{
+		case "gcp":
 			// delete gcp cluster
 			err = utils.DeleteGCPCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 		}
 
 		// update Manifest
-		_, config.ClusterNames = utils.RemoveClusterName(config, clusterName)
+		config.ClusterNames, _ = utils.RemoveClusterName(config, clusterName)
 		if len(config.ClusterNames) > 0 {
 			config.MainCluster = config.ClusterNames[0]
-		}else {
+		} else {
 			config.MainCluster = ""
 		}
 
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -296,7 +320,7 @@ example:
 }
 
 var provisionCmd = &cobra.Command{
-	Use: "provision",
+	Use:   "provision",
 	Short: "provision a cluster",
 	Long: `provision a cluster
 example: 
@@ -308,55 +332,59 @@ example:
 			return
 		}
 
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		// Verify cloud provider target
 		target, _ := cmd.Flags().GetString("target")
 		err := utils.VerifyTarget(target)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		//  Verify authentication with cloud provider
-		err, config := utils.VerifyCloudConfig(target)
-		if err != nil{
-			utils.PrintError(err.Error())
+		config, err := utils.GetCloudConfigFromProvider(target)
+		if err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		clusterName := args[0]
-		
+
 		// validate cluster doesn't already exist
-		err = utils.VerifyClusterName(config, clusterName) 
+		err = utils.VerifyClusterName(target, config, clusterName)
 		if err == nil {
-			utils.PrintError(fmt.Sprintf("Cluster %s already exists in %s", clusterName, target))
-			return 
+			utils.PrintError(fmt.Errorf("cluster %s already exists in %s", clusterName, target))
+			return
 		}
 
 		utils.PrintInfo(fmt.Sprintf("Provisioning cluster [%s] in %s", clusterName, target))
-		
-		if target == "minikube"{
+
+		switch target {
+		case "minikube":
 			// provision minikube cluster
 			err = utils.ProvisionMinikubeCluster(clusterName)
-			if err != nil{
-				utils.PrintError(err.Error())
+			if err != nil {
+				utils.PrintError(err)
 				return
 			}
-
-		}else if target == "gcp"{
+		case "gcp":
 			// provision gcp cluster
 			err = utils.ProvisionGcpCluster(config, clusterName)
 			if err != nil {
-				utils.PrintError(err.Error())
+				utils.PrintError(err)
 				return
 			}
 		}
-
 		// update manifest
 		config.ClusterNames = append(config.ClusterNames, clusterName)
 		config.MainCluster = config.ClusterNames[0]
 		err = utils.UpdateCloudConfig(&utils.ManifestData, target, config)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 

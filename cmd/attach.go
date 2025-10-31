@@ -1,13 +1,13 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+
 	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
 )
 
 // attachCmd represents the attach command
@@ -23,14 +23,16 @@ example:
 			return
 		}
 
-		if utils.ManifestStatus != nil {
-			utils.PrintError(utils.ManifestStatus.Error())
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
-		err, resource := utils.GetResourceFromName(args[0])
+		name := args[0]
+
+		resource, err := utils.GetResourceFromName(name)
 		if err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -41,28 +43,29 @@ example:
 
 			// get target
 			target, _ := cmd.Flags().GetString("target")
-			err, config := utils.VerifyCloudConfig(target)
+			config, err := utils.GetCloudConfigFromProvider(target)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error verifying target %s configuration", target))
+				utils.PrintError(fmt.Errorf("error verifying target [%s] configuration", target))
 			}
 
 			// update context
-			if target == "minikube" {
+			switch target {
+			case "minikube":
 				err = utils.GetMinikubeContext(config)
-			}else if target == "gcp" {
+			case "gcp":
 				err = utils.GetGCPClusterContext(config)
 			}
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("failed to switch to %s cluster context: %v", target, err))
+				utils.PrintError(fmt.Errorf("failed to switch to [%s] cluster context: %v", target, err))
 			}
-		}else{
+		} else {
 			command = resource.AttachCommand["docker"]
 		}
 
-		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", resource.Name))
+		utils.PrintWarning(fmt.Sprintf("Attaching to container %s. Use 'exit' or '\\q' to return", name))
 		err = utils.RunCommand(command, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Error attaching to container: %v", err.Error()))
+			utils.PrintError(fmt.Errorf("error attaching to container: %v", err))
 			return
 		}
 	},

@@ -1,16 +1,16 @@
 /*
 Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
-
 */
 package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/rahulmedicharla/kubefs/utils"
-	"github.com/rahulmedicharla/kubefs/types"
-	"github.com/zalando/go-keyring"
 	"strings"
+
+	"github.com/rahulmedicharla/kubefs/types"
+	"github.com/rahulmedicharla/kubefs/utils"
+	"github.com/spf13/cobra"
+	"github.com/zalando/go-keyring"
 )
 
 // createCmd represents the create command
@@ -33,9 +33,10 @@ example:
 	},
 }
 
-func parseInfo(cmd *cobra.Command,args []string, resource string) error {
+func parseInfo(cmd *cobra.Command, args []string, resource string) error {
 	if len(args) < 1 {
 		cmd.Help()
+		return fmt.Errorf("name not specified")
 	}
 
 	name := args[0]
@@ -43,7 +44,7 @@ func parseInfo(cmd *cobra.Command,args []string, resource string) error {
 		return err
 	}
 	resourceName = name
-	
+
 	port, _ := cmd.Flags().GetInt("port")
 	if err := utils.VerifyPort(port); err != nil {
 		return err
@@ -75,7 +76,7 @@ func createDockerRepo(name string) (string, error) {
 
 	username, pat := strings.Split(creds, ":")[0], strings.Split(creds, ":")[1]
 
-	response, err := utils.PostRequest(types.DOCKER_LOGIN_ENDPOINT, 
+	response, err := utils.PostRequest(types.DOCKER_LOGIN_ENDPOINT,
 		map[string]string{
 			"Content-Type": "application/json",
 		}, map[string]interface{}{
@@ -85,21 +86,21 @@ func createDockerRepo(name string) (string, error) {
 	)
 	if err != nil {
 		return "", err
-	}	
+	}
 
-	_, err = utils.PostRequest(types.DOCKER_REPO_ENDPOINT, 
+	_, err = utils.PostRequest(types.DOCKER_REPO_ENDPOINT,
 		map[string]string{
-			"Content-Type": "application/json",
+			"Content-Type":  "application/json",
 			"Authorization": fmt.Sprintf("JWT %s", response.Token),
 		}, map[string]interface{}{
-			"name": name,
-			"namespace": username,
-			"is_private": false,
+			"name":             name,
+			"namespace":        username,
+			"is_private":       false,
 			"full_description": desc,
-			"description": desc,
+			"description":      desc,
 		},
 	)
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
 
@@ -114,20 +115,26 @@ example:
 	kubefs create api <name> --flags,
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil{
-			utils.PrintError(utils.ManifestStatus.Error())
+		if len(args) < 1 {
+			cmd.Help()
 			return
 		}
-		
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		if err := parseInfo(cmd, args, "api"); err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
 		var commands []string
 		var upLocal string
 
-		if resourceFramework == "fast" {
+		switch resourceFramework {
+		case "fast":
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 				fmt.Sprintf("cd %s && python3 -m venv venv && source venv/bin/activate && pip install \"fastapi[standard]\" python-dotenv && pip freeze > requirements.txt && deactivate && touch main.py", resourceName),
@@ -135,52 +142,51 @@ example:
 			}
 
 			upLocal = fmt.Sprintf("source venv/bin/activate && uvicorn main:app --reload --port %v", resourcePort)
-		}else if resourceFramework == "nest" {
+		case "nest":
 			commands = []string{
 				fmt.Sprintf("npx -p @nestjs/cli nest new %s -g -p npm", resourceName),
 				fmt.Sprintf("cd %s/src/ && head -n 11 app.controller.ts > temp && mv temp app.controller.ts && echo '\t//KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n\t@Get(\"/health\")\n\tgetHealth(): string {\n\t\t return \"ok\";\n\t}\n}' >> app.controller.ts", resourceName),
 			}
 
 			upLocal = fmt.Sprintf("PORT=%v npm run start:debug", resourcePort)
-		}else{
+		case "gin":
 			commands = []string{
 				fmt.Sprintf("mkdir %s", resourceName),
 				fmt.Sprintf("cd %s && go mod init %s && go get -u github.com/gin-gonic/gin", resourceName, resourceName),
 				fmt.Sprintf("cd %s && echo 'package main\n\nimport (\n\t\"log\"\n\t\"net/http\"\n\t\"github.com/gin-gonic/gin\"\n)\n\nfunc main() {\n\tr := gin.Default()\n\t//KEEP THIS PATH BELOW, IT ACTS AS A READINESS CHECK IN KUBERNETES\n\tr.GET(\"/health\", func(c *gin.Context) {\n\t\tc.JSON(http.StatusOK, gin.H{\n\t\t\t\"status\": \"ok\",\n\t\t})\n\t})\n\tlog.Println(\"Listening on Port %v\")\n\thttp.ListenAndServe(\":%v\", r)\n}' > main.go", resourceName, resourcePort, resourcePort),
 			}
 
-			upLocal = fmt.Sprintf("go run main.go")
+			upLocal = "go run main.go"
 		}
 
 		err := utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error creating resource. %v", err))
 			return
 		}
 
 		dockerRepo, err := createDockerRepo(resourceName)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating docker repo. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error creating docker repo. %v", err))
 		}
-		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
-			Name: resourceName, 
-			Port: resourcePort, 
-			Type: "api", 
-			Framework:resourceFramework, 
-			AttachCommand : map[string]string{
-				"docker": fmt.Sprintf("docker exec -it %s-%s-1 sh", utils.ManifestData.KubefsName, resourceName),
+
+		utils.ManifestData.Resources[resourceName] = types.Resource{
+			Port:      resourcePort,
+			Type:      "api",
+			Framework: resourceFramework,
+			AttachCommand: map[string]string{
+				"docker":     fmt.Sprintf("docker exec -it %s-%s-1 sh", utils.ManifestData.KubefsName, resourceName),
 				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-deploy -n %s -- sh", resourceName, resourceName),
 			},
-			UpLocal: upLocal, 
-			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
-			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
-			DockerRepo: dockerRepo, 
+			UpLocal:     upLocal,
+			LocalHost:   fmt.Sprintf("http://localhost:%v", resourcePort),
+			DockerHost:  fmt.Sprintf("http://%s:%v", resourceName, resourcePort),
+			DockerRepo:  dockerRepo,
 			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
-		})
-		
+		}
+
 		if err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml"); err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
 			return
 		}
 
@@ -196,13 +202,18 @@ example:
 	kubefs create frontend <name> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil{
-			utils.PrintError(utils.ManifestStatus.Error())
+		if len(args) < 1 {
+			cmd.Help()
+			return
+		}
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
 			return
 		}
 
 		if err := parseInfo(cmd, args, "frontend"); err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -210,27 +221,28 @@ example:
 
 		err := utils.ReadInput("Enter the host domain the ingresss should accept: ", &hostDomain)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error reading input. %v", err))
 			return
 		}
 
 		var commands []string
 		var startCommand string
 
-		if resourceFramework == "next" {
+		switch resourceFramework {
+		case "next":
 			commands = []string{
 				fmt.Sprintf("npx create-next-app@latest %s --ts --yes ", resourceName),
 				fmt.Sprintf("cd %s && rm -rf .git", resourceName),
 			}
 
 			startCommand = fmt.Sprintf("next dev --turbopack --port %v", resourcePort)
-		}else if resourceFramework == "remix" {
+		case "remix":
 			commands = []string{
 				fmt.Sprintf("npx create-remix@latest %s --no-git-init --yes", resourceName),
 			}
 
 			startCommand = fmt.Sprintf("remix vite:dev --port %v", resourcePort)
-		}else{
+		case "sveltekit":
 			commands = []string{
 				fmt.Sprintf("npx sv create --template minimal --types ts --no-add-ons --no-install %s", resourceName),
 				fmt.Sprintf("cd %s && npm i", resourceName),
@@ -240,13 +252,13 @@ example:
 
 		err = utils.RunMultipleCommands(commands, true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error creating resource. %v", err))
 			return
 		}
 
 		packageJson, err := utils.ReadJson(fmt.Sprintf("%s/package.json", resourceName))
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading package.json. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error reading package.json. %v", err))
 			return
 		}
 
@@ -254,37 +266,36 @@ example:
 
 		err = utils.WriteJson((*packageJson), fmt.Sprintf("%s/package.json", resourceName))
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing package.json. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error writing package.json. %v", err))
 			return
 		}
 
 		dockerRepo, err := createDockerRepo(resourceName)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating docker repo. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error creating docker repo. %v", err))
 		}
 
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
-			Name: resourceName, 
-			Port: resourcePort, 
-			Type: "frontend", 
-			Framework:resourceFramework, 
-			AttachCommand : map[string]string{
-				"docker": fmt.Sprintf("docker exec -it %s-%s-1 sh", utils.ManifestData.KubefsName, resourceName),
+		utils.ManifestData.Resources[resourceName] = types.Resource{
+			Port:      resourcePort,
+			Type:      "frontend",
+			Framework: resourceFramework,
+			AttachCommand: map[string]string{
+				"docker":     fmt.Sprintf("docker exec -it %s-%s-1 sh", utils.ManifestData.KubefsName, resourceName),
 				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-deploy -n %s -- sh", resourceName, resourceName),
 			},
-			UpLocal: "npm run dev", 
-			LocalHost: fmt.Sprintf("http://localhost:%v", resourcePort), 
-			DockerHost: fmt.Sprintf("http://%s:%v", resourceName, resourcePort), 
-			DockerRepo: dockerRepo, 
+			UpLocal:     "npm run dev",
+			LocalHost:   fmt.Sprintf("http://localhost:%v", resourcePort),
+			DockerHost:  fmt.Sprintf("http://%s:%v", resourceName, resourcePort),
+			DockerRepo:  dockerRepo,
 			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
 			Opts: map[string]string{
 				"host-domain": hostDomain,
 			},
-		})
-		
+		}
+
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
 			return
 		}
 
@@ -300,13 +311,18 @@ example:
 	kubefs create database <db> --flags
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if utils.ManifestStatus != nil{
-			utils.PrintError(utils.ManifestStatus.Error())
+		if len(args) < 1 {
+			cmd.Help()
 			return
 		}
-		
+
+		if err := utils.ValidateProject(); err != nil {
+			utils.PrintError(err)
+			return
+		}
+
 		if err := parseInfo(cmd, args, "database"); err != nil {
-			utils.PrintError(err.Error())
+			utils.PrintError(err)
 			return
 		}
 
@@ -315,18 +331,18 @@ example:
 
 		err := utils.ReadInput("Enter a password for the database: ", &password)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error reading input. %v", err))
 			return
 		}
 
 		err = utils.ReadInput("How many Gigabytes of persistence on each pod: (ex 1): ", &persistence)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error reading input. %v", err))
 			return
 		}
 
 		dockerRepo := fmt.Sprintf("bitnami/%s", resourceFramework)
-		
+
 		var clusterHost string
 		var clusterHostRead string
 		var dockerHost string
@@ -337,66 +353,65 @@ example:
 		if resourceFramework == "postgresql" {
 			err = utils.ReadInput("Enter the database to be initialized on init: ", &defaultDatabase)
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
-				return 
-			}
-		
-			err = utils.ReadInput("Enter a username for the database: ", &user)
-			if err != nil {
-				utils.PrintError(fmt.Sprintf("Unexpected error reading input. %v", err.Error()))
+				utils.PrintError(fmt.Errorf("unexpected error reading input. %v", err))
 				return
 			}
-			
+
+			err = utils.ReadInput("Enter a username for the database: ", &user)
+			if err != nil {
+				utils.PrintError(fmt.Errorf("unexpected error reading input. %v", err))
+				return
+			}
+
 			localHost = fmt.Sprintf("postgresql://%s:%s@localhost:%v/%s?sslmode=disable", user, password, resourcePort, defaultDatabase)
 			dockerHost = fmt.Sprintf("postgresql://%s:%s@%s:%v/%s?sslmode=disable", user, password, resourceName, resourcePort, defaultDatabase)
 			clusterHost = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-primary.svc.cluster.local:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)
-			clusterHostRead = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-read.svc.cluster.local:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)		
+			clusterHostRead = fmt.Sprintf("postgresql://%s:%s@%s-postgresql-read.svc.cluster.local:80/%s?sslmode=disable", user, password, resourceName, defaultDatabase)
 
 			attachCommand = map[string]string{
-				"docker": fmt.Sprintf("docker exec -it %s-%s-1 sh -c 'PGPASSWORD=%s psql -U %s -p %v -d %s'", utils.ManifestData.KubefsName, resourceName, password, user, resourcePort, defaultDatabase),
+				"docker":     fmt.Sprintf("docker exec -it %s-%s-1 sh -c 'PGPASSWORD=%s psql -U %s -p %v -d %s'", utils.ManifestData.KubefsName, resourceName, password, user, resourcePort, defaultDatabase),
 				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-postgresql-primary -n %s -- env PGPASSWORD=%s psql -U %s -d %s", resourceName, resourceName, password, user, defaultDatabase),
 			}
 
-		}else{
+		} else {
 			localHost = fmt.Sprintf("redis://default:%s@localhost:%v", password, resourcePort)
 			dockerHost = fmt.Sprintf("redis://default:%s@%s:%v", password, resourceName, resourcePort)
 			clusterHost = fmt.Sprintf("redis://default:%s@%s-redis-master.svc.cluster.local:80", password, resourceName)
 			clusterHostRead = fmt.Sprintf("redis://default:%s@%s-redis-replicas.svc.cluster.local:80", password, resourceName)
 
 			attachCommand = map[string]string{
-				"docker": fmt.Sprintf("docker exec -it %s-%s-1 redis-cli -p %v -a %s", utils.ManifestData.KubefsName, resourceName, resourcePort, password),
+				"docker":     fmt.Sprintf("docker exec -it %s-%s-1 redis-cli -p %v -a %s", utils.ManifestData.KubefsName, resourceName, resourcePort, password),
 				"kubernetes": fmt.Sprintf("kubectl exec -it svc/%s-redis-master -n %s -- redis-cli -a %s", resourceName, resourceName, password),
 			}
 		}
 
 		err = utils.RunCommand(fmt.Sprintf("mkdir %s", resourceName), true, true)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error creating resource. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error creating resource. %v", err))
 			return
 		}
-		
-		utils.ManifestData.Resources = append(utils.ManifestData.Resources, types.Resource{
-			Name: resourceName, 
-			Port: resourcePort, 
-			Type: "database", 
-			Framework:resourceFramework, 
-			AttachCommand: attachCommand,
-			LocalHost: localHost, 
-			DockerHost: dockerHost,
-			DockerRepo: dockerRepo, 
-			ClusterHost: clusterHost, 
+
+		utils.ManifestData.Resources[resourceName] = types.Resource{
+			Port:            resourcePort,
+			Type:            "database",
+			Framework:       resourceFramework,
+			AttachCommand:   attachCommand,
+			LocalHost:       localHost,
+			DockerHost:      dockerHost,
+			DockerRepo:      dockerRepo,
+			ClusterHost:     clusterHost,
 			ClusterHostRead: clusterHostRead,
 			Opts: map[string]string{
-				"user": user,
-				"password": password,
+				"user":             user,
+				"password":         password,
 				"default-database": defaultDatabase,
-				"persistence": fmt.Sprintf("%vGi", persistence),
+				"persistence":      fmt.Sprintf("%vGi", persistence),
 			},
-		})
+		}
 
 		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Unexpected error writing manifest. %v", err.Error()))
+			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
 			return
 		}
 

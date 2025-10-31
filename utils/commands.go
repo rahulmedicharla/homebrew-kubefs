@@ -1,16 +1,16 @@
 package utils
 
 import (
+	"bufio"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
-	"strings"
-	"fmt"
-	"bufio"
 	"strconv"
-	"errors"
+	"strings"
 )
 
-func RunCommand(command string, withOutput bool, withError bool) error{
+func RunCommand(command string, withOutput bool, withError bool) error {
 	cmd := exec.Command("sh", "-c", command)
 	if withOutput {
 		cmd.Stdout = os.Stdout
@@ -26,7 +26,7 @@ func RunCommand(command string, withOutput bool, withError bool) error{
 	return nil
 }
 
-func RunMultipleCommands(commands []string, withOutput bool, withError bool) error{
+func RunMultipleCommands(commands []string, withOutput bool, withError bool) error {
 	for _, command := range commands {
 		err := RunCommand(command, withOutput, withError)
 		if err != nil {
@@ -36,7 +36,7 @@ func RunMultipleCommands(commands []string, withOutput bool, withError bool) err
 	return nil
 }
 
-func ReadInput(msg string, data interface{}) error{
+func ReadInput(msg string, data interface{}) error {
 	fmt.Print(msg)
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -47,7 +47,7 @@ func ReadInput(msg string, data interface{}) error{
 	input = strings.TrimSuffix(input, "\n")
 
 	for input == "" {
-		PrintError("Input cannot be empty.")
+		PrintError(fmt.Errorf("input cannot be empty"))
 		fmt.Print(msg)
 		input, err = reader.ReadString('\n')
 		if err != nil {
@@ -66,8 +66,8 @@ func ReadInput(msg string, data interface{}) error{
 		*v, err = strconv.Atoi(input)
 		return err
 	default:
-		return errors.New("Invalid data type")
+		return errors.New("invalid data type")
 	}
-	
+
 	return nil
 }
