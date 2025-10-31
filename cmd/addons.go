@@ -384,7 +384,8 @@ example:
 
 		utils.PrintInfo("Listing addons")
 
-		for _, addon := range utils.ManifestData.Addons {
+		for name, addon := range utils.ManifestData.Addons {
+			fmt.Println(name)
 			addonValue := reflect.ValueOf(addon)
 			addonType := reflect.TypeOf(addon)
 			for i := 0; i < addonValue.NumField(); i++ {
