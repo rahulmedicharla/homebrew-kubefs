@@ -163,29 +163,16 @@ func ReadEnv(path string) ([]string, error) {
 
 // UPDATES A POINTER TO RESOURCE/ADDON/CLOUD_CONFIG
 func UpdateResource(project *types.Project, name string, resource *types.Resource) error {
-	_, ok := project.Resources[name]
-	if !ok {
-		return fmt.Errorf("resource [%s] not found. Use 'kubefs create' to setup", name)
-	}
 	project.Resources[name] = *resource
 	return WriteManifest(project, "manifest.yaml")
 }
 
 func UpdateAddons(project *types.Project, name string, addon *types.Addon) error {
-	_, ok := project.Addons[name]
-	if !ok {
-		return fmt.Errorf("addon [%s] not found. Use 'kubefs addons enable' to setup", name)
-	}
-
 	project.Addons[name] = *addon
 	return WriteManifest(project, "manifest.yaml")
 }
 
 func UpdateCloudConfig(project *types.Project, provider string, config *types.CloudConfig) error {
-	_, ok := project.CloudConfig[provider]
-	if !ok {
-		return fmt.Errorf("cloud config for [%s] not setup. Use 'kubefs config' to setup", provider)
-	}
 	project.CloudConfig[provider] = *config
 	return WriteManifest(project, "manifest.yaml")
 

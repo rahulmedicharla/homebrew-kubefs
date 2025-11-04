@@ -4,9 +4,8 @@ Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 package cmd
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/spf13/cobra"
 	"github.com/thanhpk/randstr"
+	"golang.org/x/crypto/scrypt"
 )
 
 // deployCmd represents the deploy command
@@ -153,8 +153,8 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 			}
 
 			count := 6
-			for _, envVar := range addon.Environment {
-				authConfigs = append(authConfigs, fmt.Sprintf("--set env[%v].name=%s --set env[%v].value=%s", count, strings.Split(envVar, "=")[0], count, strings.Split(envVar, "=")[1]))
+			for key, value := range addon.Environment {
+				authConfigs = append(authConfigs, fmt.Sprintf("--set env[%v].name=%s --set env[%v].value=%s", count, key, count, value))
 				count++
 			}
 
@@ -189,9 +189,20 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 					return err
 				}
 
-				hash := sha256.Sum256(secret)
+				// encrypt with scrypt
+				salt := make([]byte, 8)
+				rand.Read(salt)
+				key, err := scrypt.Key(secret, salt, types.N, types.R, types.P, types.KeyLen)
+				if err != nil {
+					return err
+				}
 
-				clients = append(clients, fmt.Sprintf("%s:%s", attachedResource.Environment["clientId"], hex.EncodeToString(hash[:])))
+				b64Salt := base64.StdEncoding.EncodeToString(salt)
+				b64Key := base64.StdEncoding.EncodeToString(key)
+
+				encodedKey := fmt.Sprintf("%d?%d?%d?%d?%s?%s", types.N, types.R, types.P, types.KeyLen, b64Salt, b64Key)
+
+				clients = append(clients, fmt.Sprintf("%s:%s", attachedResource.Environment["clientId"], encodedKey))
 				allowedOrigins = append(allowedOrigins, attachedResource.DockerHost)
 			}
 
@@ -201,10 +212,6 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 				"--set env[0].value=" + fmt.Sprintf("'%s'", strings.Join(allowedOrigins, "&")),
 				"--set env[1].name=PORT",
 				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
-				"--set env[2].name=PRIVATE_KEY_PATH",
-				"--set env[2].value=/etc/ssl/private/private_key.pem",
-				"--set env[3].name=PUBLIC_KEY_PATH",
-				"--set env[3].value=/etc/ssl/public/public_key.pem",
 				// secret 0
 				"--set secrets[0].name=public_key.pem",
 				"--set secrets[0].value=files/public_key.pem",
@@ -235,6 +242,12 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 			err = utils.RunCommand("mkdir -p addons/gateway/deploy/files && cp addons/gateway/public_key.pem addons/gateway/deploy/files && cp addons/gateway/private_key.pem addons/gateway/deploy/files", true, true)
 			if err != nil {
 				return err
+			}
+
+			count := 2
+			for key, value := range addon.Environment {
+				gatewayConfigs = append(gatewayConfigs, fmt.Sprintf("--set env[%v].name=%s --set env[%v].value=%s", count, key, count, value))
+				count++
 			}
 
 			commandBuilder.WriteString("helm upgrade --install gateway addons/gateway/deploy")

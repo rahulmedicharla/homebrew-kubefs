@@ -94,9 +94,9 @@ func constructGatewayAddon(addonName string, port int, resourceNames maps.Set[st
 		DockerHost:   fmt.Sprintf("http://gateway:%v", port),
 		ClusterHost:  "http://gateway-deploy.gateway.svc.cluster.local",
 		Dependencies: maps.Keys(validAttachedResourceNames),
-		Environment: []string{
-			"PRIVATE_KEY_PATH=/etc/ssl/private/private_key.pem",
-			"PUBLIC_KEY_PATH=/etc/ssl/public/public_key.pem",
+		Environment: map[string]string{
+			"PRIVATE_KEY_PATH": "/etc/ssl/private/private_key.pem",
+			"PUBLIC_KEY_PATH":  "/etc/ssl/public/public_key.pem",
 		},
 	}
 
@@ -147,7 +147,9 @@ func constructOauth2Addon(addonName string, port int, resourceNames maps.Set[str
 		DockerHost:   fmt.Sprintf("http://oauth2:%v", port),
 		ClusterHost:  "http://oauth2-deploy.oauth2.svc.cluster.local",
 		Dependencies: maps.Keys(validAttachedResourceNames),
-		Environment:  []string{"TWO_FACTOR_AUTH=" + fmt.Sprintf("%v", twoFa)},
+		Environment: map[string]string{
+			"TWO_FACTOR_AUTH": fmt.Sprintf("%v", twoFa),
+		},
 	}
 
 	return &newAddon, nil
@@ -291,13 +293,12 @@ example:
 				successes = append(successes, resourceSuccesses...)
 			}
 
-			utils.ManifestData.Addons[name] = *newAddon
-		}
-
-		err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
-		if err != nil {
-			utils.PrintError(err)
-			return
+			err = utils.UpdateAddons(&utils.ManifestData, name, newAddon)
+			if err != nil {
+				utils.PrintError(err)
+				errors = append(errors, name)
+				continue
+			}
 		}
 
 		if len(errors) > 0 {
@@ -395,11 +396,8 @@ example:
 			utils.PrintError(err)
 			return
 		}
-
-		fmt.Println(utils.ManifestData.Addons)
-
 		for name, addon := range utils.ManifestData.Addons {
-			fmt.Println(name)
+			fmt.Println("Name: " + name)
 			addonValue := reflect.ValueOf(addon)
 			addonType := reflect.TypeOf(addon)
 			for i := 0; i < addonValue.NumField(); i++ {

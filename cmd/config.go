@@ -96,8 +96,7 @@ example:
 			}
 
 			// Add new config
-			utils.ManifestData.CloudConfig["gcp"] = cloudConfig
-			err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+			err = utils.UpdateCloudConfig(&utils.ManifestData, "gcp", &cloudConfig)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error saving GCP configuration to manifest: %v", err))
 				return

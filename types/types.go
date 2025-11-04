@@ -28,13 +28,13 @@ type Resource struct {
 }
 
 type Addon struct {
-	Port         int      `yaml:"port"`
-	DockerRepo   string   `yaml:"docker_repo"`
-	LocalHost    string   `yaml:"local_host"`
-	DockerHost   string   `yaml:"docker_host"`
-	ClusterHost  string   `yaml:"cluster_host"`
-	Dependencies []string `yaml:"dependencies,omitempty"`
-	Environment  []string `yaml:"environment,omitempty"`
+	Port         int               `yaml:"port"`
+	DockerRepo   string            `yaml:"docker_repo"`
+	LocalHost    string            `yaml:"local_host"`
+	DockerHost   string            `yaml:"docker_host"`
+	ClusterHost  string            `yaml:"cluster_host"`
+	Dependencies []string          `yaml:"dependencies,omitempty"`
+	Environment  map[string]string `yaml:"environment,omitempty"`
 }
 
 type CloudConfig struct {
@@ -53,6 +53,13 @@ type ApiResponse struct {
 const (
 	DOCKER_LOGIN_ENDPOINT = "https://hub.docker.com/v2/users/login/"
 	DOCKER_REPO_ENDPOINT  = "https://hub.docker.com/v2/repositories/"
+)
+
+const (
+	N      = 32768
+	R      = 8
+	P      = 1
+	KeyLen = 32
 )
 
 var FRAMEWORKS = map[string]maps.Set[string]{

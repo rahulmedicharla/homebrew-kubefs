@@ -170,7 +170,7 @@ example:
 			utils.PrintError(fmt.Errorf("unexpected error creating docker repo. %v", err))
 		}
 
-		utils.ManifestData.Resources[resourceName] = types.Resource{
+		newResource := types.Resource{
 			Port:      resourcePort,
 			Type:      "api",
 			Framework: resourceFramework,
@@ -185,7 +185,8 @@ example:
 			ClusterHost: fmt.Sprintf("http://%s-deploy.%s.svc.cluster.local", resourceName, resourceName),
 		}
 
-		if err := utils.WriteManifest(&utils.ManifestData, "manifest.yaml"); err != nil {
+		err = utils.UpdateResource(&utils.ManifestData, resourceName, &newResource)
+		if err != nil {
 			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
 			return
 		}
@@ -275,7 +276,7 @@ example:
 			utils.PrintError(fmt.Errorf("unexpected error creating docker repo. %v", err))
 		}
 
-		utils.ManifestData.Resources[resourceName] = types.Resource{
+		newResource := types.Resource{
 			Port:      resourcePort,
 			Type:      "frontend",
 			Framework: resourceFramework,
@@ -293,7 +294,7 @@ example:
 			},
 		}
 
-		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+		err = utils.UpdateResource(&utils.ManifestData, resourceName, &newResource)
 		if err != nil {
 			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
 			return
@@ -391,7 +392,7 @@ example:
 			return
 		}
 
-		utils.ManifestData.Resources[resourceName] = types.Resource{
+		newResource := types.Resource{
 			Port:            resourcePort,
 			Type:            "database",
 			Framework:       resourceFramework,
@@ -409,7 +410,7 @@ example:
 			},
 		}
 
-		err = utils.WriteManifest(&utils.ManifestData, "manifest.yaml")
+		err = utils.UpdateResource(&utils.ManifestData, resourceName, &newResource)
 		if err != nil {
 			utils.PrintError(fmt.Errorf("unexpected error writing manifest. %v", err))
 			return

@@ -131,7 +131,7 @@ example:
 			successes = append(successes, name)
 		}
 
-		for name, _ := range utils.ManifestData.Addons {
+		for name := range utils.ManifestData.Addons {
 			err := undeployAddon(name, target)
 			if err != nil {
 				utils.PrintError(fmt.Errorf("error undeploying addon %s. %v", name, err))

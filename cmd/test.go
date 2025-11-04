@@ -4,15 +4,15 @@ Copyright © 2025 Rahul Medicharla <rmedicharla@gmail.com>
 package cmd
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/rahulmedicharla/kubefs/types"
 	"github.com/rahulmedicharla/kubefs/utils"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/scrypt"
 )
 
 // testCmd represents the test command
@@ -67,7 +67,9 @@ func testAddon(rawCompose *map[string]interface{}, addonName string, addon *type
 	}
 
 	env := service["environment"].([]string)
-	env = append(env, addon.Environment...)
+	for key, value := range addon.Environment {
+		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
 
 	switch addonName {
 	case "oauth2":
@@ -104,8 +106,20 @@ func testAddon(rawCompose *map[string]interface{}, addonName string, addon *type
 				return err
 			}
 
-			hash := sha256.Sum256(secret)
-			clients = append(clients, fmt.Sprintf("%s:%s", resource.Environment["clientId"], hex.EncodeToString(hash[:])))
+			// encrypt with scrypt
+			salt := make([]byte, 8)
+			rand.Read(salt)
+			key, err := scrypt.Key(secret, salt, types.N, types.R, types.P, types.KeyLen)
+			if err != nil {
+				return err
+			}
+
+			b64Salt := base64.StdEncoding.EncodeToString(salt)
+			b64Key := base64.StdEncoding.EncodeToString(key)
+
+			encodedKey := fmt.Sprintf("%d?%d?%d?%d?%s?%s", types.N, types.R, types.P, types.KeyLen, b64Salt, b64Key)
+
+			clients = append(clients, fmt.Sprintf("%s:%s", resource.Environment["clientId"], encodedKey))
 		}
 
 		env = append(env,

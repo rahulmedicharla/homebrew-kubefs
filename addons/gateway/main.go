@@ -2,13 +2,13 @@ package main
 
 import (
 	"crypto/rsa"
-	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/scrypt"
 )
 
 type AuthReq struct {
@@ -25,8 +26,9 @@ type AuthReq struct {
 }
 
 var (
-	privateKey *rsa.PrivateKey
-	publicKey  *rsa.PublicKey
+	privateKey  *rsa.PrivateKey
+	publicKey   *rsa.PublicKey
+	clientCreds map[string]string
 )
 
 func issueAccessToken(req AuthReq) (*string, error) {
@@ -73,38 +75,72 @@ func loadKeys(privateKeyPath string, publicKeyPath string) error {
 	return nil
 }
 
-func parseClients(clients string) []AuthReq {
+func parseClients(clients string) error {
 	// parse clients of form c1,c2,c3 where cX = clientId:clientSecret
-	clientCredentials := make([]AuthReq, 0)
+	clientCreds = make(map[string]string, 0)
 
 	splitClients := strings.Split(clients, "&")
 
 	for _, c := range splitClients {
-		clientCreds := strings.Split(c, ":")
-		clientCredentials = append(clientCredentials, AuthReq{
-			ClientId:     clientCreds[0],
-			ClientSecret: clientCreds[1],
-		})
+		creds := strings.Split(c, ":")
+		if len(creds) != 2 {
+			return fmt.Errorf("client creds formatted improperly")
+		}
+		clientCreds[creds[0]] = creds[1]
 	}
-
-	return clientCredentials
+	return nil
 }
 
-func validateClientCredentials(authReq AuthReq, clientCredentials []AuthReq) error {
-	for _, cred := range clientCredentials {
-		// base 64 decode clientSecret & then hash & then compare values
-		base64DecodedSecret, err := base64.URLEncoding.DecodeString(authReq.ClientSecret)
-		if err != nil {
-			return err
-		}
-
-		hashedSecret := sha256.Sum256(base64DecodedSecret)
-		stringConvertedSecret := hex.EncodeToString(hashedSecret[:])
-
-		if cred.ClientId == authReq.ClientId && cred.ClientSecret == stringConvertedSecret {
-			return nil
-		}
+func validateClientCredentials(authReq AuthReq) error {
+	// base 64 decode the request secret
+	base64DecodedSecret, err := base64.URLEncoding.DecodeString(authReq.ClientSecret)
+	if err != nil {
+		return err
 	}
+
+	hashedSecret, ok := clientCreds[authReq.ClientId]
+	if !ok {
+		return fmt.Errorf("client credentials incorrect")
+	}
+
+	parts := strings.Split(hashedSecret, "?")
+
+	salt, err := base64.StdEncoding.DecodeString(parts[4])
+	if err != nil {
+		return err
+	}
+
+	hashedKey, err := base64.StdEncoding.DecodeString(parts[5])
+	if err != nil {
+		return err
+	}
+
+	N, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return err
+	}
+	r, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return err
+	}
+	p, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return err
+	}
+	keyLen, err := strconv.Atoi(parts[3])
+	if err != nil {
+		return err
+	}
+
+	derivedKey, err := scrypt.Key(base64DecodedSecret, salt, N, r, p, keyLen)
+	if err != nil {
+		return err
+	}
+
+	if subtle.ConstantTimeCompare(hashedKey, derivedKey) == 1 {
+		return nil
+	}
+
 	return fmt.Errorf("client credentials missing or invalid")
 }
 
@@ -167,7 +203,10 @@ func main() {
 	}
 
 	// parse client credentials
-	clientCredentials := parseClients(CLIENTS)
+	err = parseClients(CLIENTS)
+	if err != nil {
+		panic(err)
+	}
 
 	// load keys
 	err = loadKeys(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH)
@@ -204,8 +243,9 @@ func main() {
 		}
 
 		// validate client credentials
-		err := validateClientCredentials(authReq, clientCredentials)
+		err := validateClientCredentials(authReq)
 		if err != nil {
+			fmt.Println(err.Error())
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": err.Error(),
 			})
@@ -247,7 +287,7 @@ func main() {
 		}
 
 		// validate client credentials
-		err := validateClientCredentials(authReq, clientCredentials)
+		err := validateClientCredentials(authReq)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": err.Error(),
