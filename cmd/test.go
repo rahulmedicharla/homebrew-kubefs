@@ -72,20 +72,18 @@ func testAddon(rawCompose *map[string]interface{}, addonName string, addon *type
 	}
 
 	switch addonName {
-	case "oauth2":
+	case "auth":
 		service["volumes"] = []string{
-			"./addons/oauth2/private_key.pem:/etc/ssl/private/private_key.pem",
-			"./addons/oauth2/public_key.pem:/etc/ssl/public/public_key.pem",
-			"oauth2Store:/app/store",
+			"authStore:/app/store",
 		}
 
 		env = append(env,
 			fmt.Sprintf("ALLOWED_ORIGINS=%s", strings.Join(allowedHosts, "&")),
 			fmt.Sprintf("PORT=%v", addon.Port),
-			fmt.Sprintf("NAME=%s", utils.ManifestData.KubefsName),
+			"DEBUG=1",
 		)
 
-		(*rawCompose)["volumes"].(map[string]interface{})["oauth2Store"] = map[string]string{
+		(*rawCompose)["volumes"].(map[string]interface{})["authStore"] = map[string]string{
 			"driver": "local",
 		}
 	case "gateway":

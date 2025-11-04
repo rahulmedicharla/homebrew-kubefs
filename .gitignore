@@ -5,10 +5,8 @@ bin/kubefs
 # Added by goreleaser init:
 dist/
 
-addons/oauth/private_key.pem
-addons/oauth/public_key.pem
-
-addons/oauth/deploy/files/*
+addons/auth/.env
+addons/auth/deploy/files/*
 
 addons/gateway/private_key.pem
 addons/gateway/public_key.pem

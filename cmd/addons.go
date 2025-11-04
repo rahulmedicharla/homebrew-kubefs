@@ -103,7 +103,7 @@ func constructGatewayAddon(addonName string, port int, resourceNames maps.Set[st
 	return &newAddon, nil
 }
 
-func connectOauth2ToResource(addonName string, resourceNames maps.Set[string], errors *[]string, successes *[]string) maps.Set[string] {
+func connectAuthToResource(addonName string, resourceNames maps.Set[string], errors *[]string, successes *[]string) maps.Set[string] {
 	validAttachedResourceNames := maps.NewSet[string]()
 
 	for _, n := range maps.Keys(resourceNames) {
@@ -126,30 +126,21 @@ func connectOauth2ToResource(addonName string, resourceNames maps.Set[string], e
 	return validAttachedResourceNames
 }
 
-func constructOauth2Addon(addonName string, port int, resourceNames maps.Set[string], errors *[]string, successes *[]string) (*types.Addon, error) {
-	var twoFa bool
-	err := utils.ReadInput("Would you like to enable 2FA for this oauth2 addon (y/n): ", &twoFa)
+func constructAuthAddon(addonName string, port int, resourceNames maps.Set[string], errors *[]string, successes *[]string) (*types.Addon, error) {
+	err := utils.RunCommand(fmt.Sprintf("mkdir addons/%s", addonName), true, true)
 	if err != nil {
 		return nil, err
 	}
 
-	err = generateKeyFiles(addonName)
-	if err != nil {
-		return nil, err
-	}
-
-	validAttachedResourceNames := connectOauth2ToResource(addonName, resourceNames, errors, successes)
+	validAttachedResourceNames := connectAuthToResource(addonName, resourceNames, errors, successes)
 
 	newAddon := types.Addon{
 		Port:         port,
 		DockerRepo:   "rmedicharla/auth",
 		LocalHost:    fmt.Sprintf("http://localhost:%v", port),
-		DockerHost:   fmt.Sprintf("http://oauth2:%v", port),
-		ClusterHost:  "http://oauth2-deploy.oauth2.svc.cluster.local",
+		DockerHost:   fmt.Sprintf("http://auth:%v", port),
+		ClusterHost:  "http://auth-deploy.auth.svc.cluster.local",
 		Dependencies: maps.Keys(validAttachedResourceNames),
-		Environment: map[string]string{
-			"TWO_FACTOR_AUTH": fmt.Sprintf("%v", twoFa),
-		},
 	}
 
 	return &newAddon, nil
@@ -256,7 +247,7 @@ example:
 			}
 
 			var resources string
-			err = utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this oauth2 adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()), &resources)
+			err = utils.ReadInput(fmt.Sprintf("What resource(s) would you like the to be attached to this Auth adddon (comma seperated) %v: ", utils.GetCurrentResourceNames()), &resources)
 			if err != nil {
 				utils.PrintError(err)
 				errors = append(errors, name)
@@ -270,8 +261,8 @@ example:
 			resourceSuccesses := make([]string, 0)
 
 			switch name {
-			case "oauth2":
-				newAddon, err = constructOauth2Addon(name, port, resourceNames, &resourceErrors, &resourceSuccesses)
+			case "auth":
+				newAddon, err = constructAuthAddon(name, port, resourceNames, &resourceErrors, &resourceSuccesses)
 				if err != nil {
 					utils.PrintError(err)
 					errors = append(errors, name)
@@ -466,8 +457,8 @@ example:
 		var removeResourceNames maps.Set[string]
 
 		switch name {
-		case "oauth2":
-			addResourceNames = connectOauth2ToResource(name, addList, &errors, &successes)
+		case "Auth":
+			addResourceNames = connectAuthToResource(name, addList, &errors, &successes)
 		case "gateway":
 			addResourceNames = connectGatewayToResource(name, addList, &errors, &successes)
 		}

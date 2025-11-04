@@ -66,7 +66,7 @@ var FRAMEWORKS = map[string]maps.Set[string]{
 	"api":      maps.NewSet("nest", "fast", "gin"),
 	"frontend": maps.NewSet("next", "sveltekit", "remix"),
 	"database": maps.NewSet("postgresql", "redis"),
-	"addons":   maps.NewSet("oauth2", "gateway"),
+	"addons":   maps.NewSet("auth", "gateway"),
 }
 
 var TARGETS = maps.NewSet("minikube", "gcp")

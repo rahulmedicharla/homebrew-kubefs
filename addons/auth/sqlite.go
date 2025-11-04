@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
-	"context"
+
 	_ "github.com/glebarez/sqlite"
 )
 
@@ -11,13 +12,13 @@ type SQLite struct {
 	db *sql.DB
 }
 
-func NewSQLite() (error, *SQLite) {
+func NewSQLite() (*SQLite, error) {
 	db, err := sql.Open("sqlite", "/app/store/sqlite.db")
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	log.Println("SQLite connected")
-	return nil, &SQLite{db}
+	return &SQLite{db}, err
 }
 
 func (s *SQLite) QueryRow(ctx context.Context, stmt Statement, dest ...interface{}) error {

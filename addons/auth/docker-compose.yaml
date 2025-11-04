@@ -20,12 +20,7 @@ services:
       - ALLOWED_ORIGINS=*
       # - WRITE_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
       # - READ_CONNECTION_STRING=postgresql://root:password@dbstore:5432/auth?sslmode=disable
-      - TWO_FACTOR_AUTH=true
-      - NAME=kubefs
-      # - MODE=release
     volumes:
-      - ./private_key.pem:/etc/ssl/private/private_key.pem
-      - ./public_key.pem:/etc/ssl/public/public_key.pem
       - store:/app/store
     # depends_on:
     #   - dbstore

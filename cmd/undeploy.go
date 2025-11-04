@@ -62,7 +62,7 @@ func undeployFromTarget(target string, commands []string) error {
 
 func undeployAddon(name string, target string) error {
 	commands := []string{}
-	if name == "oauth2" {
+	if name == "auth" {
 		commands = append(commands, "helm uninstall auth-data")
 	}
 

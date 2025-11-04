@@ -73,9 +73,10 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 			fmt.Sprintf("(cd addons/%s; rm -rf deploy; helm pull oci://registry-1.docker.io/rmedicharla/deploy --untar)", name),
 		}
 		switch name {
-		case "oauth2":
+		case "auth":
 			commands = append(commands,
-				"(cd addons/oauth2; rm -rf deploy; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)",
+				fmt.Sprintf("(cd addons/%s; rm -rf postgresql; helm pull oci://registry-1.docker.io/bitnamicharts/postgresql --untar)", name),
+				fmt.Sprintf("(cd addons/%s/postgresql/templates && echo '' > NOTES.txt)", name),
 			)
 		case "gateway":
 		}
@@ -99,17 +100,17 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 		}
 
 		switch name {
-		case "oauth2":
+		case "auth":
 			pass := randstr.String(16)
 			configs := []string{
-				"--set namespaceOverride=oauth2",
+				"--set namespaceOverride=auth",
 				"--set auth.postgresPassword=" + pass,
 				"--set architecture=replication",
 				"--set auth.database=auth",
 				"--set readReplicas.replicaCount=3",
 				"--set primary.persistence.size=1Gi",
 				"--set readReplicas.persistence.size=1Gi",
-				"--set primary.initdb.scripts.\"init-user\\.sql\"=\"CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY\\, email TEXT\\, password TEXT\\, secret TEXT);CREATE TABLE IF NOT EXISTS refreshTokens (uid UUID PRIMARY KEY\\, token TEXT);CREATE TABLE IF NOT EXISTS twoFactorAuth (email TEXT PRIMARY KEY\\, secret TEXT);\"",
+				"--set primary.initdb.scripts.\"init-user\\.sql\"=\"CREATE TABLE IF NOT EXISTS accounts (uid UUID PRIMARY KEY\\, email TEXT\\, password TEXT);\"",
 			}
 
 			var allowedOrigins []string
@@ -126,51 +127,26 @@ func deployAddon(name string, addon *types.Addon, onlyHelmify bool, onlyDeploy b
 				"--set env[0].value=" + fmt.Sprintf("'%s'", strings.Join(allowedOrigins, "&")),
 				"--set env[1].name=PORT",
 				"--set env[1].value=" + fmt.Sprintf("%v", addon.Port),
-				"--set env[2].name=MODE",
-				"--set env[2].value=release",
-				"--set env[3].name=NAME",
-				"--set env[3].value=" + utils.ManifestData.KubefsName,
-				"--set env[4].name=WRITE_CONNECTION_STRING",
-				"--set env[4].value=" + fmt.Sprintf("postgresql://postgres:%s@auth-data-postgresql-primary:5432/auth?sslmode=disable", pass),
-				"--set env[5].name=READ_CONNECTION_STRING",
-				"--set env[5].value=" + fmt.Sprintf("postgresql://postgres:%s@auth-data-postgresql-read:5432/auth?sslmode=disable", pass),
-				"--set secrets[0].name=public_key.pem",
-				"--set secrets[0].value=files/public_key.pem",
-				"--set secrets[0].secretRef=oauth2-deploy-secret",
-				"--set secrets[0].valueIsFile=true",
-				"--set secrets[1].name=private_key.pem",
-				"--set secrets[1].value=files/private_key.pem",
-				"--set secrets[1].secretRef=oauth2-deploy-secret",
-				"--set secrets[1].valueIsFile=true",
-				"--set volumes[0].name=keys",
-				"--set volumes[0].secret.secretName=oauth2-deploy-secret",
-				"--set volumeMounts[0].name=keys",
-				"--set volumeMounts[0].mountPath=/etc/ssl/private/private_key.pem",
-				"--set volumeMounts[0].subPath=private_key.pem",
-				"--set volumeMounts[1].name=keys",
-				"--set volumeMounts[1].mountPath=/etc/ssl/public/public_key.pem",
-				"--set volumeMounts[1].subPath=public_key.pem",
+				"--set env[2].name=WRITE_CONNECTION_STRING",
+				"--set env[2].value=" + fmt.Sprintf("postgresql://postgres:%s@auth-data-postgresql-primary:5432/auth?sslmode=disable", pass),
+				"--set env[3].name=READ_CONNECTION_STRING",
+				"--set env[3].value=" + fmt.Sprintf("postgresql://postgres:%s@auth-data-postgresql-read:5432/auth?sslmode=disable", pass),
 			}
 
-			count := 6
+			count := 4
 			for key, value := range addon.Environment {
 				authConfigs = append(authConfigs, fmt.Sprintf("--set env[%v].name=%s --set env[%v].value=%s", count, key, count, value))
 				count++
 			}
 
-			err = utils.RunCommand("mkdir -p addons/oauth2/deploy/files && cp addons/oauth2/public_key.pem addons/oauth2/deploy/files && cp addons/oauth2/private_key.pem addons/oauth2/deploy/files", true, true)
-			if err != nil {
-				return err
-			}
-
-			commandBuilder.WriteString("helm upgrade --install oauth2 addons/oauth2/deploy")
+			commandBuilder.WriteString("helm upgrade --install auth addons/auth/deploy")
 			authConfigs = append(authConfigs, baseConfigs...)
 			for _, c := range authConfigs {
 				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}
 			commandBuilder.WriteString(";")
 
-			commandBuilder.WriteString("helm upgrade --install auth-data addons/oauth2/postgresql")
+			commandBuilder.WriteString("helm upgrade --install auth-data addons/auth/postgresql")
 			for _, c := range configs {
 				commandBuilder.WriteString(fmt.Sprintf(" %s", c))
 			}

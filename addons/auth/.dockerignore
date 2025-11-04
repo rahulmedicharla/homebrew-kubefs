@@ -1,9 +1,6 @@
 .dockerignore
+.env
 docker-compose.yaml
 Dockerfile
-main
 Makefile
-private_key.pem
-public_key.pem
-temp.sh
 README.md
