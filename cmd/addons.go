@@ -107,6 +107,7 @@ func connectAuthToResource(addonName string, resourceNames maps.Set[string], err
 	validAttachedResourceNames := maps.NewSet[string]()
 
 	for _, n := range maps.Keys(resourceNames) {
+		n = strings.TrimSpace(n)
 		resource, err := utils.GetResourceFromName(n)
 		if err != nil {
 			*errors = append(*errors, fmt.Sprintf("%s:%s", addonName, n))
