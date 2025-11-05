@@ -1,7 +1,7 @@
 
-# Headless OAuth2 Server with Optional TOTP 2FA
+# Headless Authentication Server
 
-This project implements a headless authentication server using Go and the Gin framework. It provides endpoints for user authentication, account creation, password reset, and account deletion.
+This addon implements a headless authentication server using Go and the Gin framework. It provides endpoints for user authentication, account creation, password reset, and account deletion.
 
 ## Overview
 
@@ -103,9 +103,11 @@ The authentication server is designed to be self-contained, meaning it does not 
 
 ## Dependencies
 
-- [Gin](https://github.com/gin-gonic/gin)
-- [bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)
 - [cors](https://github.com/gin-contrib/cors)
+- [Gin](https://github.com/gin-gonic/gin)
+- [uuid]("github.com/google/uuid")
+- [dotenv]("github.com/joho/godotenv")`
+- [bcrypt](https://pkg.go.dev/golang.org/x/crypto/bcrypt)
 - [PostgreSQL](https://github.com/jackc/pgx)
 
 ## License
