@@ -53,7 +53,7 @@ brews:
     download_strategy: CurlDownloadStrategy
     commit_author:
       name: rahulmedicharla
-      email: rmedicharla@gmail.o
+      email: rmedicharla@gmail.com
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
     directory: Formula
     caveats: "kubefs is a cli tool to simplify the process of creating, testing, and deploying full stack applications onto kubernetes clusters.\nVisit https://github.com/rahulmedicharla/kubefs to get started."
@@ -64,7 +64,8 @@ brews:
     dependencies:
       - name: helm
       - name: minikube
-      - cask: gcloud-cli
+      - name: gcloud-cli
+      - name: kubernetes-cli
     test: |
       system "#{bin}/kubefs --help"
       # ...
